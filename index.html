@@ -1,258 +1,752 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Analyse interactive des résultats Cadets AF</title>
-  <!-- Chart.js & PapaParse CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0 1rem 2rem;
-      background: #f5f7fb;
-    }
-    h1 {
-      text-align: center;
-      margin-top: 1.2rem;
-    }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      justify-content: center;
-      margin: 1.5rem 0;
-    }
-    .chart-wrapper {
-      max-width: 1100px;
-      margin: 0 auto 2rem;
-      background: #fff;
-      border-radius: 0.75rem;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-      padding: 1.5rem;
-    }
-    canvas {
-      width: 100% !important;
-      height: 400px !important;
-    }
-    select, input[type="file"] {
-      padding: 0.4rem 0.7rem;
-      border-radius: 0.4rem;
-      border: 1px solid #ccc;
-      font-size: 1rem;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tableau de bord Pilotest — Cadets Air France</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f141a; --panel:#161e27; --panel2:#1d2733; --line:#2a3642;
+    --ink:#e9eef4; --muted:#8b98a8; --faint:#5b6675;
+    --red:#e2604f; --amber:#e0a23a; --green:#46b985; --accent:#5ad1c4;
+    --disp:"Saira",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--disp);
+    -webkit-font-smoothing:antialiased;line-height:1.5;
+    background-image:radial-gradient(circle at 50% -10%,#18222e 0%,var(--bg) 60%);}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 16px 80px}
+
+  /* Header / readout */
+  header{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:22px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 6px}
+  h1{font-size:clamp(22px,4vw,32px);font-weight:700;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px;font-family:var(--mono)}
+
+  .readout{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+  .gauge{flex:1;min-width:120px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:12px 14px;position:relative;overflow:hidden}
+  .gauge .lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .gauge .val{font-family:var(--mono);font-size:26px;font-weight:600;margin-top:4px}
+  .gauge .val small{font-size:13px;color:var(--faint)}
+  .gauge.red::before,.gauge.amber::before,.gauge.green::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+  .gauge.red::before{background:var(--red)} .gauge.amber::before{background:var(--amber)} .gauge.green::before{background:var(--green)}
+
+  /* Controls */
+  .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:24px}
+  .ctl{display:flex;flex-direction:column;gap:7px}
+  .ctl > label{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;color:var(--muted);border:0;padding:8px 14px;font-family:var(--mono);
+    font-size:12px;cursor:pointer;transition:background .15s,color .15s}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#06231f;font-weight:600}
+  .seg button:not(:last-child){border-right:1px solid var(--line)}
+  .win{display:flex;align-items:center;gap:10px;min-width:230px}
+  input[type=range]{accent-color:var(--accent);width:150px}
+  .winval{font-family:var(--mono);font-size:13px;color:var(--ink);min-width:54px}
+  select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;font-family:var(--mono);font-size:12px;min-width:200px}
+  .hint{font-family:var(--mono);font-size:11px;color:var(--faint);flex-basis:100%;margin-top:-4px}
+  .filebtn{border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:9px 16px;
+    font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;background:rgba(90,209,196,.08)}
+  .filebtn:hover{background:rgba(90,209,196,.18)}
+  input[type=file]{display:none}
+
+  /* Import zone */
+  .import{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;
+    background:var(--panel);border:1.5px dashed var(--line);border-radius:12px;padding:16px 18px;margin-bottom:20px;
+    transition:border-color .15s,background .15s}
+  .import.drag{border-color:var(--accent);background:var(--panel2)}
+  .import-main{display:flex;align-items:center;gap:14px;min-width:0}
+  .import-icon{font-family:var(--mono);font-size:24px;color:var(--accent);line-height:1}
+  .import-title{font-weight:600;font-size:14px}
+  .import-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px;word-break:break-word}
+  .import-sub.ok{color:var(--green)} .import-sub.err{color:var(--red)}
+
+  /* Panels grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .panel.full{grid-column:1 / -1}
+  .panel h2{font-size:15px;font-weight:600;margin:0 0 3px;letter-spacing:-.01em}
+  .panel p.desc{color:var(--muted);font-size:12px;margin:0 0 16px;font-family:var(--mono)}
+  .chartbox{position:relative;height:300px}
+  .chartbox.tall{height:340px}
+
+  /* Focus panel */
+  .focus-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
+    margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+  .focus-head .desc{margin-bottom:0}
+  .focus-head select{min-width:240px;font-size:13px;padding:10px 12px}
+  .focus-charts{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .focus-chart h3{font-size:13px;font-weight:600;margin:0 0 3px;color:var(--ink)}
+  @media (max-width:760px){.focus-charts{grid-template-columns:1fr}.focus-head select{width:100%}}
+
+  /* Instrument strips */
+  .strip{display:grid;grid-template-columns:1fr;gap:4px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .strip:last-child{border-bottom:0}
+  .strip .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .strip .nm{font-size:13px;font-weight:500}
+  .strip .nm .cat{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);margin-left:7px}
+  .strip .rd{font-family:var(--mono);font-size:13px;font-weight:600}
+  .strip .meta{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .tape{position:relative;height:14px;border-radius:7px;margin-top:3px;
+    background:linear-gradient(90deg,
+      rgba(226,96,79,.32) 0%, rgba(226,96,79,.32) 27.78%,
+      rgba(224,162,58,.30) 27.78%, rgba(224,162,58,.30) 66.67%,
+      rgba(70,185,133,.30) 66.67%, rgba(70,185,133,.30) 100%);
+    border:1px solid var(--line)}
+  .tape .range{position:absolute;top:0;bottom:0;background:rgba(233,238,244,.10);border-radius:3px}
+  .tape .mean{position:absolute;top:-3px;width:3px;height:20px;background:var(--ink);border-radius:2px;
+    transform:translateX(-50%);box-shadow:0 0 0 2px var(--bg)}
+  .tape .last{position:absolute;top:1px;width:9px;height:9px;border-radius:50%;transform:translate(-50%,1px);
+    border:2px solid var(--bg)}
+  .scaleticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:2px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .bar3{width:3px;height:13px;background:var(--ink);border-radius:2px}
+
+  .empty{color:var(--faint);font-family:var(--mono);font-size:12px;padding:30px 0;text-align:center}
+
+  @media (max-width:860px){
+    .grid{grid-template-columns:1fr}
+    .controls{gap:14px}
+    .upload{margin-left:0;flex-basis:100%}
+    .win{min-width:100%}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
 </head>
 <body>
-  <h1>Tableau de bord – Résultats Cadets Air France</h1>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Préparation PSY0 / PSY1 · Pilotest</p>
+    <h1>Tableau de bord — Cadets Air France</h1>
+    <p class="sub" id="rangeline">—</p>
+    <div class="readout" id="readout"></div>
+  </header>
+
+  <div class="import" id="dropzone">
+    <div class="import-main">
+      <div class="import-icon">⤓</div>
+      <div>
+        <div class="import-title">Importer un export Pilotest (.csv)</div>
+        <div class="import-sub" id="dataStatus">—</div>
+      </div>
+    </div>
+    <label class="filebtn" for="fileIn">Choisir un fichier…</label>
+    <input type="file" id="fileIn" accept=".csv,text/csv">
+  </div>
 
   <div class="controls">
-    <input type="file" id="csvFile" accept=".csv" />
-    <label>
-      Exercice :
-      <select id="exerciseSelect"></select>
-    </label>
+    <div class="ctl">
+      <label>Phase</label>
+      <div class="seg" id="phaseSeg" role="group" aria-label="Filtre de phase">
+        <button data-phase="all" aria-pressed="true">Tout</button>
+        <button data-phase="psy0" aria-pressed="false">PSY0</button>
+        <button data-phase="psy1" aria-pressed="false">PSY1</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Fenêtre — n derniers essais par exercice</label>
+      <div class="win">
+        <input type="range" id="winRange" min="0" max="20" step="1" value="0">
+        <span class="winval" id="winVal">Tous</span>
+      </div>
+    </div>
+    <div class="ctl">
+      <label>Catégorie</label>
+      <select id="catSelect" aria-label="Filtre de catégorie"></select>
+    </div>
+    <p class="hint">Phase, catégorie et fenêtre s'appliquent à tout le tableau (sauf le radar, qui garde la vue d'ensemble de toutes les catégories). La fenêtre agit sur le niveau, pas sur le volume : « nombre d'essais » montre toujours tout l'historique.</p>
   </div>
 
-  <div class="chart-wrapper">
-    <h3>Score vs temps (exercice sélectionné)</h3>
-    <canvas id="lineChart"></canvas>
-  </div>
+  <div class="grid">
+    <div class="panel">
+      <h2>Profil par catégorie</h2>
+      <p class="desc">Classe moyenne par catégorie — où concentrer l'effort.</p>
+      <div class="chartbox"><canvas id="radar"></canvas></div>
+    </div>
 
-  <div class="chart-wrapper">
-    <h3>Nombre de tests par catégorie</h3>
-    <canvas id="barChart"></canvas>
-  </div>
+    <div class="panel">
+      <h2>Nombre d'essais par exercice</h2>
+      <p class="desc">Détecteur d'acharnement — couleur = tendance (début vs fin).</p>
+      <div class="chartbox"><canvas id="volume"></canvas></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--green)"></i>en progression</span>
+        <span><i class="dot" style="background:var(--amber)"></i>plateau</span>
+        <span><i class="dot" style="background:var(--red)"></i>en baisse</span>
+        <span><i class="dot" style="background:var(--faint)"></i>peu de données (&lt;4)</span>
+      </div>
+    </div>
 
-  <div class="chart-wrapper">
-    <h3>Score moyen par semaine</h3>
-    <canvas id="weekChart"></canvas>
+    <div class="panel full">
+      <h2>Niveau par exercice</h2>
+      <p class="desc">Bande = zone de classe (rouge 1-3 · ambre 4-6 · vert 7-9). Trait = moyenne · point = dernier essai · zone claire = plage min–max.</p>
+      <div id="strips"></div>
+      <div class="legend">
+        <span><i class="bar3"></i>moyenne (fenêtre)</span>
+        <span><i class="dot" style="background:var(--ink)"></i>dernier essai</span>
+        <span style="display:inline-flex;align-items:center;gap:6px"><i style="width:18px;height:9px;background:rgba(233,238,244,.18);border-radius:2px"></i>plage min–max</span>
+      </div>
+    </div>
+
+    <div class="panel full focus">
+      <div class="focus-head">
+        <div>
+          <h2>Focus sur un exercice</h2>
+          <p class="desc">Choisis un exercice (ou une catégorie) : ses deux graphiques sont juste en dessous.</p>
+        </div>
+        <select id="exSelect" aria-label="Choix de l'exercice ou de la catégorie"></select>
+      </div>
+      <div class="focus-charts">
+        <div class="focus-chart">
+          <h3>Progression dans le temps</h3>
+          <p class="desc" id="progDesc">Évolution de la classe — points + moyenne mobile (3).</p>
+          <div class="chartbox tall"><canvas id="prog"></canvas></div>
+        </div>
+        <div class="focus-chart">
+          <h3>Consistance</h3>
+          <p class="desc" id="histDesc">Répartition des essais par classe — régularité vs volatilité.</p>
+          <div class="chartbox tall"><canvas id="hist"></canvas></div>
+        </div>
+      </div>
+    </div>
   </div>
+</div>
 
 <script>
+/* =================================================================
+   ⚙️  TABLES ÉDITABLES — phase et catégorie de chaque exercice
+   --------------------------------------------------------------
+   Le CSV Pilotest ne contient ni la phase ni la catégorie : elles
+   viennent d'ici. Ajoute/modifie librement (un exercice nouveau dans
+   un futur export apparaîtra en "Autre" / "psy0" tant qu'il n'est pas
+   listé ci-dessous).
+   ================================================================= */
+const PSY_PHASE_MAP = {
+  "Un mot sur deux":"psy0","Pair ou impair":"psy0","M2 Back numérique":"psy0",
+  "Psychomoteur psy0 AF cadet":"psy0","Formes et couleurs":"psy0","Airways":"psy0",
+  "Empilements":"psy0","Objets 3D":"psy0","Billes":"psy0","Formes glissées - II":"psy0",
+  "Cubes 2D/3D - psy0 Air France":"psy0","Grilles de calculs":"psy0","Boîtes à mots":"psy0",
+  "Mots en étoile":"psy0","Angles":"psy1","Séries logiques":"psy0",
+  "Anglais présélection cadets Air France":"psy0",
+
+  "Mathématiques":"psy1","Voitures (séquentiel)":"psy1","Voitures (basique)":"psy1",
+  "Test des compteurs":"psy1","Calcul mental 1":"psy1","Calcul mental 4":"psy1",
+  "Calcul mental 2":"psy1","Attention 3":"psy1","Calcul mental 3":"psy1",
+  "Memory 3 Back":"psy1","Memory 4 Back":"psy1","Memory 5 Back":"psy1",
+  "Attention 1":"psy1","Attention 2":"psy1",
+  "Patrons de cubes - psy1 - Cadets AF":"psy1",
+  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"psy1","Tangram":"psy1",
+  "Psychomoteur ENAC":"psy1","EFG":"psy1","Matrices de Raven":"psy1","Lecture de textes":"psy1"
+};
+
 const CATEGORY_MAP = {
-  "Un mot sur deux": "Verbale",
-  "Pair ou impair": "Numérique",
-  "Psychomoteur psy0 AF cadet": "Psychomoteur",
-  "Formes et couleurs": "Attention",
-  "Airways": "Intellectuelle",
-  "M2 Back numérique": "Mémorisation",
-  "Séries logiques": "Intellectuelle",
-  "Billes": "Intellectuelle",
-  "Formes glissées - II": "Intellectuelle",
-  "Objets 3D": "Spatiale",
-  "Empilements": "Spatiale",
-  "Cubes 2D/3D - psy0 Air France": "Spatiale",
-  "Grilles de calculs": "Numérique",
-  "Boîtes à mots": "Verbale",
-  "Mots en étoile": "Verbale",
-  "Anglais présélection cadets Air France": "Anglais"
+  "Un mot sur deux":"Verbale","Pair ou impair":"Numérique","M2 Back numérique":"Mémorisation",
+  "Psychomoteur psy0 AF cadet":"Psychomoteur","Formes et couleurs":"Attention",
+  "Airways":"Intellectuelle","Empilements":"Spatiale","Objets 3D":"Spatiale",
+  "Billes":"Intellectuelle","Formes glissées - II":"Intellectuelle",
+  "Cubes 2D/3D - psy0 Air France":"Spatiale","Grilles de calculs":"Numérique",
+  "Boîtes à mots":"Verbale","Mots en étoile":"Verbale","Angles":"Spatiale",
+  "Séries logiques":"Intellectuelle","Anglais présélection cadets Air France":"Anglais",
+
+  "Mathématiques":"Numérique","Voitures (séquentiel)":"Spatiale","Voitures (basique)":"Spatiale",
+  "Test des compteurs":"Numérique","Calcul mental 1":"Numérique","Calcul mental 2":"Numérique",
+  "Calcul mental 3":"Numérique","Calcul mental 4":"Numérique",
+  "Attention 1":"Attention","Attention 2":"Attention","Attention 3":"Attention",
+  "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
+  "Patrons de cubes - psy1 - Cadets AF":"Spatiale",
+  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"Spatiale","Tangram":"Spatiale",
+  "Psychomoteur ENAC":"Psychomoteur","EFG":"Intellectuelle",
+  "Matrices de Raven":"Intellectuelle","Lecture de textes":"Verbale"
 };
 
-const monthsFr = {
-  "Janvier":"January","Février":"February","Mars":"March","Avril":"April","Mai":"May","Juin":"June","Juillet":"July","Août":"August","Septembre":"September","Octobre":"October","Novembre":"November","Décembre":"December"
-};
-
-const fileInput = document.getElementById('csvFile');
-const exerciseSelect = document.getElementById('exerciseSelect');
-let lineChart, barChart, weekChart;
-let rawData = [];
-
-fileInput.addEventListener('change', e => {
-  const file = e.target.files[0];
-  if (file) {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: results => {
-        rawData = cleanData(results.data);
-        populateExerciseDropdown(rawData);
-        refreshCharts();
-      },
-      error: err => alert('Erreur de lecture CSV: ' + err.message)
-    });
-  }
+// Fusion des deux tables → config interne {cat, phase}
+const CONFIG = {};
+new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(name=>{
+  CONFIG[name] = { cat: CATEGORY_MAP[name] || "Autre", phase: PSY_PHASE_MAP[name] || "psy0" };
 });
 
-exerciseSelect.addEventListener('change', refreshCharts);
+/* ---- Données par défaut : ton export actuel (remplaçable via le bouton) ---- */
+const DEFAULT_CSV = `test,score,stanine,at
+Voitures (séquentiel),27%,1,mercredi 04 Septembre 2024 19h05
+Angles,13%,1,mercredi 04 Septembre 2024 19h14
+Angles,26%,1,mercredi 04 Septembre 2024 20h39
+Pair ou impair,28%,2,mercredi 04 Septembre 2024 20h50
+Psychomoteur psy0 AF cadet,55%,1,vendredi 06 Septembre 2024 12h48
+Séries logiques,26%,3,vendredi 06 Septembre 2024 12h59
+Objets 3D,55%,2,lundi 09 Septembre 2024 08h55
+Empilements,60%,2,lundi 09 Septembre 2024 08h59
+Billes,55%,2,lundi 09 Septembre 2024 09h07
+M2 Back numérique,87%,2,lundi 09 Septembre 2024 09h11
+Billes,85%,6,lundi 07 Octobre 2024 14h42
+Pair ou impair,45%,4,lundi 07 Octobre 2024 14h52
+Pair ou impair,28%,2,samedi 12 Octobre 2024 08h36
+Boîtes à mots,58%,3,samedi 12 Octobre 2024 08h46
+Objets 3D,60%,2,samedi 12 Octobre 2024 08h49
+M2 Back numérique,90%,4,samedi 12 Octobre 2024 08h52
+Airways,40%,3,samedi 12 Octobre 2024 08h59
+Formes glissées - II,30%,2,samedi 12 Octobre 2024 09h10
+Cubes 2D/3D - psy0 Air France,30%,1,samedi 12 Octobre 2024 09h20
+Cubes 2D/3D - psy0 Air France,40%,2,samedi 12 Octobre 2024 09h47
+Cubes 2D/3D - psy0 Air France,40%,2,samedi 12 Octobre 2024 11h12
+Cubes 2D/3D - psy0 Air France,30%,1,samedi 12 Octobre 2024 11h23
+Cubes 2D/3D - psy0 Air France,50%,4,samedi 12 Octobre 2024 11h59
+Cubes 2D/3D - psy0 Air France,60%,4,samedi 12 Octobre 2024 12h14
+Grilles de calculs,10%,1,samedi 12 Octobre 2024 12h23
+Anglais présélection cadets Air France,50%,3,lundi 02 Juin 2025 16h51
+Objets 3D,65%,4,lundi 02 Juin 2025 16h57
+Psychomoteur psy0 AF cadet,73%,3,lundi 02 Juin 2025 17h18
+Séries logiques,28%,4,lundi 02 Juin 2025 17h28
+Billes,75%,5,lundi 02 Juin 2025 17h43
+Séries logiques,66%,5,mardi 03 Juin 2025 08h24
+Formes glissées - II,20%,1,mardi 03 Juin 2025 13h54
+M2 Back numérique,87%,2,mardi 03 Juin 2025 14h16
+Séries logiques,26%,3,samedi 12 Octobre 2024 12h29
+Mots en étoile,40%,1,samedi 12 Octobre 2024 12h40
+Billes,70%,4,samedi 12 Octobre 2024 12h52
+Empilements,45%,1,mercredi 04 Juin 2025 16h56
+Cubes 2D/3D - psy0 Air France,60%,4,mercredi 04 Juin 2025 17h45
+Cubes 2D/3D - psy0 Air France,20%,1,mercredi 04 Juin 2025 18h23
+Cubes 2D/3D - psy0 Air France,20%,1,mercredi 04 Juin 2025 18h37
+Cubes 2D/3D - psy0 Air France,40%,2,mercredi 04 Juin 2025 19h04
+Cubes 2D/3D - psy0 Air France,70%,4,mercredi 04 Juin 2025 19h19
+Pair ou impair,42%,4,jeudi 05 Juin 2025 18h11
+Formes et couleurs,65%,2,jeudi 05 Juin 2025 18h15
+Airways,15%,1,jeudi 05 Juin 2025 18h24
+Grilles de calculs,10%,1,jeudi 05 Juin 2025 18h34
+Boîtes à mots,51%,2,vendredi 06 Juin 2025 20h34
+Un mot sur deux,5%,2,vendredi 06 Juin 2025 20h48
+Mots en étoile,60%,4,vendredi 06 Juin 2025 21h00
+Psychomoteur psy0 AF cadet,87%,5,samedi 07 Juin 2025 08h38
+Formes glissées - II,30%,2,samedi 07 Juin 2025 09h17
+Formes glissées - II,80%,6,samedi 07 Juin 2025 10h59
+Empilements,60%,2,samedi 07 Juin 2025 11h26
+Objets 3D,80%,5,samedi 07 Juin 2025 14h12
+Pair ou impair,16%,2,samedi 07 Juin 2025 14h32
+Airways,60%,4,samedi 07 Juin 2025 15h10
+Objets 3D,80%,5,samedi 07 Juin 2025 17h18
+Cubes 2D/3D - psy0 Air France,60%,4,dimanche 08 Juin 2025 07h04
+M2 Back numérique,97%,8,dimanche 08 Juin 2025 14h42
+Billes,65%,4,dimanche 08 Juin 2025 15h04
+Boîtes à mots,69%,4,dimanche 08 Juin 2025 15h20
+Objets 3D,80%,5,dimanche 08 Juin 2025 15h49
+Airways,55%,4,dimanche 08 Juin 2025 15h55
+Formes glissées - II,50%,4,dimanche 08 Juin 2025 17h00
+Pair ou impair,62%,5,dimanche 08 Juin 2025 17h09
+Psychomoteur psy0 AF cadet,89%,5,dimanche 08 Juin 2025 17h16
+Séries logiques,60%,5,dimanche 08 Juin 2025 17h24
+Formes et couleurs,85%,4,dimanche 08 Juin 2025 17h29
+Boîtes à mots,66%,4,lundi 09 Juin 2025 08h22
+Boîtes à mots,68%,4,lundi 09 Juin 2025 08h29
+Boîtes à mots,81%,5,lundi 09 Juin 2025 08h36
+Un mot sur deux,8%,3,lundi 09 Juin 2025 08h49
+Pair ou impair,50%,4,lundi 09 Juin 2025 09h54
+Grilles de calculs,20%,1,lundi 09 Juin 2025 10h04
+Airways,75%,5,lundi 09 Juin 2025 10h10
+Empilements,65%,2,lundi 09 Juin 2025 10h39
+Empilements,45%,1,lundi 09 Juin 2025 10h48
+Cubes 2D/3D - psy0 Air France,60%,4,lundi 09 Juin 2025 11h03
+Cubes 2D/3D - psy0 Air France,40%,2,lundi 09 Juin 2025 11h18
+Cubes 2D/3D - psy0 Air France,60%,4,lundi 09 Juin 2025 11h24
+Cubes 2D/3D - psy0 Air France,90%,8,lundi 09 Juin 2025 11h29
+Cubes 2D/3D - psy0 Air France,90%,8,lundi 09 Juin 2025 14h16
+Objets 3D,80%,5,lundi 09 Juin 2025 19h24
+Objets 3D,85%,6,lundi 09 Juin 2025 19h29
+Objets 3D,85%,6,lundi 09 Juin 2025 19h32
+Objets 3D,85%,6,lundi 09 Juin 2025 19h45
+Empilements,60%,2,mardi 10 Juin 2025 17h17
+Empilements,85%,5,mardi 10 Juin 2025 17h36
+Grilles de calculs,10%,1,mardi 10 Juin 2025 17h55
+Objets 3D,80%,5,mardi 10 Juin 2025 17h59
+Formes et couleurs,85%,4,mardi 10 Juin 2025 18h01
+Cubes 2D/3D - psy0 Air France,100%,9,mardi 10 Juin 2025 18h09
+Anglais présélection cadets Air France,60%,4,mardi 10 Juin 2025 18h16
+Empilements,40%,1,mardi 10 Juin 2025 18h28
+M2 Back numérique,100%,9,mardi 10 Juin 2025 20h42
+Formes glissées - II,90%,8,mardi 10 Juin 2025 20h50
+Objets 3D,80%,5,mardi 10 Juin 2025 20h57
+Objets 3D,85%,6,mardi 10 Juin 2025 20h59
+Objets 3D,95%,8,mardi 10 Juin 2025 21h01
+Empilements,55%,1,mercredi 11 Juin 2025 14h46
+Empilements,50%,1,mercredi 11 Juin 2025 15h24
+Empilements,70%,4,mercredi 11 Juin 2025 15h46
+Empilements,75%,4,mercredi 11 Juin 2025 15h49
+Empilements,80%,4,mercredi 11 Juin 2025 16h09
+Grilles de calculs,30%,1,mercredi 11 Juin 2025 16h35
+Cubes 2D/3D - psy0 Air France,90%,8,mercredi 11 Juin 2025 16h44
+Pair ou impair,69%,5,mercredi 11 Juin 2025 16h52
+Mots en étoile,70%,4,mercredi 11 Juin 2025 17h38
+Mots en étoile,60%,4,mercredi 11 Juin 2025 17h57
+Mots en étoile,90%,6,mercredi 11 Juin 2025 18h39
+Formes glissées - II,70%,5,mercredi 11 Juin 2025 18h48
+Formes glissées - II,70%,5,mercredi 11 Juin 2025 18h54
+Formes glissées - II,90%,8,mercredi 11 Juin 2025 18h59
+Matrices de Raven,66%,4,mercredi 11 Juin 2025 19h31
+Formes et couleurs,91%,5,mercredi 11 Juin 2025 21h41
+Airways,75%,5,jeudi 12 Juin 2025 17h48
+Un mot sur deux,13%,4,jeudi 12 Juin 2025 18h00
+Pair ou impair,69%,5,jeudi 12 Juin 2025 18h12
+Formes glissées - II,90%,8,jeudi 12 Juin 2025 18h21
+Formes et couleurs,87%,5,jeudi 12 Juin 2025 18h25
+Formes et couleurs,86%,4,jeudi 12 Juin 2025 18h28
+Formes et couleurs,93%,6,jeudi 12 Juin 2025 18h30
+Psychomoteur psy0 AF cadet,94%,7,jeudi 12 Juin 2025 18h39
+Cubes 2D/3D - psy0 Air France,100%,9,vendredi 13 Juin 2025 16h28
+Objets 3D,90%,6,vendredi 13 Juin 2025 16h30
+Mots en étoile,60%,4,dimanche 15 Juin 2025 10h42
+Objets 3D,80%,5,dimanche 15 Juin 2025 10h46
+Grilles de calculs,50%,2,mardi 17 Juin 2025 13h09
+Empilements,45%,1,jeudi 19 Juin 2025 07h55
+Pair ou impair,64%,5,jeudi 19 Juin 2025 08h09
+Grilles de calculs,50%,2,mercredi 18 Juin 2025 11h49
+Grilles de calculs,30%,1,mercredi 18 Juin 2025 16h49
+Boîtes à mots,67%,4,mercredi 18 Juin 2025 17h01
+Empilements,50%,1,mercredi 18 Juin 2025 17h57
+Formes glissées - II,60%,4,mercredi 18 Juin 2025 18h08
+Boîtes à mots,69%,4,mercredi 18 Juin 2025 18h16
+Boîtes à mots,71%,4,mercredi 18 Juin 2025 18h24
+Boîtes à mots,61%,3,mercredi 18 Juin 2025 18h35
+Empilements,65%,2,lundi 23 Juin 2025 19h07
+Grilles de calculs,50%,2,lundi 23 Juin 2025 19h17
+Formes glissées - II,80%,6,lundi 23 Juin 2025 19h33
+Billes,80%,5,mardi 24 Juin 2025 20h37
+Objets 3D,90%,6,mardi 24 Juin 2025 20h47
+Objets 3D,80%,5,jeudi 26 Juin 2025 17h20
+Pair ou impair,71%,6,jeudi 26 Juin 2025 17h29
+Pair ou impair,90%,8,jeudi 26 Juin 2025 17h37
+Airways,55%,4,jeudi 26 Juin 2025 17h45
+Formes glissées - II,50%,4,jeudi 26 Juin 2025 17h54
+Formes glissées - II,70%,5,jeudi 26 Juin 2025 18h01
+Grilles de calculs,30%,1,jeudi 26 Juin 2025 19h29
+Cubes 2D/3D - psy0 Air France,90%,8,jeudi 26 Juin 2025 19h35
+Airways,40%,3,samedi 28 Juin 2025 21h04
+Empilements,80%,4,samedi 28 Juin 2025 21h08
+Billes,55%,2,mercredi 02 Juillet 2025 15h54
+Mots en étoile,50%,2,samedi 05 Juillet 2025 13h16
+Formes glissées - II,70%,5,samedi 05 Juillet 2025 13h38
+Formes glissées - II,80%,6,samedi 05 Juillet 2025 13h47
+Grilles de calculs,50%,2,samedi 05 Juillet 2025 14h00
+Psychomoteur psy0 AF cadet,89%,5,samedi 05 Juillet 2025 14h13
+Airways,50%,3,samedi 05 Juillet 2025 14h21
+Objets 3D,85%,6,samedi 05 Juillet 2025 14h24
+Memory 3 Back,60%,2,samedi 05 Juillet 2025 14h27
+Memory 5 Back,70%,1,samedi 05 Juillet 2025 14h30
+Voitures (basique),20%,1,samedi 05 Juillet 2025 14h47
+Anglais présélection cadets Air France,46%,2,samedi 05 Juillet 2025 14h54
+Objets 3D,85%,6,samedi 14 Février 2026 16h03`;
 
-function cleanData(data) {
-  return data.map(row => {
-    // Nettoyage nom exercice & score
-    const test = (row.test || row.Exercice || '').trim();
-    const scoreStr = (row.score || row['Score (%)'] || '').toString().replace('%','').trim();
-    const score = parseFloat(scoreStr);
-
-    // Conversion date
-    let date = null;
-    const rawDate = row.at || row.date || row.Date || '';
-    if (rawDate) {
-      const p = rawDate.toString().split(' ');
-      if (p.length >= 4) {
-        // ex : "samedi 12 Octobre 2024 14h52"
-        const day = p[1];
-        const monthEn = monthsFr[p[2]] || p[2];
-        const year = p[3];
-        const time = (p[4] || '00h00').replace('h', ':');
-        date = new Date(`${day} ${monthEn} ${year} ${time}`);
-      } else {
-        date = new Date(rawDate);
-      }
-    }
-
-    return {
-      test,
-      score,
-      date,
-      category: CATEGORY_MAP[test] || 'Autre'
-    };
-  }).filter(row => !isNaN(row.score) && row.date instanceof Date && !isNaN(row.date));
+/* ----------------------- Parsing ----------------------- */
+const MONTHS={janvier:0,"février":1,fevrier:1,mars:2,avril:3,mai:4,juin:5,juillet:6,"août":7,aout:7,septembre:8,octobre:9,novembre:10,"décembre":11,decembre:11};
+function parseFrDate(s){
+  const m=s.trim().match(/(\d{1,2})\s+([A-Za-zÀ-ÿ]+)\s+(\d{4})\s+(\d{1,2})h(\d{2})/);
+  if(!m) return null;
+  const mon=MONTHS[m[2].toLowerCase()];
+  if(mon===undefined) return null;
+  return new Date(+m[3],mon,+m[1],+m[4],+m[5]);
+}
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(lines.length && /^test\s*,/i.test(lines[0])) lines.shift();
+  const out=[];
+  for(const line of lines){
+    const p=line.split(",");
+    if(p.length<4) continue;
+    const test=p[0].trim();
+    const stanine=parseInt(p[2],10);
+    const date=parseFrDate(p.slice(3).join(","));
+    if(!test||isNaN(stanine)||!date) continue;
+    const cfg=CONFIG[test]||{cat:"Autre",phase:"PSY0"};
+    out.push({test,stanine,date,cat:cfg.cat,phase:cfg.phase});
+  }
+  return out.sort((a,b)=>a.date-b.date);
 }
 
-function populateExerciseDropdown(data) {
-  const uniqueTests = [...new Set(data.map(d => d.test))].sort();
-  exerciseSelect.innerHTML = uniqueTests.map(t => `<option value="${t}">${t}</option>`).join('');
+/* ----------------------- State ----------------------- */
+let RAW = parseCSV(DEFAULT_CSV);
+let phase = "all";
+let catFilter = "all";
+let win = 0; // 0 = tous
+const charts = {};
+
+const bandColor = v => v<=3?getCss('--red') : v<=6?getCss('--amber') : getCss('--green');
+function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+const fmt = x => (Math.round(x*10)/10).toFixed(1);
+
+function phaseRows(){ return phase==="all"?RAW:RAW.filter(r=>r.phase===phase); }
+// vue = phase + catégorie (le radar n'utilise pas ce filtre, il reste global)
+function viewRows(){ const r=phaseRows(); return catFilter==="all"?r:r.filter(x=>x.cat===catFilter); }
+function byExercise(rows){
+  const map=new Map();
+  for(const r of rows){ if(!map.has(r.test)) map.set(r.test,[]); map.get(r.test).push(r); }
+  for(const arr of map.values()) arr.sort((a,b)=>a.date-b.date);
+  return map;
+}
+function windowed(arr){ return win>0 ? arr.slice(-win) : arr; }
+function mean(a){ return a.length? a.reduce((x,y)=>x+y,0)/a.length : 0; }
+
+/* ----------------------- Renderers ----------------------- */
+function renderReadout(){
+  const rows=viewRows();
+  const map=byExercise(rows);
+  let g=0,a=0,r=0;
+  for(const arr of map.values()){
+    const m=mean(windowed(arr).map(x=>x.stanine));
+    if(m>=7)g++; else if(m>=4)a++; else r++;
+  }
+  const dates=rows.map(x=>x.date).sort((p,q)=>p-q);
+  const f=v=>v.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('rangeline').textContent =
+    rows.length? `${rows.length} essais · ${map.size} exercices · ${f(dates[0])} → ${f(dates[dates.length-1])}` : 'Aucune donnée';
+  const ro=document.getElementById('readout');
+  ro.innerHTML=`
+    <div class="gauge green"><div class="lab">Zone verte · 7-9</div><div class="val">${g}<small> exos</small></div></div>
+    <div class="gauge amber"><div class="lab">Zone ambre · 4-6</div><div class="val">${a}<small> exos</small></div></div>
+    <div class="gauge red"><div class="lab">Zone rouge · 1-3</div><div class="val">${r}<small> exos</small></div></div>
+    <div class="gauge"><div class="lab">Classe moy. globale</div><div class="val">${rows.length?fmt(mean(windowed_all(map))):'–'}</div></div>`;
+}
+function windowed_all(map){
+  let acc=[]; for(const arr of map.values()) acc=acc.concat(windowed(arr).map(x=>x.stanine)); return acc;
 }
 
-function refreshCharts() {
-  if (!rawData.length) return;
-  const selected = exerciseSelect.value || exerciseSelect.options[0].value;
-
-  // --- Line chart data ---
-  const lineData = rawData.filter(d => d.test === selected).sort((a,b) => a.date - b.date);
-  const lineLabels = lineData.map(d => d.date.toLocaleDateString('fr-FR'));
-  const lineScores = lineData.map(d => d.score);
-
-  // --- Bar chart data ---
-  const countsByCat = rawData.reduce((acc, cur) => {
-    acc[cur.category] = (acc[cur.category] || 0) + 1;
-    return acc;
-  }, {});
-  const barLabels = Object.keys(countsByCat);
-  const barValues = Object.values(countsByCat);
-
-  // --- Weekly average chart ---
-  const weeks = {};
-  rawData.forEach(d => {
-    const monday = new Date(d.date);
-    monday.setDate(monday.getDate() - ((monday.getDay()+6)%7)); // Monday start
-    const key = monday.toISOString().split('T')[0];
-    if (!weeks[key]) weeks[key] = { total:0, count:0, date:monday };
-    weeks[key].total += d.score;
-    weeks[key].count += 1;
-  });
-  const sortedWeeks = Object.values(weeks).sort((a,b)=>a.date-b.date);
-  const weekLabels = sortedWeeks.map(w => w.date.toLocaleDateString('fr-FR'));
-  const weekValues = sortedWeeks.map(w => (w.total / w.count).toFixed(1));
-
-  // --- Create / Update Charts ---
-  if (lineChart) lineChart.destroy();
-  if (barChart) barChart.destroy();
-  if (weekChart) weekChart.destroy();
-
-  const ctxLine = document.getElementById('lineChart');
-  const ctxBar = document.getElementById('barChart');
-  const ctxWeek = document.getElementById('weekChart');
-
-  lineChart = new Chart(ctxLine, {
-    type: 'line',
-    data: {
-      labels: lineLabels,
-      datasets: [{
-        label: `Score (%) – ${selected}`,
-        data: lineScores,
-        tension: 0.25,
-        fill: false,
-        pointRadius: 4,
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: true } },
-      scales: {
-        y: { beginAtZero: true, max: 100 }
-      }
-    }
-  });
-
-  barChart = new Chart(ctxBar, {
-    type: 'bar',
-    data: {
-      labels: barLabels,
-      datasets: [{
-        label: 'Tests',
-        data: barValues,
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } }
-    }
-  });
-
-  weekChart = new Chart(ctxWeek, {
-    type: 'line',
-    data: {
-      labels: weekLabels,
-      datasets: [{
-        label: 'Score moyen (%)',
-        data: weekValues,
-        tension: 0.25,
-        fill: false,
-        pointRadius: 4,
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: true } },
-      scales: { y: { beginAtZero: true, max: 100 } }
-    }
+function renderRadar(){
+  const rows=phaseRows(); const map=byExercise(rows);
+  const cats={};
+  for(const arr of map.values()){
+    for(const r of windowed(arr)){ (cats[r.cat]=cats[r.cat]||[]).push(r.stanine); }
+  }
+  const labels=Object.keys(cats).sort();
+  const data=labels.map(c=>+fmt(mean(cats[c])));
+  const tip=getCss('--accent');
+  charts.radar?.destroy();
+  charts.radar=new Chart(document.getElementById('radar'),{
+    type:'radar',
+    data:{labels,datasets:[
+      {label:'Classe moyenne',data,fill:true,
+        backgroundColor:'rgba(90,209,196,.16)',borderColor:tip,
+        pointBackgroundColor:tip,borderWidth:2,pointRadius:3},
+      {label:'Objectif (7)',data:labels.map(()=>7),fill:false,
+        borderColor:'rgba(70,185,133,.55)',borderDash:[5,4],borderWidth:1,pointRadius:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}}}},
+      scales:{r:{min:0,max:9,ticks:{stepSize:3,color:getCss('--faint'),backdropColor:'transparent',font:{size:9}},
+        grid:{color:'rgba(255,255,255,.07)'},angleLines:{color:'rgba(255,255,255,.07)'},
+        pointLabels:{color:getCss('--ink'),font:{family:'Saira',size:11}}}}}
   });
 }
+
+function renderVolume(){
+  const rows=viewRows(); const map=byExercise(rows);
+  const entries=[...map.entries()].map(([t,arr])=>{
+    const st=arr.map(x=>x.stanine);
+    const h=Math.floor(st.length/2);
+    const delta = st.length>=4 ? mean(st.slice(h))-mean(st.slice(0,h)) : null;
+    let col;
+    if(delta===null) col=getCss('--faint');
+    else if(delta>=0.75) col=getCss('--green');
+    else if(delta<=-0.75) col=getCss('--red');
+    else col=getCss('--amber');
+    return {t,n:st.length,col};
+  }).sort((a,b)=>b.n-a.n);
+  charts.volume?.destroy();
+  charts.volume=new Chart(document.getElementById('volume'),{
+    type:'bar',
+    data:{labels:entries.map(e=>e.t),
+      datasets:[{data:entries.map(e=>e.n),backgroundColor:entries.map(e=>e.col),borderRadius:3,barThickness:'flex'}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} essais`}}},
+      scales:{x:{ticks:{color:getCss('--faint'),font:{size:10},precision:0},grid:{color:'rgba(255,255,255,.05)'}},
+        y:{ticks:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}},grid:{display:false}}}}
+  });
+}
+
+function renderStrips(){
+  const rows=viewRows(); const map=byExercise(rows);
+  const box=document.getElementById('strips');
+  if(!map.size){ box.innerHTML='<div class="empty">Aucune donnée pour ce filtre.</div>'; return; }
+  const entries=[...map.entries()].map(([t,arr])=>{
+    const w=windowed(arr).map(x=>x.stanine);
+    return {t,cat:arr[0].cat,n:w.length,mean:mean(w),min:Math.min(...w),max:Math.max(...w),last:w[w.length-1]};
+  }).sort((a,b)=>a.mean-b.mean);
+  const pos=v=>((v-1)/8*100);
+  box.innerHTML=entries.map(e=>{
+    const lo=pos(e.min),hi=pos(e.max);
+    return `<div class="strip">
+      <div class="top">
+        <div class="nm">${e.t}<span class="cat">${e.cat}</span></div>
+        <div class="rd" style="color:${bandColor(e.mean)}">${fmt(e.mean)}</div>
+      </div>
+      <div class="tape">
+        <div class="range" style="left:${lo}%;width:${Math.max(hi-lo,1.5)}%"></div>
+        <div class="mean" style="left:${pos(e.mean)}%"></div>
+        <div class="last" style="left:${pos(e.last)}%;background:${bandColor(e.last)}"></div>
+      </div>
+      <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last}</div>
+    </div>`;
+  }).join('')+`<div class="scaleticks"><span>1</span><span>3</span><span>5</span><span>7</span><span>9</span></div>`;
+}
+
+function renderProg(){
+  const sel=document.getElementById('exSelect').value;
+  const rows=phaseRows();
+  let series, label;
+  if(sel.startsWith('cat:')){
+    const c=sel.slice(4); label='Catégorie : '+c;
+    series=rows.filter(r=>r.cat===c);
+  }else{
+    label='Exercice : '+sel; series=rows.filter(r=>r.test===sel);
+  }
+  series=series.slice().sort((a,b)=>a.date-b.date);
+  series=windowed(series);
+  const pts=series.map((r,i)=>({x:i+1,y:r.stanine}));
+  // moving average (3)
+  const ma=series.map((_,i)=>{
+    const s=series.slice(Math.max(0,i-2),i+1).map(r=>r.stanine);
+    return {x:i+1,y:+fmt(mean(s))};
+  });
+  document.getElementById('progDesc').textContent=label+' — points + moyenne mobile (3).';
+  charts.prog?.destroy();
+  charts.prog=new Chart(document.getElementById('prog'),{
+    data:{datasets:[
+      {type:'line',label:'Moyenne mobile',data:ma,borderColor:getCss('--accent'),borderWidth:2,
+        tension:.3,pointRadius:0,fill:false},
+      {type:'scatter',label:'Essais',data:pts,
+        pointBackgroundColor:pts.map(p=>bandColor(p.y)),pointRadius:4,pointBorderColor:getCss('--bg')}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}}}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'n° d\'essai (chronologique)',color:getCss('--faint'),font:{size:10}},
+          ticks:{color:getCss('--faint'),font:{size:10},precision:0},grid:{color:'rgba(255,255,255,.05)'}},
+        y:{min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}
+  });
+}
+
+function renderHist(){
+  const sel=document.getElementById('exSelect').value;
+  const rows=phaseRows();
+  let series,label;
+  if(sel.startsWith('cat:')){const c=sel.slice(4);label=c;series=rows.filter(r=>r.cat===c);}
+  else{label=sel;series=rows.filter(r=>r.test===sel);}
+  series=windowed(series.slice().sort((a,b)=>a.date-b.date));
+  const counts=Array(9).fill(0);
+  series.forEach(r=>counts[r.stanine-1]++);
+  document.getElementById('histDesc').textContent=label+' — répartition des essais par classe.';
+  charts.hist?.destroy();
+  charts.hist=new Chart(document.getElementById('hist'),{
+    type:'bar',
+    data:{labels:[1,2,3,4,5,6,7,8,9],
+      datasets:[{data:counts,backgroundColor:[1,2,3,4,5,6,7,8,9].map(bandColor),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Classe '+c[0].label,label:c=>`${c.raw} essai${c.raw>1?'s':''}`}}},
+      scales:{x:{title:{display:true,text:'classe (Stanine)',color:getCss('--faint'),font:{size:10}},
+          ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:10}},grid:{display:false}},
+        y:{ticks:{color:getCss('--faint'),font:{size:10},precision:0},grid:{color:'rgba(255,255,255,.05)'}}}}
+  });
+}
+
+function fillExerciseSelect(){
+  const sel=document.getElementById('exSelect');
+  const prev=sel.value;
+  const rows=viewRows();
+  const cats=[...new Set(rows.map(r=>r.cat))].sort();
+  const tests=[...new Set(rows.map(r=>r.test))].sort();
+  sel.innerHTML =
+    '<optgroup label="Catégories">'+cats.map(c=>`<option value="cat:${c}">▸ ${c}</option>`).join('')+'</optgroup>'+
+    '<optgroup label="Exercices">'+tests.map(t=>`<option value="${t}">${t}</option>`).join('')+'</optgroup>';
+  if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
+}
+
+function fillCatSelect(){
+  const sel=document.getElementById('catSelect');
+  const cats=[...new Set(phaseRows().map(r=>r.cat))].sort();
+  if(catFilter!=="all" && !cats.includes(catFilter)) catFilter="all";
+  sel.innerHTML='<option value="all">Toutes les catégories</option>'+
+    cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  sel.value=catFilter;
+}
+
+function renderAll(){
+  renderReadout(); renderRadar(); renderVolume(); renderStrips(); renderProg(); renderHist();
+}
+
+/* ----------------------- Wiring ----------------------- */
+document.getElementById('phaseSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  phase=b.dataset.phase;
+  [...e.currentTarget.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  fillCatSelect(); fillExerciseSelect(); renderAll();
+});
+document.getElementById('catSelect').addEventListener('change',e=>{
+  catFilter=e.target.value; fillExerciseSelect(); renderAll();
+});
+const wr=document.getElementById('winRange'), wv=document.getElementById('winVal');
+wr.addEventListener('input',()=>{
+  win=+wr.value; wv.textContent = win===0?'Tous':('n = '+win);
+  renderAll();
+});
+document.getElementById('exSelect').addEventListener('change',()=>{renderProg();renderHist();});
+
+/* ---- Import CSV : statut + chargement + glisser-déposer ---- */
+function setStatus(msg,cls){
+  const el=document.getElementById('dataStatus');
+  el.textContent=msg; el.className='import-sub'+(cls?(' '+cls):'');
+}
+function statusFromData(srcName){
+  const dates=RAW.map(r=>r.date).sort((a,b)=>a-b);
+  const f=v=>v.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+  const nEx=new Set(RAW.map(r=>r.test)).size;
+  setStatus(`✓ ${srcName} — ${RAW.length} essais · ${nEx} exercices · ${f(dates[0])} → ${f(dates[dates.length-1])}`,'ok');
+}
+function loadCSVText(text,srcName){
+  let parsed;
+  try{ parsed=parseCSV(text); }
+  catch(err){ setStatus('Erreur de lecture : '+err.message,'err'); return; }
+  if(!parsed.length){ setStatus('Aucune ligne exploitable dans ce fichier. Attendu : test,score,stanine,date','err'); return; }
+  RAW=parsed;
+  fillCatSelect();
+  fillExerciseSelect();
+  renderAll();
+  statusFromData(srcName);
+}
+function handleFile(file){
+  if(!file) return;
+  const rd=new FileReader();
+  rd.onerror=()=>setStatus('Impossible de lire le fichier.','err');
+  rd.onload=()=>loadCSVText(rd.result,file.name);
+  rd.readAsText(file,'utf-8');
+}
+document.getElementById('fileIn').addEventListener('change',ev=>{
+  handleFile(ev.target.files[0]);
+  ev.target.value=''; // permet de réimporter le même nom de fichier
+});
+const dz=document.getElementById('dropzone');
+['dragenter','dragover'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.add('drag');}));
+['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.remove('drag');}));
+dz.addEventListener('drop',ev=>{
+  const f=ev.dataTransfer.files[0];
+  if(f && /\.csv$/i.test(f.name)) handleFile(f);
+  else setStatus('Dépose un fichier .csv.','err');
+});
+
+fillCatSelect();
+fillExerciseSelect();
+// default selection: the weakest high-volume exercise is the most useful first view
+document.getElementById('exSelect').value='Grilles de calculs';
+renderAll();
+setStatus("Données d'exemple chargées — glisse ton export ici ou clique sur « Choisir un fichier ».");
 </script>
 </body>
 </html>
