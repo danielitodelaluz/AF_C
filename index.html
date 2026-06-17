@@ -76,8 +76,9 @@
   .panel.full{grid-column:1 / -1}
   .panel h2{font-size:15px;font-weight:600;margin:0 0 3px;letter-spacing:-.01em}
   .panel p.desc{color:var(--muted);font-size:12px;margin:0 0 16px;font-family:var(--mono)}
-  .chartbox{position:relative;height:300px}
-  .chartbox.tall{height:340px}
+  /* Hauteurs proportionnelles à l'écran (s'adaptent du téléphone au grand écran) */
+  .chartbox{position:relative;height:320px;height:clamp(260px,42vh,380px)}
+  .chartbox.tall{height:360px;height:clamp(280px,48vh,440px)}
 
   /* Focus panel */
   .focus-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
@@ -218,8 +219,6 @@
     .panel.focus{padding:14px}
     .panel h2{font-size:14px}
     .panel p.desc{font-size:11px;margin-bottom:13px}
-    .chartbox{height:248px}
-    .chartbox.tall{height:262px}
     .focus-charts{gap:18px}
     .strip{padding:8px 0}
     .strip .nm{font-size:12px}
@@ -666,6 +665,9 @@ function loadState(){
 const bandColor = v => v<=3?getCss('--red') : v<=6?getCss('--amber') : getCss('--green');
 function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 const fmt = x => (Math.round(x*10)/10).toFixed(1);
+// Polices de graphiques agrandies sur petit écran (meilleure lisibilité mobile)
+const isPhone = () => typeof window!=='undefined' && window.matchMedia && window.matchMedia('(max-width:560px)').matches;
+function chartFont(n){ return isPhone()? n+2 : n; }
 
 // ---- Filtre de période (s'applique à tout le tableau) ----
 function toISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -772,10 +774,10 @@ function renderRadar(){
         borderColor:'rgba(70,185,133,.55)',borderDash:[5,4],borderWidth:1,pointRadius:0}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}}}},
-      scales:{r:{min:0,max:9,ticks:{stepSize:3,color:getCss('--faint'),backdropColor:'transparent',font:{size:9}},
+      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)}}}},
+      scales:{r:{min:0,max:9,ticks:{stepSize:3,color:getCss('--faint'),backdropColor:'transparent',font:{size:chartFont(9)}},
         grid:{color:'rgba(255,255,255,.07)'},angleLines:{color:'rgba(255,255,255,.07)'},
-        pointLabels:{color:getCss('--ink'),font:{family:'Saira',size:11}}}}}
+        pointLabels:{color:getCss('--ink'),font:{family:'Saira',size:chartFont(11)}}}}}
   });
 }
 
@@ -801,8 +803,8 @@ function renderVolume(){
       datasets:[{data:entries.map(e=>e.n),backgroundColor:entries.map(e=>e.col),borderRadius:3,barThickness:'flex'}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} essais`}}},
-      scales:{x:{ticks:{color:getCss('--faint'),font:{size:10},precision:0},grid:{color:'rgba(255,255,255,.05)'}},
-        y:{ticks:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}},grid:{display:false}}}}
+      scales:{x:{ticks:{color:getCss('--faint'),font:{size:chartFont(10)},precision:0},grid:{color:'rgba(255,255,255,.05)'}},
+        y:{ticks:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)}},grid:{display:false}}}}
   });
 }
 
@@ -872,11 +874,11 @@ function renderProg(){
         pointBackgroundColor:pts.map(p=>bandColor(p.y)),pointRadius:4,pointBorderColor:getCss('--bg')}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}}}},
+      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)}}}},
       scales:{
-        x:{type:'linear',title:{display:true,text:'n° d\'essai (chronologique)',color:getCss('--faint'),font:{size:10}},
-          ticks:{color:getCss('--faint'),font:{size:10},precision:0},grid:{color:'rgba(255,255,255,.05)'}},
-        y:{min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}
+        x:{type:'linear',title:{display:true,text:'n° d\'essai (chronologique)',color:getCss('--faint'),font:{size:chartFont(10)}},
+          ticks:{color:getCss('--faint'),font:{size:chartFont(10)},precision:0},grid:{color:'rgba(255,255,255,.05)'}},
+        y:{min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:chartFont(10)}},grid:{color:'rgba(255,255,255,.05)'}}}}
   });
 }
 
@@ -897,9 +899,9 @@ function renderHist(){
       datasets:[{data:counts,backgroundColor:[1,2,3,4,5,6,7,8,9].map(bandColor),borderRadius:3}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Classe '+c[0].label,label:c=>`${c.raw} essai${c.raw>1?'s':''}`}}},
-      scales:{x:{title:{display:true,text:'classe (Stanine)',color:getCss('--faint'),font:{size:10}},
-          ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:10}},grid:{display:false}},
-        y:{ticks:{color:getCss('--faint'),font:{size:10},precision:0},grid:{color:'rgba(255,255,255,.05)'}}}}
+      scales:{x:{title:{display:true,text:'classe (Stanine)',color:getCss('--faint'),font:{size:chartFont(10)}},
+          ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(10)}},grid:{display:false}},
+        y:{ticks:{color:getCss('--faint'),font:{size:chartFont(10)},precision:0},grid:{color:'rgba(255,255,255,.05)'}}}}
   });
 }
 
@@ -971,15 +973,15 @@ function renderTrend(){
         borderDash:[5,4],borderWidth:1,pointRadius:0,fill:false}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}}},
+      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)}}},
         tooltip:{callbacks:{title:c=>fLbl(c[0].parsed.x),label:c=>`${c.dataset.label}: ${c.parsed.y}`}}},
       scales:{
         x:{type:'linear',min:1,offset:true,
-          title:{display:true,text:'sessions (espacées régulièrement)',color:getCss('--faint'),font:{size:10}},
-          ticks:{color:getCss('--faint'),font:{size:9},maxTicksLimit:8,autoSkip:true,
+          title:{display:true,text:'sessions (espacées régulièrement)',color:getCss('--faint'),font:{size:chartFont(10)}},
+          ticks:{color:getCss('--faint'),font:{size:chartFont(9)},maxTicksLimit:8,autoSkip:true,
             callback:v=>(Number.isInteger(v)?fLbl(v):'')},
           grid:{color:'rgba(255,255,255,.05)'}},
-        y:{min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}
+        y:{min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:chartFont(10)}},grid:{color:'rgba(255,255,255,.05)'}}}}
   });
 }
 
@@ -1181,6 +1183,15 @@ dz.addEventListener('drop',ev=>{
   const f=ev.dataTransfer.files[0];
   if(f && /\.csv$/i.test(f.name)) handleFile(f);
   else setStatus('Dépose un fichier .csv.','err');
+});
+
+/* ---- Adaptation à l'écran : Chart.js redimensionne les canvases tout seul
+   (hauteurs en vh + responsive). On ne re-rend que si l'on franchit le seuil
+   « téléphone » pour rafraîchir la taille des polices. ---- */
+let _wasPhone=isPhone(), _rzT;
+window.addEventListener('resize',()=>{
+  const p=isPhone();
+  if(p!==_wasPhone){ _wasPhone=p; clearTimeout(_rzT); _rzT=setTimeout(renderAll,150); }
 });
 
 // reflète l'état (phase / fenêtre / tri / catégorie) dans les contrôles
