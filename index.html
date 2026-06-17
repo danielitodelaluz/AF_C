@@ -170,24 +170,84 @@
     font-family:var(--mono);font-size:10px;color:var(--muted)}
   .hm-legend .hm-cell{display:inline-block}
 
+  /* Period control */
+  .seg.segwrap{flex-wrap:wrap}
+  .period-custom{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .period-custom input[type=date]{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:12px;color-scheme:dark}
+
+  /* Sticky section nav (jump links) */
+  html{scroll-behavior:smooth}
+  header,.panel{scroll-margin-top:58px}
+  .secnav{position:sticky;top:0;z-index:30;display:flex;gap:7px;overflow-x:auto;
+    padding:9px 4px;margin:0 -4px 20px;background:rgba(15,20,26,.86);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .secnav::-webkit-scrollbar{display:none}
+  .secnav a{flex:0 0 auto;font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;
+    padding:6px 12px;border:1px solid var(--line);border-radius:20px;white-space:nowrap;background:var(--panel);
+    transition:color .15s,border-color .15s}
+  .secnav a:hover,.secnav a:focus-visible{color:var(--ink);border-color:var(--accent)}
+
   @media (max-width:860px){
     .grid{grid-template-columns:1fr}
     .controls{gap:14px}
     .upload{margin-left:0;flex-basis:100%}
     .win{min-width:100%}
   }
-  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  /* Phone layout — rebalance top vs bottom, full-width controls, lighter panels */
+  @media (max-width:560px){
+    .wrap{padding:12px 11px 48px}
+    header{padding-bottom:14px;margin-bottom:14px}
+    .sub{font-size:12px}
+    .readout{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .gauge{min-width:0;padding:11px 12px}
+    .gauge .val{font-size:21px}
+    .import{padding:13px 14px}
+    .import-actions{flex-basis:100%;justify-content:space-between}
+    .controls{flex-direction:column;align-items:stretch;padding:14px;gap:15px}
+    .controls .ctl{width:100%}
+    .seg{width:100%}
+    .seg.segwrap{width:100%}
+    .seg button{flex:1 1 auto}
+    .win{min-width:0}
+    .win input[type=range]{flex:1;width:auto}
+    select{min-width:0;width:100%}
+    .focus-head select{min-width:0;width:100%}
+    .panel{padding:14px}
+    .panel.focus{padding:14px}
+    .panel h2{font-size:14px}
+    .panel p.desc{font-size:11px;margin-bottom:13px}
+    .chartbox{height:248px}
+    .chartbox.tall{height:262px}
+    .focus-charts{gap:18px}
+    .strip{padding:8px 0}
+    .strip .nm{font-size:12px}
+    .strip .meta{font-size:9px}
+    .secnav{margin:0 -11px 16px;padding:9px 11px}
+  }
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
+  <header id="sec-top">
     <p class="eyebrow">Préparation PSY0 / PSY1 · Pilotest</p>
     <h1>Tableau de bord — Cadets Air France</h1>
     <p class="sub" id="rangeline">—</p>
     <div class="readout" id="readout"></div>
   </header>
+
+  <nav class="secnav" aria-label="Navigation rapide">
+    <a href="#sec-top">Synthèse</a>
+    <a href="#sec-profil">Profil</a>
+    <a href="#sec-prog">Progression</a>
+    <a href="#sec-regularite">Régularité</a>
+    <a href="#sec-prio">Priorités</a>
+    <a href="#sec-niveau">Niveau</a>
+    <a href="#sec-focus">Focus</a>
+  </nav>
 
   <div class="import" id="dropzone">
     <div class="import-main">
@@ -213,6 +273,14 @@
         <button data-phase="psy1" aria-pressed="false">PSY1</button>
       </div>
     </div>
+    <div class="ctl" style="flex-basis:100%">
+      <label>Période</label>
+      <div class="seg segwrap" id="periodSeg" role="group" aria-label="Filtre de période"></div>
+      <div class="period-custom" id="periodCustom" hidden>
+        <span>De</span><input type="date" id="dateFrom" aria-label="Date de début">
+        <span>à</span><input type="date" id="dateTo" aria-label="Date de fin">
+      </div>
+    </div>
     <div class="ctl">
       <label>Fenêtre — n derniers essais par exercice</label>
       <div class="win">
@@ -235,11 +303,11 @@
         <option value="alpha">Alphabétique</option>
       </select>
     </div>
-    <p class="hint">Phase, catégorie et fenêtre s'appliquent à tout le tableau (sauf le radar, qui garde la vue d'ensemble de toutes les catégories). La fenêtre agit sur le niveau, pas sur le volume : « nombre d'essais » montre toujours tout l'historique.</p>
+    <p class="hint">Phase, période et catégorie s'appliquent à tout le tableau. La fenêtre agit sur le niveau, pas sur le volume : « nombre d'essais » montre toujours tout l'historique. « Période » est idéale pour isoler une saison d'entraînement et éviter les longs plateaux d'inactivité.</p>
   </div>
 
   <div class="grid">
-    <div class="panel">
+    <div class="panel" id="sec-profil">
       <h2>Profil par catégorie</h2>
       <p class="desc">Classe moyenne par catégorie — où concentrer l'effort.</p>
       <div class="chartbox"><canvas id="radar"></canvas></div>
@@ -257,15 +325,15 @@
       </div>
     </div>
 
-    <div class="panel full">
+    <div class="panel full" id="sec-prog">
       <h2>Progression globale dans le temps</h2>
-      <p class="desc">Classe moyenne par session (points) et tendance lissée — la trajectoire d'ensemble. Réagit à la phase et à la catégorie ; couvre tout l'historique.</p>
+      <p class="desc">Classe moyenne par session (points) et tendance lissée — la trajectoire d'ensemble. Les sessions sont espacées régulièrement (pas selon le calendrier réel) : plus de plateaux trompeurs liés aux mois sans entraînement. Réagit à la phase, à la période et à la catégorie.</p>
       <div class="chartbox tall"><canvas id="trend"></canvas></div>
     </div>
 
-    <div class="panel full">
+    <div class="panel full" id="sec-regularite">
       <h2>Régularité d'entraînement</h2>
-      <p class="desc">Essais par jour — repère les séries d'entraînement et les périodes creuses. Réagit à la phase.</p>
+      <p class="desc">Essais par jour — repère les séries d'entraînement et les périodes creuses. Réagit à la phase et à la période.</p>
       <div class="hm-scroll" id="heatmap"></div>
       <div class="hm-legend">
         <span>Moins</span>
@@ -274,7 +342,7 @@
       </div>
     </div>
 
-    <div class="panel full">
+    <div class="panel full" id="sec-prio">
       <h2>Priorités &amp; points forts</h2>
       <p class="desc">Recommandations automatiques : où concentrer l'effort, et ce qui est déjà solide. Clique une carte pour l'ouvrir dans le focus ci-dessous.</p>
       <div class="prio-grid">
@@ -283,7 +351,7 @@
       </div>
     </div>
 
-    <div class="panel full">
+    <div class="panel full" id="sec-niveau">
       <h2>Niveau par exercice</h2>
       <p class="desc">Bande = zone de classe (rouge 1-3 · ambre 4-6 · vert 7-9). Trait = moyenne · point = dernier essai · zone claire = plage min–max.</p>
       <div id="strips"></div>
@@ -294,7 +362,7 @@
       </div>
     </div>
 
-    <div class="panel full focus">
+    <div class="panel full focus" id="sec-focus">
       <div class="focus-head">
         <div>
           <h2>Focus sur un exercice</h2>
@@ -574,6 +642,8 @@ let phase = "all";
 let catFilter = "all";
 let win = 0; // 0 = tous
 let sortMode = "mean";
+let periodKey = "all";          // all | year:2026 | last:3 | last:6 | custom
+let customFrom = null, customTo = null; // 'YYYY-MM-DD' (mode "custom")
 let currentCSVText = null; // texte importé (null = données d'exemple)
 let currentSrcName = "Données d'exemple";
 const charts = {};
@@ -584,7 +654,8 @@ function saveState(){
     const exSel = document.getElementById('exSelect');
     localStorage.setItem(LS_KEY, JSON.stringify({
       csv: currentCSVText, name: currentSrcName,
-      phase, catFilter, win, sortMode, sel: exSel?exSel.value:null
+      phase, catFilter, win, sortMode, periodKey, customFrom, customTo,
+      sel: exSel?exSel.value:null
     }));
   }catch(e){/* quota / mode privé : on ignore */}
 }
@@ -596,8 +667,25 @@ const bandColor = v => v<=3?getCss('--red') : v<=6?getCss('--amber') : getCss('-
 function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 const fmt = x => (Math.round(x*10)/10).toFixed(1);
 
-function phaseRows(){ return phase==="all"?RAW:RAW.filter(r=>r.phase===phase); }
-// vue = phase + catégorie (le radar n'utilise pas ce filtre, il reste global)
+// ---- Filtre de période (s'applique à tout le tableau) ----
+function toISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function periodBounds(){
+  if(periodKey.startsWith('year:')){ const y=+periodKey.slice(5); return {from:new Date(y,0,1,0,0,0), to:new Date(y,11,31,23,59,59)}; }
+  if(periodKey.startsWith('last:')){ const m=+periodKey.slice(5); const to=refNow(); const from=new Date(to); from.setMonth(from.getMonth()-m); return {from,to}; }
+  if(periodKey==='custom'){
+    return {from: customFrom?new Date(customFrom+'T00:00:00'):null,
+            to:   customTo  ?new Date(customTo+'T23:59:59'):null};
+  }
+  return {from:null,to:null};
+}
+function periodActive(){ const {from,to}=periodBounds(); return !!(from||to); }
+function phaseRows(){
+  let r = phase==="all"?RAW:RAW.filter(r=>r.phase===phase);
+  const {from,to}=periodBounds();
+  if(from||to) r=r.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));
+  return r;
+}
+// vue = phase + période + catégorie
 function viewRows(){ const r=phaseRows(); return catFilter==="all"?r:r.filter(x=>x.cat===catFilter); }
 function byExercise(rows){
   const map=new Map();
@@ -704,6 +792,8 @@ function renderVolume(){
     else col=getCss('--amber');
     return {t,n:st.length,col};
   }).sort((a,b)=>b.n-a.n);
+  // hauteur adaptative : des barres lisibles même avec beaucoup d'exercices
+  document.getElementById('volume').parentElement.style.height = Math.min(Math.max(240, entries.length*19), 1000)+'px';
   charts.volume?.destroy();
   charts.volume=new Chart(document.getElementById('volume'),{
     type:'bar',
@@ -834,20 +924,42 @@ function fillCatSelect(){
   sel.value=catFilter;
 }
 
+// Construit les boutons de période à partir des années réellement présentes
+function buildPeriodSeg(){
+  const seg=document.getElementById('periodSeg');
+  const years=[...new Set(RAW.map(r=>r.date.getFullYear()))].sort();
+  // si la période mémorisée pointe vers une année absente → retour à "Tout"
+  if(periodKey.startsWith('year:') && !years.includes(+periodKey.slice(5))) periodKey='all';
+  let html=`<button data-p="all">Tout</button>`;
+  years.forEach(y=>html+=`<button data-p="year:${y}">${y}</button>`);
+  html+=`<button data-p="last:6">6 mois</button><button data-p="last:3">3 mois</button>`;
+  html+=`<button data-p="custom">Perso…</button>`;
+  seg.innerHTML=html;
+  updatePeriodUI();
+}
+function updatePeriodUI(){
+  document.querySelectorAll('#periodSeg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.p===periodKey));
+  document.getElementById('periodCustom').hidden = periodKey!=='custom';
+  if(customFrom) document.getElementById('dateFrom').value=customFrom;
+  if(customTo)   document.getElementById('dateTo').value=customTo;
+}
+
 function renderTrend(){
   const rows=viewRows().slice().sort((a,b)=>a.date-b.date); // phase + catégorie, tout l'historique
   // agrégation par jour (session)
   const byDay=new Map();
   rows.forEach(r=>{ const k=dayKey(r.date); if(!byDay.has(k)) byDay.set(k,{t:r.date.getTime(),v:[]}); byDay.get(k).v.push(r.stanine); });
   const sessions=[...byDay.values()].sort((a,b)=>a.t-b.t);
-  const pts=sessions.map(s=>({x:s.t,y:+fmt(mean(s.v))}));
+  // x = n° de session (espacement régulier) → pas de plateaux dus aux mois sans entraînement
+  const pts=sessions.map((s,i)=>({x:i+1,y:+fmt(mean(s.v))}));
   // moyenne mobile sur 5 sessions
   const roll=sessions.map((_,i)=>{
     const w=sessions.slice(Math.max(0,i-4),i+1).flatMap(s=>s.v);
-    return {x:sessions[i].t,y:+fmt(mean(w))};
+    return {x:i+1,y:+fmt(mean(w))};
   });
-  const obj = pts.length ? [{x:pts[0].x,y:7},{x:pts[pts.length-1].x,y:7}] : [];
+  const obj = sessions.length ? [{x:1,y:7},{x:sessions.length,y:7}] : [];
   const fd=t=>new Date(t).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
+  const fLbl=i=>{ const s=sessions[Math.round(i)-1]; return s?fd(s.t):''; };
   charts.trend?.destroy();
   charts.trend=new Chart(document.getElementById('trend'),{
     data:{datasets:[
@@ -860,9 +972,12 @@ function renderTrend(){
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}}},
-        tooltip:{callbacks:{title:c=>fd(c[0].parsed.x),label:c=>`${c.dataset.label}: ${c.parsed.y}`}}},
+        tooltip:{callbacks:{title:c=>fLbl(c[0].parsed.x),label:c=>`${c.dataset.label}: ${c.parsed.y}`}}},
       scales:{
-        x:{type:'linear',ticks:{color:getCss('--faint'),font:{size:10},maxTicksLimit:8,callback:v=>fd(v)},
+        x:{type:'linear',min:1,offset:true,
+          title:{display:true,text:'sessions (espacées régulièrement)',color:getCss('--faint'),font:{size:10}},
+          ticks:{color:getCss('--faint'),font:{size:9},maxTicksLimit:8,autoSkip:true,
+            callback:v=>(Number.isInteger(v)?fLbl(v):'')},
           grid:{color:'rgba(255,255,255,.05)'}},
         y:{min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}
   });
@@ -985,6 +1100,21 @@ document.getElementById('phaseSeg').addEventListener('click',e=>{
 document.getElementById('catSelect').addEventListener('change',e=>{
   catFilter=e.target.value; fillExerciseSelect(); renderAll(); saveState();
 });
+document.getElementById('periodSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  periodKey=b.dataset.p;
+  if(periodKey==='custom'){ // pré-remplit les bornes avec l'étendue des données
+    const ds=RAW.map(r=>r.date);
+    if(ds.length){ if(!customFrom) customFrom=toISO(new Date(Math.min(...ds))); if(!customTo) customTo=toISO(new Date(Math.max(...ds))); }
+  }
+  updatePeriodUI();
+  fillCatSelect(); fillExerciseSelect(); renderAll(); saveState();
+});
+['dateFrom','dateTo'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{
+  if(id==='dateFrom') customFrom=e.target.value||null; else customTo=e.target.value||null;
+  periodKey='custom'; updatePeriodUI();
+  fillCatSelect(); fillExerciseSelect(); renderAll(); saveState();
+}));
 document.getElementById('sortSelect').addEventListener('change',e=>{
   sortMode=e.target.value; renderStrips(); saveState();
 });
@@ -999,7 +1129,9 @@ document.getElementById('resetBtn').addEventListener('click',()=>{
   currentCSVText=null; currentSrcName="Données d'exemple";
   RAW=parseCSV(DEFAULT_CSV);
   phase="all"; catFilter="all"; win=0; sortMode="mean";
+  periodKey="all"; customFrom=null; customTo=null;
   applyControlsToUI();
+  buildPeriodSeg();
   fillCatSelect(); fillExerciseSelect();
   document.getElementById('exSelect').value='Grilles de calculs';
   renderAll();
@@ -1024,6 +1156,7 @@ function loadCSVText(text,srcName){
   if(!parsed.length){ setStatus('Aucune ligne exploitable dans ce fichier. Attendu : test,score,stanine,date','err'); return; }
   RAW=parsed;
   currentCSVText=text; currentSrcName=srcName;
+  buildPeriodSeg();
   fillCatSelect();
   fillExerciseSelect();
   renderAll();
@@ -1069,10 +1202,13 @@ if(saved){
   if(saved.catFilter) catFilter=saved.catFilter;
   if(typeof saved.win==='number') win=saved.win;
   if(saved.sortMode) sortMode=saved.sortMode;
+  if(saved.periodKey) periodKey=saved.periodKey;
+  customFrom=saved.customFrom||null; customTo=saved.customTo||null;
   restoredSel=saved.sel||null;
 }
 
 applyControlsToUI();
+buildPeriodSeg();
 fillCatSelect();
 fillExerciseSelect();
 // sélection focus : restaurée, sinon l'exercice faible à fort volume = la 1re vue la plus utile
