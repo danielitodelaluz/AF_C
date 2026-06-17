@@ -117,6 +117,59 @@
 
   .empty{color:var(--faint);font-family:var(--mono);font-size:12px;padding:30px 0;text-align:center}
 
+  /* KPI delta accents */
+  .gauge.pos::before{background:var(--green)} .gauge.neg::before{background:var(--red)} .gauge.flat::before{background:var(--amber)}
+  .gauge .val .delta{font-size:15px;margin-left:2px}
+
+  /* Reset button + sort */
+  .import-actions{display:flex;gap:10px;align-items:center}
+  .resetbtn{border:1px solid var(--line);color:var(--muted);background:transparent;border-radius:8px;
+    padding:9px 14px;font-family:var(--mono);font-size:11px;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
+  .resetbtn:hover{border-color:var(--red);color:var(--red)}
+
+  /* Trend arrow on strips */
+  .strip .trend{font-family:var(--mono);font-size:12px;margin-left:6px}
+
+  /* Priorities & strengths */
+  .prio-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  @media(max-width:760px){.prio-grid{grid-template-columns:1fr}}
+  .prio-col h3{font-size:13px;font-weight:600;margin:0 0 12px}
+  .card{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:9px;
+    cursor:pointer;transition:border-color .15s,transform .1s}
+  .card:hover{border-color:var(--accent)} .card:active{transform:scale(.995)}
+  .card-left{min-width:0}
+  .card .cn{font-size:13px;font-weight:500}
+  .card .cc{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:2px}
+  .card .cm{font-family:var(--mono);font-size:18px;font-weight:600;line-height:1;white-space:nowrap}
+  .card .cm small{font-size:10px;color:var(--faint)}
+  .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .tag{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
+  .tag.red{color:var(--red);border-color:rgba(226,96,79,.4)}
+  .tag.amber{color:var(--amber);border-color:rgba(224,162,58,.4)}
+  .tag.green{color:var(--green);border-color:rgba(70,185,133,.4)}
+  .tag.faint{color:var(--faint)}
+
+  /* Training heatmap */
+  .hm-scroll{overflow-x:auto;padding-bottom:4px}
+  .hm-months{display:flex;gap:3px;padding-left:30px;height:13px;margin-bottom:4px;
+    font-family:var(--mono);font-size:9px;color:var(--faint)}
+  .hm-months .m{flex:0 0 12px;width:12px;white-space:nowrap;position:relative;overflow:visible}
+  .hm-body{display:flex;gap:6px}
+  .hm-days{display:flex;flex-direction:column;gap:3px;padding-top:0}
+  .hm-days span{height:12px;line-height:12px;font-family:var(--mono);font-size:9px;color:var(--faint);width:24px;text-align:right}
+  .hm-grid{display:flex;gap:3px}
+  .hm-col{display:flex;flex-direction:column;gap:3px}
+  .hm-cell{width:12px;height:12px;border-radius:3px;background:var(--panel2);border:1px solid var(--line)}
+  .hm-cell.lvl1{background:rgba(90,209,196,.22);border-color:transparent}
+  .hm-cell.lvl2{background:rgba(90,209,196,.45);border-color:transparent}
+  .hm-cell.lvl3{background:rgba(90,209,196,.72);border-color:transparent}
+  .hm-cell.lvl4{background:var(--accent);border-color:transparent}
+  .hm-cell.void{background:transparent;border-color:transparent}
+  .hm-legend{display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-top:10px;
+    font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .hm-legend .hm-cell{display:inline-block}
+
   @media (max-width:860px){
     .grid{grid-template-columns:1fr}
     .controls{gap:14px}
@@ -144,7 +197,10 @@
         <div class="import-sub" id="dataStatus">—</div>
       </div>
     </div>
-    <label class="filebtn" for="fileIn">Choisir un fichier…</label>
+    <div class="import-actions">
+      <label class="filebtn" for="fileIn">Choisir un fichier…</label>
+      <button class="resetbtn" id="resetBtn" title="Recharger les données d'exemple et oublier l'import">Réinitialiser</button>
+    </div>
     <input type="file" id="fileIn" accept=".csv,text/csv">
   </div>
 
@@ -168,6 +224,17 @@
       <label>Catégorie</label>
       <select id="catSelect" aria-label="Filtre de catégorie"></select>
     </div>
+    <div class="ctl">
+      <label>Trier « Niveau par exercice »</label>
+      <select id="sortSelect" aria-label="Tri des exercices">
+        <option value="mean">Plus faibles d'abord</option>
+        <option value="meanDesc">Plus forts d'abord</option>
+        <option value="trend">Tendance (baisse → hausse)</option>
+        <option value="recent">Plus récents d'abord</option>
+        <option value="volume">Volume d'essais</option>
+        <option value="alpha">Alphabétique</option>
+      </select>
+    </div>
     <p class="hint">Phase, catégorie et fenêtre s'appliquent à tout le tableau (sauf le radar, qui garde la vue d'ensemble de toutes les catégories). La fenêtre agit sur le niveau, pas sur le volume : « nombre d'essais » montre toujours tout l'historique.</p>
   </div>
 
@@ -187,6 +254,32 @@
         <span><i class="dot" style="background:var(--amber)"></i>plateau</span>
         <span><i class="dot" style="background:var(--red)"></i>en baisse</span>
         <span><i class="dot" style="background:var(--faint)"></i>peu de données (&lt;4)</span>
+      </div>
+    </div>
+
+    <div class="panel full">
+      <h2>Progression globale dans le temps</h2>
+      <p class="desc">Classe moyenne par session (points) et tendance lissée — la trajectoire d'ensemble. Réagit à la phase et à la catégorie ; couvre tout l'historique.</p>
+      <div class="chartbox tall"><canvas id="trend"></canvas></div>
+    </div>
+
+    <div class="panel full">
+      <h2>Régularité d'entraînement</h2>
+      <p class="desc">Essais par jour — repère les séries d'entraînement et les périodes creuses. Réagit à la phase.</p>
+      <div class="hm-scroll" id="heatmap"></div>
+      <div class="hm-legend">
+        <span>Moins</span>
+        <i class="hm-cell"></i><i class="hm-cell lvl1"></i><i class="hm-cell lvl2"></i><i class="hm-cell lvl3"></i><i class="hm-cell lvl4"></i>
+        <span>Plus</span>
+      </div>
+    </div>
+
+    <div class="panel full">
+      <h2>Priorités &amp; points forts</h2>
+      <p class="desc">Recommandations automatiques : où concentrer l'effort, et ce qui est déjà solide. Clique une carte pour l'ouvrir dans le focus ci-dessous.</p>
+      <div class="prio-grid">
+        <div class="prio-col"><h3>🎯 À travailler en priorité</h3><div id="prioWork"></div></div>
+        <div class="prio-col"><h3>✅ Points forts</h3><div id="prioStrong"></div></div>
       </div>
     </div>
 
@@ -464,21 +557,40 @@ function parseCSV(text){
     const p=line.split(",");
     if(p.length<4) continue;
     const test=p[0].trim();
+    const score=parseFloat(p[1]); // "27%" -> 27
     const stanine=parseInt(p[2],10);
     const date=parseFrDate(p.slice(3).join(","));
     if(!test||isNaN(stanine)||!date) continue;
     const cfg=CONFIG[test]||{cat:"Autre",phase:"PSY0"};
-    out.push({test,stanine,date,cat:cfg.cat,phase:cfg.phase});
+    out.push({test,score:isNaN(score)?null:score,stanine,date,cat:cfg.cat,phase:cfg.phase});
   }
   return out.sort((a,b)=>a.date-b.date);
 }
 
 /* ----------------------- State ----------------------- */
+const LS_KEY = "pilotest_dashboard_v2";
 let RAW = parseCSV(DEFAULT_CSV);
 let phase = "all";
 let catFilter = "all";
 let win = 0; // 0 = tous
+let sortMode = "mean";
+let currentCSVText = null; // texte importé (null = données d'exemple)
+let currentSrcName = "Données d'exemple";
 const charts = {};
+
+/* ----------------------- Persistance (localStorage) ----------------------- */
+function saveState(){
+  try{
+    const exSel = document.getElementById('exSelect');
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      csv: currentCSVText, name: currentSrcName,
+      phase, catFilter, win, sortMode, sel: exSel?exSel.value:null
+    }));
+  }catch(e){/* quota / mode privé : on ignore */}
+}
+function loadState(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY)||"null"); }catch(e){ return null; }
+}
 
 const bandColor = v => v<=3?getCss('--red') : v<=6?getCss('--amber') : getCss('--green');
 function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
@@ -495,6 +607,25 @@ function byExercise(rows){
 }
 function windowed(arr){ return win>0 ? arr.slice(-win) : arr; }
 function mean(a){ return a.length? a.reduce((x,y)=>x+y,0)/a.length : 0; }
+function stdev(a){ if(a.length<2) return 0; const m=mean(a); return Math.sqrt(mean(a.map(x=>(x-m)**2))); }
+const DAY=86400000;
+function dayKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function refNow(){ return RAW.length ? RAW[RAW.length-1].date : new Date(); } // dernière session = "maintenant"
+// tendance = 2e moitié vs 1re moitié de l'historique complet de l'exercice
+function trendDelta(arr){ const st=arr.map(x=>x.stanine); if(st.length<4) return null; const h=Math.floor(st.length/2); return mean(st.slice(h))-mean(st.slice(0,h)); }
+function trendInfo(d){
+  if(d===null) return {sym:'·',col:getCss('--faint'),txt:'peu de données'};
+  if(d>=0.75)  return {sym:'▲',col:getCss('--green'),txt:'en progression'};
+  if(d<=-0.75) return {sym:'▼',col:getCss('--red'),  txt:'en baisse'};
+  return {sym:'▶',col:getCss('--amber'),txt:'plateau'};
+}
+// momentum global : moyenne des k derniers essais vs les k précédents
+function momentum(rows){
+  const s=rows.slice().sort((a,b)=>a.date-b.date).map(r=>r.stanine);
+  if(s.length<6) return null;
+  const k=Math.min(10,Math.floor(s.length/2));
+  return mean(s.slice(-k))-mean(s.slice(-2*k,-k));
+}
 
 /* ----------------------- Renderers ----------------------- */
 function renderReadout(){
@@ -509,12 +640,25 @@ function renderReadout(){
   const f=v=>v.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
   document.getElementById('rangeline').textContent =
     rows.length? `${rows.length} essais · ${map.size} exercices · ${f(dates[0])} → ${f(dates[dates.length-1])}` : 'Aucune donnée';
+  // momentum + nombre de sessions (jours distincts)
+  const mom=momentum(rows);
+  let momHtml;
+  if(mom===null){ momHtml=`<div class="gauge"><div class="lab">Momentum récent</div><div class="val">–</div></div>`; }
+  else{
+    const cls = mom>=0.5?'pos':mom<=-0.5?'neg':'flat';
+    const arrow = mom>=0.5?'▲':mom<=-0.5?'▼':'▶';
+    momHtml=`<div class="gauge ${cls}"><div class="lab">Momentum récent</div>
+      <div class="val">${mom>0?'+':''}${fmt(mom)}<span class="delta">${arrow}</span></div></div>`;
+  }
+  const sessions=new Set(rows.map(x=>dayKey(x.date))).size;
   const ro=document.getElementById('readout');
   ro.innerHTML=`
     <div class="gauge green"><div class="lab">Zone verte · 7-9</div><div class="val">${g}<small> exos</small></div></div>
     <div class="gauge amber"><div class="lab">Zone ambre · 4-6</div><div class="val">${a}<small> exos</small></div></div>
     <div class="gauge red"><div class="lab">Zone rouge · 1-3</div><div class="val">${r}<small> exos</small></div></div>
-    <div class="gauge"><div class="lab">Classe moy. globale</div><div class="val">${rows.length?fmt(mean(windowed_all(map))):'–'}</div></div>`;
+    <div class="gauge"><div class="lab">Classe moy. globale</div><div class="val">${rows.length?fmt(mean(windowed_all(map))):'–'}</div></div>
+    ${momHtml}
+    <div class="gauge"><div class="lab">Sessions</div><div class="val">${sessions}<small> jours</small></div></div>`;
 }
 function windowed_all(map){
   let acc=[]; for(const arr of map.values()) acc=acc.concat(windowed(arr).map(x=>x.stanine)); return acc;
@@ -578,14 +722,26 @@ function renderStrips(){
   if(!map.size){ box.innerHTML='<div class="empty">Aucune donnée pour ce filtre.</div>'; return; }
   const entries=[...map.entries()].map(([t,arr])=>{
     const w=windowed(arr).map(x=>x.stanine);
-    return {t,cat:arr[0].cat,n:w.length,mean:mean(w),min:Math.min(...w),max:Math.max(...w),last:w[w.length-1]};
-  }).sort((a,b)=>a.mean-b.mean);
+    return {t,cat:arr[0].cat,n:w.length,mean:mean(w),sd:stdev(w),
+      min:Math.min(...w),max:Math.max(...w),last:w[w.length-1],
+      trend:trendDelta(arr),lastDate:arr[arr.length-1].date};
+  });
+  const sorters={
+    mean:(a,b)=>a.mean-b.mean,
+    meanDesc:(a,b)=>b.mean-a.mean,
+    trend:(a,b)=>((a.trend===null?9:a.trend)-(b.trend===null?9:b.trend)),
+    recent:(a,b)=>b.lastDate-a.lastDate,
+    volume:(a,b)=>b.n-a.n,
+    alpha:(a,b)=>a.t.localeCompare(b.t,'fr')
+  };
+  entries.sort(sorters[sortMode]||sorters.mean);
   const pos=v=>((v-1)/8*100);
   box.innerHTML=entries.map(e=>{
     const lo=pos(e.min),hi=pos(e.max);
+    const ti=trendInfo(e.trend);
     return `<div class="strip">
       <div class="top">
-        <div class="nm">${e.t}<span class="cat">${e.cat}</span></div>
+        <div class="nm">${e.t}<span class="cat">${e.cat}</span><span class="trend" style="color:${ti.col}" title="${ti.txt}">${ti.sym}</span></div>
         <div class="rd" style="color:${bandColor(e.mean)}">${fmt(e.mean)}</div>
       </div>
       <div class="tape">
@@ -593,7 +749,7 @@ function renderStrips(){
         <div class="mean" style="left:${pos(e.mean)}%"></div>
         <div class="last" style="left:${pos(e.last)}%;background:${bandColor(e.last)}"></div>
       </div>
-      <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last}</div>
+      <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last} · régularité σ ${fmt(e.sd)}</div>
     </div>`;
   }).join('')+`<div class="scaleticks"><span>1</span><span>3</span><span>5</span><span>7</span><span>9</span></div>`;
 }
@@ -678,8 +834,145 @@ function fillCatSelect(){
   sel.value=catFilter;
 }
 
+function renderTrend(){
+  const rows=viewRows().slice().sort((a,b)=>a.date-b.date); // phase + catégorie, tout l'historique
+  // agrégation par jour (session)
+  const byDay=new Map();
+  rows.forEach(r=>{ const k=dayKey(r.date); if(!byDay.has(k)) byDay.set(k,{t:r.date.getTime(),v:[]}); byDay.get(k).v.push(r.stanine); });
+  const sessions=[...byDay.values()].sort((a,b)=>a.t-b.t);
+  const pts=sessions.map(s=>({x:s.t,y:+fmt(mean(s.v))}));
+  // moyenne mobile sur 5 sessions
+  const roll=sessions.map((_,i)=>{
+    const w=sessions.slice(Math.max(0,i-4),i+1).flatMap(s=>s.v);
+    return {x:sessions[i].t,y:+fmt(mean(w))};
+  });
+  const obj = pts.length ? [{x:pts[0].x,y:7},{x:pts[pts.length-1].x,y:7}] : [];
+  const fd=t=>new Date(t).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
+  charts.trend?.destroy();
+  charts.trend=new Chart(document.getElementById('trend'),{
+    data:{datasets:[
+      {type:'line',label:'Tendance (moy. mobile 5 sessions)',data:roll,borderColor:getCss('--accent'),
+        borderWidth:2.5,tension:.3,pointRadius:0,fill:false},
+      {type:'scatter',label:'Moyenne / session',data:pts,
+        pointBackgroundColor:pts.map(p=>bandColor(p.y)),pointRadius:3.5,pointBorderColor:getCss('--bg'),pointBorderWidth:1},
+      {type:'line',label:'Objectif (7)',data:obj,borderColor:'rgba(70,185,133,.55)',
+        borderDash:[5,4],borderWidth:1,pointRadius:0,fill:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:10}}},
+        tooltip:{callbacks:{title:c=>fd(c[0].parsed.x),label:c=>`${c.dataset.label}: ${c.parsed.y}`}}},
+      scales:{
+        x:{type:'linear',ticks:{color:getCss('--faint'),font:{size:10},maxTicksLimit:8,callback:v=>fd(v)},
+          grid:{color:'rgba(255,255,255,.05)'}},
+        y:{min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}
+  });
+}
+
+function renderHeatmap(){
+  const rows=phaseRows();
+  const box=document.getElementById('heatmap');
+  if(!rows.length){ box.innerHTML='<div class="empty">Aucune donnée pour ce filtre.</div>'; return; }
+  const byDay=new Map();
+  rows.forEach(r=>{ const k=dayKey(r.date); const o=byDay.get(k)||{n:0,sum:0}; o.n++; o.sum+=r.stanine; byDay.set(k,o); });
+  const ts=rows.map(r=>r.date.getTime());
+  let start=new Date(Math.min(...ts)), end=new Date(Math.max(...ts));
+  start.setHours(0,0,0,0); end.setHours(0,0,0,0);
+  // reculer jusqu'au lundi
+  start.setDate(start.getDate()-((start.getDay()+6)%7));
+  const lvl=n=> n===0?0 : n<=1?1 : n<=2?2 : n<=4?3 : 4;
+  const MN=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  const weeks=[]; let cur=new Date(start);
+  while(cur<=end){
+    const week=[];
+    for(let d=0;d<7;d++){
+      const inRange = cur>=start && cur<=end;
+      const k=dayKey(cur), o=byDay.get(k);
+      week.push(inRange?{date:new Date(cur),n:o?o.n:0,mean:o?o.sum/o.n:null}:null);
+      cur.setDate(cur.getDate()+1);
+    }
+    weeks.push(week);
+  }
+  // libellés de mois (au changement de mois, sur la 1re ligne de chaque colonne)
+  let months=''; let prevMonth=-1;
+  weeks.forEach(w=>{
+    const first=w.find(c=>c); const mo=first?first.date.getMonth():-1;
+    months+=`<div class="m">${mo!==prevMonth&&first?MN[mo]:''}</div>`;
+    if(first) prevMonth=mo;
+  });
+  let grid='';
+  weeks.forEach(w=>{
+    let col='<div class="hm-col">';
+    w.forEach(c=>{
+      if(!c){ col+='<div class="hm-cell void"></div>'; return; }
+      const title=`${c.date.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short'})} — ${c.n} essai${c.n>1?'s':''}${c.mean!==null?` · moy. ${fmt(c.mean)}`:''}`;
+      col+=`<div class="hm-cell${c.n?(' lvl'+lvl(c.n)):''}" title="${title}"></div>`;
+    });
+    grid+=col+'</div>';
+  });
+  const days=['Lun','','Mer','','Ven','',''];
+  box.innerHTML=
+    `<div class="hm-months">${months}</div>`+
+    `<div class="hm-body"><div class="hm-days">${days.map(d=>`<span>${d}</span>`).join('')}</div>`+
+    `<div class="hm-grid">${grid}</div></div>`;
+}
+
+function selectFocus(value){
+  const sel=document.getElementById('exSelect');
+  if([...sel.options].some(o=>o.value===value)){
+    sel.value=value; renderProg(); renderHist(); saveState();
+    document.querySelector('.panel.focus').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+}
+
+function renderPriorities(){
+  const rows=viewRows(); const map=byExercise(rows); const now=refNow();
+  const stats=[...map.entries()].map(([t,arr])=>{
+    const w=windowed(arr).map(x=>x.stanine);
+    const m=mean(w), d=trendDelta(arr);
+    const daysSince=Math.round((now-arr[arr.length-1].date)/DAY);
+    return {t,cat:arr[0].cat,m,d,daysSince,n:arr.length};
+  });
+  // ---- À travailler : score composite ----
+  const work=stats.map(s=>{
+    let score=0; const tags=[];
+    if(s.m<7){ score+=(7-s.m)*1.2;
+      if(s.m<4) tags.push({t:'Zone rouge',c:'red'}); else tags.push({t:'Sous objectif',c:'amber'}); }
+    if(s.d!==null && s.d<=-0.75){ score+=2; tags.push({t:'En baisse',c:'red'}); }
+    if(s.daysSince>=14){ score+=1.5; tags.push({t:`${s.daysSince} j sans pratique`,c:'amber'}); }
+    if(s.n<4){ score+=1; tags.push({t:'Peu d\'essais',c:'faint'}); }
+    return {...s,score,tags};
+  }).filter(s=>s.score>0).sort((a,b)=>b.score-a.score).slice(0,6);
+
+  // ---- Points forts ----
+  const strong=stats.filter(s=>s.m>=7).sort((a,b)=>b.m-a.m).slice(0,6).map(s=>{
+    const tags=[];
+    if(s.d!==null && s.d>=0.75) tags.push({t:'En progression',c:'green'});
+    if(s.m>=8) tags.push({t:'Excellent',c:'green'});
+    if(s.daysSince>=21) tags.push({t:'À entretenir',c:'amber'});
+    return {...s,tags};
+  });
+
+  const card=s=>`<div class="card" data-ex="${s.t.replace(/"/g,'&quot;')}">
+      <div class="card-left">
+        <div class="cn">${s.t}</div><div class="cc">${s.cat}</div>
+        ${s.tags.length?`<div class="tags">${s.tags.map(g=>`<span class="tag ${g.c}">${g.t}</span>`).join('')}</div>`:''}
+      </div>
+      <div class="cm" style="color:${bandColor(s.m)}">${fmt(s.m)}<small> /9</small></div>
+    </div>`;
+
+  document.getElementById('prioWork').innerHTML =
+    work.length?work.map(card).join(''):'<div class="empty">Rien d\'urgent — tout est au-dessus de l\'objectif 🎉</div>';
+  document.getElementById('prioStrong').innerHTML =
+    strong.length?strong.map(card).join(''):'<div class="empty">Aucun exercice encore en zone verte (≥ 7).</div>';
+
+  document.querySelectorAll('#prioWork .card,#prioStrong .card').forEach(c=>{
+    c.addEventListener('click',()=>selectFocus(c.dataset.ex));
+  });
+}
+
 function renderAll(){
-  renderReadout(); renderRadar(); renderVolume(); renderStrips(); renderProg(); renderHist();
+  renderReadout(); renderRadar(); renderVolume(); renderTrend(); renderHeatmap();
+  renderPriorities(); renderStrips(); renderProg(); renderHist();
 }
 
 /* ----------------------- Wiring ----------------------- */
@@ -687,17 +980,31 @@ document.getElementById('phaseSeg').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
   phase=b.dataset.phase;
   [...e.currentTarget.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed',x===b));
-  fillCatSelect(); fillExerciseSelect(); renderAll();
+  fillCatSelect(); fillExerciseSelect(); renderAll(); saveState();
 });
 document.getElementById('catSelect').addEventListener('change',e=>{
-  catFilter=e.target.value; fillExerciseSelect(); renderAll();
+  catFilter=e.target.value; fillExerciseSelect(); renderAll(); saveState();
+});
+document.getElementById('sortSelect').addEventListener('change',e=>{
+  sortMode=e.target.value; renderStrips(); saveState();
 });
 const wr=document.getElementById('winRange'), wv=document.getElementById('winVal');
 wr.addEventListener('input',()=>{
   win=+wr.value; wv.textContent = win===0?'Tous':('n = '+win);
-  renderAll();
+  renderAll(); saveState();
 });
-document.getElementById('exSelect').addEventListener('change',()=>{renderProg();renderHist();});
+document.getElementById('exSelect').addEventListener('change',()=>{renderProg();renderHist();saveState();});
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  currentCSVText=null; currentSrcName="Données d'exemple";
+  RAW=parseCSV(DEFAULT_CSV);
+  phase="all"; catFilter="all"; win=0; sortMode="mean";
+  applyControlsToUI();
+  fillCatSelect(); fillExerciseSelect();
+  document.getElementById('exSelect').value='Grilles de calculs';
+  renderAll();
+  setStatus("Données d'exemple rechargées — glisse ton export ici ou clique sur « Choisir un fichier ».");
+});
 
 /* ---- Import CSV : statut + chargement + glisser-déposer ---- */
 function setStatus(msg,cls){
@@ -716,10 +1023,12 @@ function loadCSVText(text,srcName){
   catch(err){ setStatus('Erreur de lecture : '+err.message,'err'); return; }
   if(!parsed.length){ setStatus('Aucune ligne exploitable dans ce fichier. Attendu : test,score,stanine,date','err'); return; }
   RAW=parsed;
+  currentCSVText=text; currentSrcName=srcName;
   fillCatSelect();
   fillExerciseSelect();
   renderAll();
   statusFromData(srcName);
+  saveState();
 }
 function handleFile(file){
   if(!file) return;
@@ -741,12 +1050,38 @@ dz.addEventListener('drop',ev=>{
   else setStatus('Dépose un fichier .csv.','err');
 });
 
+// reflète l'état (phase / fenêtre / tri / catégorie) dans les contrôles
+function applyControlsToUI(){
+  [...document.querySelectorAll('#phaseSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.phase===phase));
+  wr.value=win; wv.textContent = win===0?'Tous':('n = '+win);
+  document.getElementById('sortSelect').value=sortMode;
+}
+
+/* ---- Restauration de la session précédente (localStorage) ---- */
+const saved=loadState();
+let restoredSel=null;
+if(saved){
+  if(saved.csv){
+    const parsed=parseCSV(saved.csv);
+    if(parsed.length){ RAW=parsed; currentCSVText=saved.csv; currentSrcName=saved.name||"Import"; }
+  }
+  if(saved.phase) phase=saved.phase;
+  if(saved.catFilter) catFilter=saved.catFilter;
+  if(typeof saved.win==='number') win=saved.win;
+  if(saved.sortMode) sortMode=saved.sortMode;
+  restoredSel=saved.sel||null;
+}
+
+applyControlsToUI();
 fillCatSelect();
 fillExerciseSelect();
-// default selection: the weakest high-volume exercise is the most useful first view
-document.getElementById('exSelect').value='Grilles de calculs';
+// sélection focus : restaurée, sinon l'exercice faible à fort volume = la 1re vue la plus utile
+const exSel=document.getElementById('exSelect');
+if(restoredSel && [...exSel.options].some(o=>o.value===restoredSel)) exSel.value=restoredSel;
+else if([...exSel.options].some(o=>o.value==='Grilles de calculs')) exSel.value='Grilles de calculs';
 renderAll();
-setStatus("Données d'exemple chargées — glisse ton export ici ou clique sur « Choisir un fichier ».");
+if(currentCSVText) statusFromData(currentSrcName);
+else setStatus("Données d'exemple chargées — glisse ton export ici ou clique sur « Choisir un fichier ».");
 </script>
 </body>
 </html>
