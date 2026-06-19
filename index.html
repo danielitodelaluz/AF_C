@@ -149,6 +149,30 @@
   .card .cm{font-family:var(--mono);font-size:18px;font-weight:600;line-height:1;white-space:nowrap}
   .card .cm small{font-size:10px;color:var(--faint)}
   .card .cmeta{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:7px}
+
+  /* Programme de travail (séance générée) */
+  .session{margin-bottom:22px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+  .session-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .session-head h3{font-size:14px;font-weight:600;margin:0}
+  .session-bilan{font-family:var(--mono);font-size:11px;color:var(--muted);
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 11px}
+  .session-bilan.ok{color:var(--green);border-color:rgba(70,185,133,.4)}
+  .session-bilan.warn{color:var(--amber);border-color:rgba(224,162,58,.4)}
+  .session-days{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .sday{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .sday-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+    margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .sday-t{font-weight:600;font-size:12px}
+  .sday-sub{font-family:var(--mono);font-size:9.5px;color:var(--faint);white-space:nowrap}
+  .sitem{display:flex;align-items:center;gap:10px;padding:7px 6px;margin:0 -6px;border-radius:7px;cursor:pointer;transition:background .12s}
+  .sitem:hover{background:rgba(255,255,255,.04)}
+  .si-reps{flex:0 0 auto;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);
+    background:rgba(90,209,196,.1);border:1px solid rgba(90,209,196,.32);border-radius:6px;padding:3px 7px;min-width:34px;text-align:center}
+  .si-main{min-width:0}
+  .si-n{font-size:12.5px;font-weight:500}
+  .si-why{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:1px}
+  .sday-rest{font-family:var(--mono);font-size:10px;color:var(--faint);padding:10px 2px}
+  @media(max-width:760px){.session-days{grid-template-columns:1fr}}
   .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
   .tag{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
   .tag.red{color:var(--red);border-color:rgba(226,96,79,.4)}
@@ -350,6 +374,7 @@
     <div class="panel full" id="sec-prio">
       <h2>Priorités &amp; points forts</h2>
       <p class="desc">Recommandations façon coach : on combine ton niveau et le temps écoulé. Un point faible négligé remonte vite ; un exercice acquis (classes 8-9) se révise rarement — le rythme conseillé s'allonge avec la maîtrise. Clique une carte pour l'ouvrir dans le focus.</p>
+      <div id="sessionPlan"></div>
       <div class="prio-grid">
         <div class="prio-col"><h3>🎯 À travailler en priorité</h3><div id="prioWork"></div></div>
         <div class="prio-col"><h3>✅ Points forts</h3><div id="prioStrong"></div></div>
@@ -1083,35 +1108,126 @@ function selectFocus(value){
   }
 }
 
-function renderPriorities(){
-  const rows=viewRows(); const map=byExercise(rows); const now=refNow();
-  const stats=[...map.entries()].map(([t,arr])=>{
+const MAX_PER_DAY=5;
+function exerciseStats(rows, now){
+  const map=byExercise(rows);
+  return [...map.entries()].map(([t,arr])=>{
     const w=windowed(arr).map(x=>x.stanine);
     const m=mean(w), d=trendDelta(arr);
     const daysSince=Math.round((now-arr[arr.length-1].date)/DAY);
-    const ideal=idealInterval(m);          // rythme conseillé (jours), selon le niveau
-    const overdue=daysSince/ideal;          // 1 = pile à refaire · >1 = en retard
+    const ideal=idealInterval(m), overdue=daysSince/ideal;
     return {t,cat:arr[0].cat,m,d,daysSince,n:arr.length,ideal,overdue};
   });
-  // ---- À travailler : score composite « coach » ----
-  // Faiblesse + à-réviser pondéré par le niveau (un point faible négligé remonte
-  // vite ; un exercice fort n'est jamais poussé ici juste parce qu'il est ancien).
-  const work=stats.map(s=>{
-    let score=0; const tags=[];
-    if(s.m<7){ score+=(7-s.m)*1.1;
-      if(s.m<4) tags.push({t:'Zone rouge',c:'red'}); else tags.push({t:'Sous objectif',c:'amber'}); }
-    // temporalité adaptée au niveau (seulement tant que l'objectif n'est pas atteint)
-    if(s.m<7 && s.overdue>=1){
-      const levelWeight=clamp((9-s.m)/6,.3,1.4);        // faible → fort poids · proche objectif → faible
-      score+=Math.min(s.overdue,3)*levelWeight*1.4;
-      tags.push(s.overdue>=2 ? {t:'En retard',c:'red'} : {t:'À réviser',c:'amber'});
-    }
-    if(s.d!==null && s.d<=-0.75){ score+=2; tags.push({t:'En baisse',c:'red'}); }
-    if(s.n<4){ score+=1; tags.push({t:'Peu d\'essais',c:'faint'}); }
-    return {...s,score,tags,showRhythm:true};
-  }).filter(s=>s.score>0).sort((a,b)=>b.score-a.score).slice(0,6);
+}
+// score colonne « à travailler » (centré sur les exercices non acquis)
+function workScore(s){
+  let score=0; const tags=[];
+  if(s.m<7){ score+=(7-s.m)*1.1; if(s.m<4) tags.push({t:'Zone rouge',c:'red'}); else tags.push({t:'Sous objectif',c:'amber'}); }
+  if(s.m<7 && s.overdue>=1){ const lw=clamp((9-s.m)/6,.3,1.4); score+=Math.min(s.overdue,3)*lw*1.4;
+    tags.push(s.overdue>=2?{t:'En retard',c:'red'}:{t:'À réviser',c:'amber'}); }
+  if(s.d!==null && s.d<=-0.75){ score+=2; tags.push({t:'En baisse',c:'red'}); }
+  if(s.n<4){ score+=1; tags.push({t:'Peu d\'essais',c:'faint'}); }
+  return {score,tags};
+}
+// score séance : « à travailler » + un peu d'entretien pour les acquis dus
+function sessionScore(s){
+  let sc=workScore(s).score;
+  if(s.m>=7 && s.overdue>=1) sc+=Math.min(s.overdue,2)*0.45;
+  return sc;
+}
+// nombre d'essais conseillés, selon niveau / situation
+function sessionReps(s){
+  let r = s.m<3?4 : s.m<5?3 : s.m<7?2 : 1;
+  if(s.d!==null && s.d<=-0.75) r++;
+  if(s.n<3) r=Math.max(r,3);
+  return clamp(r,1,4);
+}
+function sessionReason(s){
+  if(s.n<3) return `classe ${fmt(s.m)} · établir une base`;
+  if(s.m<4) return `classe ${fmt(s.m)} · à consolider`;
+  if(s.d!==null && s.d<=-0.75) return `classe ${fmt(s.m)} · en baisse`;
+  if(s.overdue>=2) return `classe ${fmt(s.m)} · en retard (${s.daysSince}j)`;
+  if(s.m<7) return `classe ${fmt(s.m)} · sous l'objectif`;
+  return `classe ${fmt(s.m)} · entretien`;
+}
+// planifie les 3 prochaines séances. J0 = les exercices les plus prioritaires
+// (séance toujours pleine s'il y a du travail). Faire un exercice repousse sa
+// prochaine échéance de son intervalle idéal → rotation sur J+1 / J+2 : les
+// exercices faibles (intervalle court) reviennent, les autres laissent la place.
+function buildSchedule(stats){
+  const MIN_PER_DAY=3;
+  const pool=stats.map(s=>({...s,_sc:sessionScore(s)})).filter(s=>s._sc>0).sort((a,b)=>b._sc-a._sc);
+  pool.forEach(s=>{ s._next=0; }); // éligible dès J0
+  const days=[[],[],[]];
+  for(let day=0; day<3; day++){
+    const chosen=[];
+    for(const s of pool){ if(chosen.length>=MAX_PER_DAY) break; if(s._next<=day) chosen.push(s); }
+    // garder une séance consistante quand il reste du travail à faire
+    if(chosen.length<MIN_PER_DAY)
+      for(const s of pool){ if(chosen.length>=MIN_PER_DAY) break; if(!chosen.includes(s)) chosen.push(s); }
+    chosen.forEach(s=>{
+      days[day].push({t:s.t,cat:s.cat,m:s.m,reps:sessionReps(s),why:sessionReason(s)});
+      s._next = day + Math.max(2, s.ideal); // repoussé après l'avoir fait
+    });
+  }
+  return days;
+}
+// bilan : la dernière séance réelle a-t-elle suivi ce qui était conseillé après la précédente ?
+function buildBilan(rows){
+  const keys=[...new Set(rows.map(r=>dayKey(r.date)))].sort();
+  if(keys.length<2) return null;
+  const latestKey=keys[keys.length-1], prevKey=keys[keys.length-2];
+  const upToPrev=rows.filter(r=>dayKey(r.date)<=prevKey);
+  const prevNow=upToPrev.reduce((mx,r)=>r.date>mx?r.date:mx, upToPrev[0].date);
+  const recommended=buildSchedule(exerciseStats(upToPrev, prevNow))[0].map(i=>i.t);
+  if(!recommended.length) return null;
+  const doneSet=new Set(rows.filter(r=>dayKey(r.date)>prevKey).map(r=>r.test));
+  return {latestKey, total:recommended.length,
+    done:recommended.filter(t=>doneSet.has(t)),
+    missed:recommended.filter(t=>!doneSet.has(t))};
+}
 
-  // ---- Points forts (acquis) ---- la temporalité y devient un simple « à entretenir »
+function renderSessionPlan(rows, stats){
+  const host=document.getElementById('sessionPlan'); if(!host) return;
+  const days=buildSchedule(stats);
+  const bilan=buildBilan(rows);
+  const labels=['Prochaine séance','Séance +1 (J+1)','Séance +2 (J+2)'];
+  const fday=k=>new Date(k+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'short'});
+  let bil='';
+  if(bilan){
+    const cls=bilan.missed.length===0?'ok':(bilan.done.length===0?'warn':'');
+    const msg = bilan.missed.length===0
+      ? `Séance du ${fday(bilan.latestKey)} : programme suivi (${bilan.done.length}/${bilan.total}) 👍`
+      : `Séance du ${fday(bilan.latestKey)} : ${bilan.done.length}/${bilan.total} conseillés faits · à rattraper : ${bilan.missed.slice(0,3).join(', ')}${bilan.missed.length>3?'…':''}`;
+    bil=`<div class="session-bilan ${cls}">${msg}</div>`;
+  }
+  const dayHtml=(items,i)=>{
+    const reps=items.reduce((a,b)=>a+b.reps,0);
+    const head=`<div class="sday-h"><span class="sday-t">${labels[i]}</span><span class="sday-sub">${items.length?`${items.length} exo${items.length>1?'s':''} · ~${reps} essais`:'libre'}</span></div>`;
+    const body=items.length
+      ? items.map(it=>`<div class="sitem" data-ex="${it.t.replace(/"/g,'&quot;')}" role="button" tabindex="0" title="Ouvrir « ${it.t.replace(/"/g,'&quot;')} » dans le focus">
+          <span class="si-reps">×${it.reps}</span>
+          <div class="si-main"><div class="si-n">${it.t}</div><div class="si-why">${it.why}</div></div></div>`).join('')
+      : `<div class="sday-rest">Rien d'imposé — révision libre ou repos.</div>`;
+    return `<div class="sday">${head}${body}</div>`;
+  };
+  host.innerHTML =
+    `<div class="session-head"><h3>🗓️ Programme de travail</h3>${bil}</div>`+
+    `<div class="session-days">${days.map(dayHtml).join('')}</div>`;
+  host.querySelectorAll('.sitem').forEach(el=>{
+    el.addEventListener('click',()=>selectFocus(el.dataset.ex));
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectFocus(el.dataset.ex); } });
+  });
+}
+
+function renderPriorities(){
+  const rows=viewRows(); const now=refNow();
+  const stats=exerciseStats(rows, now);
+
+  // ---- À travailler ----
+  const work=stats.map(s=>({...s,...workScore(s),showRhythm:true}))
+    .filter(s=>s.score>0).sort((a,b)=>b.score-a.score).slice(0,6);
+  // ---- Points forts (acquis) : la temporalité y devient « à entretenir » ----
   const strong=stats.filter(s=>s.m>=7).sort((a,b)=>b.m-a.m).slice(0,6).map(s=>{
     const tags=[];
     if(s.d!==null && s.d>=0.75) tags.push({t:'En progression',c:'green'});
@@ -1134,10 +1250,12 @@ function renderPriorities(){
     work.length?work.map(card).join(''):'<div class="empty">Rien d\'urgent — tout est au-dessus de l\'objectif 🎉</div>';
   document.getElementById('prioStrong').innerHTML =
     strong.length?strong.map(card).join(''):'<div class="empty">Aucun exercice encore en zone verte (≥ 7).</div>';
-
   document.querySelectorAll('#prioWork .card,#prioStrong .card').forEach(c=>{
     c.addEventListener('click',()=>selectFocus(c.dataset.ex));
   });
+
+  // ---- Programme de travail (séance + J+1/J+2 + bilan) ----
+  renderSessionPlan(rows, stats);
 }
 
 function renderAll(){
