@@ -174,7 +174,16 @@
   .si-n{font-size:12.5px;font-weight:500}
   .si-why{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:1px}
   .sday-rest{font-family:var(--mono);font-size:10px;color:var(--faint);padding:10px 2px}
+  .si-role{flex:0 0 auto;font-size:12px}
+  .coach-ctl{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+  .coach-ctl input[type=date]{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:12px;color-scheme:dark}
+  .session-mode{font-family:var(--mono);font-size:11px;color:var(--accent);
+    border:1px dashed rgba(90,209,196,.4);border-radius:8px;padding:7px 11px;margin-bottom:14px}
+  .session-mode.warn{color:var(--amber);border-color:rgba(224,162,58,.5)}
+  .session-legende{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:10px}
   @media(max-width:760px){.session-days{grid-template-columns:1fr}}
+  @media(max-width:560px){.coach-ctl{gap:12px}.coach-ctl .ctl{width:100%}.coach-ctl .seg{width:100%}.coach-ctl .seg button{flex:1}.coach-ctl input[type=date]{width:100%}}
   .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
   .tag{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
   .tag.red{color:var(--red);border-color:rgba(226,96,79,.4)}
@@ -377,6 +386,20 @@
     <div class="panel full" id="sec-prio">
       <h2>Priorités &amp; points forts</h2>
       <p class="desc">Recommandations façon coach : on combine ton niveau et le temps écoulé. Un point faible négligé remonte vite ; un exercice acquis (classes 8-9) se révise rarement — le rythme conseillé s'allonge avec la maîtrise. Clique une carte pour l'ouvrir dans le focus.</p>
+      <div class="coach-ctl">
+        <div class="ctl">
+          <label>Taille de séance</label>
+          <div class="seg" id="sizeSeg" role="group" aria-label="Taille de séance">
+            <button data-size="court" aria-pressed="false">Courte ~5</button>
+            <button data-size="normal" aria-pressed="true">Normale ~10</button>
+            <button data-size="long" aria-pressed="false">Longue ~16</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <label>Date d'examen (optionnel)</label>
+          <input type="date" id="examDateIn" aria-label="Date de l'examen">
+        </div>
+      </div>
       <div id="sessionPlan"></div>
       <div class="prio-grid">
         <div class="prio-col"><h3>🎯 À travailler en priorité</h3><div id="prioWork"></div></div>
@@ -685,6 +708,8 @@ let catFilter = "all";
 let win = 0; // 0 = tous
 let sortMode = "mean";
 let unit = "stanine";           // stanine | score (graphique de progression du focus)
+let sessionSize = "normal";     // court | normal | long (budget d'essais du coach)
+let examDate = null;            // 'YYYY-MM-DD' — active la périodisation du coach
 let periodKey = "all";          // all | year:2026 | last:3 | last:6 | custom
 let customFrom = null, customTo = null; // 'YYYY-MM-DD' (mode "custom")
 let currentCSVText = null; // texte importé (null = données d'exemple)
@@ -697,7 +722,7 @@ function saveState(){
     const exSel = document.getElementById('exSelect');
     localStorage.setItem(LS_KEY, JSON.stringify({
       csv: currentCSVText, name: currentSrcName,
-      phase, catFilter, win, sortMode, unit, periodKey, customFrom, customTo,
+      phase, catFilter, win, sortMode, unit, sessionSize, examDate, periodKey, customFrom, customTo,
       sel: exSel?exSel.value:null
     }));
   }catch(e){/* quota / mode privé : on ignore */}
@@ -1142,7 +1167,130 @@ function selectFocus(value){
   }
 }
 
-const MAX_PER_DAY=5;
+/* =============== COACH — plan d'entraînement structuré =============== */
+const SESSION_BUDGET={court:5,normal:10,long:16};
+// niveau « coach » : moyenne pondérée par la récence (les derniers essais pèsent
+// plus que ceux d'il y a des mois) — indépendante du curseur Fenêtre de l'interface
+function recencyLevel(arr){
+  let ws=0,vs=0; const n=arr.length;
+  arr.forEach((r,i)=>{ const w=Math.pow(0.85,n-1-i); ws+=w; vs+=w*r.stanine; });
+  return vs/ws;
+}
+// périodisation : l'état de préparation dépend de la distance à l'examen
+function examMode(){
+  if(!examDate) return {key:null,days:null};
+  const t=new Date(); t.setHours(0,0,0,0);
+  const days=Math.round((new Date(examDate+'T00:00:00')-t)/DAY);
+  if(days<0)   return {key:'past',days};
+  if(days<=14) return {key:'affutage',days};
+  if(days<=42) return {key:'consolidation',days};
+  return {key:'acquisition',days};
+}
+// vue du coach : exercices pratiqués (niveau pondéré récence, détection de plateau)
+// + exercices de la phase jamais tentés (créneaux découverte)
+function coachStats(rows, now){
+  const map=byExercise(rows);
+  const stats=[...map.entries()].map(([t,arr])=>{
+    const m=recencyLevel(arr), d=trendDelta(arr);
+    const daysSince=Math.round((now-arr[arr.length-1].date)/DAY);
+    const ideal=idealInterval(m);
+    const plateau = arr.length>=8 && d!==null && Math.abs(d)<0.75 && m<7;
+    return {t,cat:arr[0].cat,m,d,n:arr.length,daysSince,ideal,overdue:daysSince/ideal,plateau,discover:false};
+  });
+  exerciseUniverse().filter(t=>!map.has(t)).forEach(t=>{
+    stats.push({t,cat:CONFIG[t].cat,m:null,d:null,n:0,daysSince:Infinity,ideal:3,overdue:9,plateau:false,discover:true});
+  });
+  return stats;
+}
+// nombre d'essais par exercice et par séance — jamais de grind
+function coachReps(s,mode){
+  let r;
+  if(s.discover) r=2;            // découverte
+  else if(s.n<4) r=3;            // évaluation : établir la base
+  else if(s.plateau) r=2;        // plateau : 2 max, varier la méthode
+  else if(s.m<5) r=3;
+  else if(s.m<7) r=2;
+  else r=1;                      // entretien
+  if(mode.key==='affutage') r=Math.min(r,2);
+  return r;
+}
+function coachWhy(s){
+  if(s.discover) return 'jamais tenté · découverte';
+  if(s.n<4) return `${s.n} essai${s.n>1?'s':''} · évaluation — établir la base`;
+  if(s.plateau) return `classe ${fmt(s.m)} · plateau (${s.n} essais) — varie la méthode`;
+  if(s.d!==null && s.d<=-0.75) return `classe ${fmt(s.m)} · en baisse`;
+  if(s.m<4) return `classe ${fmt(s.m)} · à consolider`;
+  if(s.m<7) return `classe ${fmt(s.m)} · sous l'objectif`;
+  return `classe ${fmt(s.m)} · entretien`;
+}
+// priorité d'un exercice pour le cœur de séance (+ couverture à l'approche de l'examen)
+function coachScore(s,mode){
+  let sc=0;
+  if(s.discover){
+    sc=3.2;
+    if(mode.key==='affutage'&&mode.days<=7) sc=1.2; // trop tard pour découvrir sereinement
+  }else{
+    if(s.m<7) sc+=(7-s.m)*1.1;
+    if(s.overdue>=1) sc+=Math.min(s.overdue,3)*clamp((9-(s.m||1))/6,.3,1.4)*1.2;
+    if(s.d!==null&&s.d<=-0.75) sc+=2;
+    if(s.n<4) sc+=1.2;
+    if(s.m>=7&&s.overdue>=1) sc+=Math.min(s.overdue,2)*0.5;
+  }
+  if(mode.key==='consolidation' && s.daysSince>=10) sc+=1.5;
+  if(mode.key==='affutage' && !s.discover && s.daysSince>=7) sc+=3;
+  return sc;
+}
+// compose une séance structurée : échauffement → cœur (catégories alternées,
+// max 2/catégorie, max 1 découverte) → entretien final sur un point fort
+function composeSession(pool, day, budget, mode){
+  const avail=pool.filter(s=>s._next<=day && coachScore(s,mode)>0);
+  if(!avail.length) return [];
+  const items=[];
+  const take=(s,reps,role)=>{ items.push({t:s.t,cat:s.cat,reps,why:coachWhy(s),role});
+    s._next=day+Math.max(2,s.ideal); };
+  const wu=avail.filter(s=>!s.discover&&s.m>=5&&s.m<8).sort((a,b)=>b.overdue-a.overdue)[0];
+  const fin=avail.filter(s=>!s.discover&&s.m>=7&&s!==wu).sort((a,b)=>b.overdue-a.overdue)[0];
+  if(wu) take(wu,1,'warm');
+  // créneau découverte garanti : un jamais-tenté par séance tant qu'il en reste
+  // (sauf tout dernier sprint avant l'examen — trop tard pour découvrir sereinement)
+  const disc=(mode.key==='affutage'&&mode.days<=7)?null:avail.find(s=>s.discover);
+  const reserve=disc?2:0;
+  let left=budget-items.length-(fin?1:0)-reserve;
+  const cand=avail.filter(s=>s!==wu&&s!==fin&&!s.discover)
+    .sort((a,b)=>coachScore(b,mode)-coachScore(a,mode));
+  const catN={}; if(wu) catN[wu.cat]=1;
+  while(left>0&&cand.length){
+    const lastCat=items.length?items[items.length-1].cat:null;
+    let i=cand.findIndex(s=>s.cat!==lastCat&&(catN[s.cat]||0)<2);
+    if(i===-1) i=cand.findIndex(s=>(catN[s.cat]||0)<2);
+    if(i===-1) i=0;
+    const s=cand.splice(i,1)[0];
+    const reps=Math.min(coachReps(s,mode),left);
+    take(s,reps,'core'); left-=reps;
+    catN[s.cat]=(catN[s.cat]||0)+1;
+  }
+  if(disc) take(disc,2,'core');
+  if(fin) take(fin,1,'fin');
+  return items;
+}
+// planifie les 3 prochaines séances ; faire un exercice repousse sa prochaine
+// échéance de son intervalle idéal → rotation naturelle sur J+1 / J+2
+function buildSchedule(stats){
+  const budget=SESSION_BUDGET[sessionSize]||10;
+  const mode=examMode();
+  const pool=stats.map(s=>({...s,_next:0}));
+  return [0,1,2].map(day=>composeSession(pool,day,budget,mode));
+}
+// score colonne « à travailler » (cartes) — inchangé, respecte les réglages d'affichage
+function workScore(s){
+  let score=0; const tags=[];
+  if(s.m<7){ score+=(7-s.m)*1.1; if(s.m<4) tags.push({t:'Zone rouge',c:'red'}); else tags.push({t:'Sous objectif',c:'amber'}); }
+  if(s.m<7 && s.overdue>=1){ const lw=clamp((9-s.m)/6,.3,1.4); score+=Math.min(s.overdue,3)*lw*1.4;
+    tags.push(s.overdue>=2?{t:'En retard',c:'red'}:{t:'À réviser',c:'amber'}); }
+  if(s.d!==null && s.d<=-0.75){ score+=2; tags.push({t:'En baisse',c:'red'}); }
+  if(s.n<4){ score+=1; tags.push({t:'Peu d\'essais',c:'faint'}); }
+  return {score,tags};
+}
 function exerciseStats(rows, now){
   const map=byExercise(rows);
   return [...map.entries()].map(([t,arr])=>{
@@ -1153,59 +1301,6 @@ function exerciseStats(rows, now){
     return {t,cat:arr[0].cat,m,d,daysSince,n:arr.length,ideal,overdue};
   });
 }
-// score colonne « à travailler » (centré sur les exercices non acquis)
-function workScore(s){
-  let score=0; const tags=[];
-  if(s.m<7){ score+=(7-s.m)*1.1; if(s.m<4) tags.push({t:'Zone rouge',c:'red'}); else tags.push({t:'Sous objectif',c:'amber'}); }
-  if(s.m<7 && s.overdue>=1){ const lw=clamp((9-s.m)/6,.3,1.4); score+=Math.min(s.overdue,3)*lw*1.4;
-    tags.push(s.overdue>=2?{t:'En retard',c:'red'}:{t:'À réviser',c:'amber'}); }
-  if(s.d!==null && s.d<=-0.75){ score+=2; tags.push({t:'En baisse',c:'red'}); }
-  if(s.n<4){ score+=1; tags.push({t:'Peu d\'essais',c:'faint'}); }
-  return {score,tags};
-}
-// score séance : « à travailler » + un peu d'entretien pour les acquis dus
-function sessionScore(s){
-  let sc=workScore(s).score;
-  if(s.m>=7 && s.overdue>=1) sc+=Math.min(s.overdue,2)*0.45;
-  return sc;
-}
-// nombre d'essais conseillés, selon niveau / situation
-function sessionReps(s){
-  let r = s.m<3?4 : s.m<5?3 : s.m<7?2 : 1;
-  if(s.d!==null && s.d<=-0.75) r++;
-  if(s.n<3) r=Math.max(r,3);
-  return clamp(r,1,4);
-}
-function sessionReason(s){
-  if(s.n<3) return `classe ${fmt(s.m)} · établir une base`;
-  if(s.m<4) return `classe ${fmt(s.m)} · à consolider`;
-  if(s.d!==null && s.d<=-0.75) return `classe ${fmt(s.m)} · en baisse`;
-  if(s.overdue>=2) return `classe ${fmt(s.m)} · en retard (${s.daysSince}j)`;
-  if(s.m<7) return `classe ${fmt(s.m)} · sous l'objectif`;
-  return `classe ${fmt(s.m)} · entretien`;
-}
-// planifie les 3 prochaines séances. J0 = les exercices les plus prioritaires
-// (séance toujours pleine s'il y a du travail). Faire un exercice repousse sa
-// prochaine échéance de son intervalle idéal → rotation sur J+1 / J+2 : les
-// exercices faibles (intervalle court) reviennent, les autres laissent la place.
-function buildSchedule(stats){
-  const MIN_PER_DAY=3;
-  const pool=stats.map(s=>({...s,_sc:sessionScore(s)})).filter(s=>s._sc>0).sort((a,b)=>b._sc-a._sc);
-  pool.forEach(s=>{ s._next=0; }); // éligible dès J0
-  const days=[[],[],[]];
-  for(let day=0; day<3; day++){
-    const chosen=[];
-    for(const s of pool){ if(chosen.length>=MAX_PER_DAY) break; if(s._next<=day) chosen.push(s); }
-    // garder une séance consistante quand il reste du travail à faire
-    if(chosen.length<MIN_PER_DAY)
-      for(const s of pool){ if(chosen.length>=MIN_PER_DAY) break; if(!chosen.includes(s)) chosen.push(s); }
-    chosen.forEach(s=>{
-      days[day].push({t:s.t,cat:s.cat,m:s.m,reps:sessionReps(s),why:sessionReason(s)});
-      s._next = day + Math.max(2, s.ideal); // repoussé après l'avoir fait
-    });
-  }
-  return days;
-}
 // bilan : la dernière séance réelle a-t-elle suivi ce qui était conseillé après la précédente ?
 function buildBilan(rows){
   const keys=[...new Set(rows.map(r=>dayKey(r.date)))].sort();
@@ -1213,7 +1308,7 @@ function buildBilan(rows){
   const latestKey=keys[keys.length-1], prevKey=keys[keys.length-2];
   const upToPrev=rows.filter(r=>dayKey(r.date)<=prevKey);
   const prevNow=upToPrev.reduce((mx,r)=>r.date>mx?r.date:mx, upToPrev[0].date);
-  const recommended=buildSchedule(exerciseStats(upToPrev, prevNow))[0].map(i=>i.t);
+  const recommended=buildSchedule(coachStats(upToPrev, prevNow))[0].map(i=>i.t);
   if(!recommended.length) return null;
   const doneSet=new Set(rows.filter(r=>dayKey(r.date)>prevKey).map(r=>r.test));
   return {latestKey, total:recommended.length,
@@ -1221,12 +1316,21 @@ function buildBilan(rows){
     missed:recommended.filter(t=>!doneSet.has(t))};
 }
 
-function renderSessionPlan(rows, stats){
+function renderSessionPlan(rows, now){
   const host=document.getElementById('sessionPlan'); if(!host) return;
-  const days=buildSchedule(stats);
+  const days=buildSchedule(coachStats(rows, now));
   const bilan=buildBilan(rows);
+  const mode=examMode();
   const labels=['Prochaine séance','Séance +1 (J+1)','Séance +2 (J+2)'];
   const fday=k=>new Date(k+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'short'});
+  let modeHtml='';
+  if(mode.key==='past') modeHtml=`<div class="session-mode warn">⚠️ Date d'examen passée — mets-la à jour.</div>`;
+  else if(mode.key){
+    const lbl={acquisition:'acquisition — priorité aux points faibles',
+      consolidation:'consolidation — faibles + couverture régulière',
+      affutage:'affûtage — tout revoir, volume léger'}[mode.key];
+    modeHtml=`<div class="session-mode">🎯 Examen dans ${mode.days} j · ${lbl}</div>`;
+  }
   let bil='';
   if(bilan){
     const cls=bilan.missed.length===0?'ok':(bilan.done.length===0?'warn':'');
@@ -1235,19 +1339,23 @@ function renderSessionPlan(rows, stats){
       : `Séance du ${fday(bilan.latestKey)} : ${bilan.done.length}/${bilan.total} conseillés faits · à rattraper : ${esc(bilan.missed.slice(0,3).join(', '))}${bilan.missed.length>3?'…':''}`;
     bil=`<div class="session-bilan ${cls}">${msg}</div>`;
   }
+  const ROLE={warm:{ic:'🔥',tt:'échauffement'},core:{ic:'🎯',tt:'travail'},fin:{ic:'✅',tt:'finir sur une réussite'}};
   const dayHtml=(items,i)=>{
     const reps=items.reduce((a,b)=>a+b.reps,0);
     const head=`<div class="sday-h"><span class="sday-t">${labels[i]}</span><span class="sday-sub">${items.length?`${items.length} exo${items.length>1?'s':''} · ~${reps} essais`:'libre'}</span></div>`;
     const body=items.length
-      ? items.map(it=>`<div class="sitem" data-ex="${esc(it.t)}" role="button" tabindex="0" title="Ouvrir « ${esc(it.t)} » dans le focus">
-          <span class="si-reps">×${it.reps}</span>
-          <div class="si-main"><div class="si-n">${esc(it.t)}</div><div class="si-why">${esc(it.why)}</div></div></div>`).join('')
+      ? items.map(it=>{const r=ROLE[it.role]||ROLE.core;
+          return `<div class="sitem" data-ex="${esc(it.t)}" role="button" tabindex="0" title="Ouvrir « ${esc(it.t)} » dans le focus">
+          <span class="si-role" title="${r.tt}">${r.ic}</span><span class="si-reps">×${it.reps}</span>
+          <div class="si-main"><div class="si-n">${esc(it.t)}</div><div class="si-why">${esc(it.why)}</div></div></div>`;}).join('')
       : `<div class="sday-rest">Rien d'imposé — révision libre ou repos.</div>`;
     return `<div class="sday">${head}${body}</div>`;
   };
   host.innerHTML =
     `<div class="session-head"><h3>🗓️ Programme de travail</h3>${bil}</div>`+
-    `<div class="session-days">${days.map(dayHtml).join('')}</div>`;
+    modeHtml+
+    `<div class="session-days">${days.map(dayHtml).join('')}</div>`+
+    `<div class="session-legende">🔥 échauffement · 🎯 cœur de séance (catégories alternées) · ✅ finir sur une réussite</div>`;
   host.querySelectorAll('.sitem').forEach(el=>{
     el.addEventListener('click',()=>selectFocus(el.dataset.ex));
     el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectFocus(el.dataset.ex); } });
@@ -1289,7 +1397,7 @@ function renderPriorities(){
   });
 
   // ---- Programme de travail (séance + J+1/J+2 + bilan) ----
-  renderSessionPlan(rows, stats);
+  renderSessionPlan(rows, now);
 }
 
 function renderAll(){
@@ -1337,6 +1445,16 @@ document.getElementById('unitSeg').addEventListener('click',e=>{
   [...e.currentTarget.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed',x===b));
   renderProg(); saveState();
 });
+document.getElementById('sizeSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  sessionSize=b.dataset.size;
+  [...e.currentTarget.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  renderPriorities(); saveState();
+});
+document.getElementById('examDateIn').addEventListener('change',e=>{
+  examDate=e.target.value||null;
+  renderPriorities(); saveState();
+});
 // clic / clavier sur une ligne « Niveau par exercice » → ouvre l'exercice dans le focus
 const stripsBox=document.getElementById('strips');
 stripsBox.addEventListener('click',e=>{
@@ -1351,6 +1469,7 @@ document.getElementById('resetBtn').addEventListener('click',()=>{
   currentCSVText=null; currentSrcName="Données d'exemple";
   RAW=parseCSV(DEFAULT_CSV);
   phase="all"; catFilter="all"; win=0; sortMode="mean"; unit="stanine";
+  sessionSize="normal"; examDate=null;
   periodKey="all"; customFrom=null; customTo=null;
   applyControlsToUI();
   buildPeriodSeg();
@@ -1418,6 +1537,8 @@ window.addEventListener('resize',()=>{
 function applyControlsToUI(){
   [...document.querySelectorAll('#phaseSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.phase===phase));
   [...document.querySelectorAll('#unitSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.unit===unit));
+  [...document.querySelectorAll('#sizeSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.size===sessionSize));
+  document.getElementById('examDateIn').value=examDate||'';
   wr.value=win; wv.textContent = win===0?'Tous':('n = '+win);
   document.getElementById('sortSelect').value=sortMode;
 }
@@ -1435,6 +1556,8 @@ if(saved){
   if(typeof saved.win==='number') win=saved.win;
   if(saved.sortMode) sortMode=saved.sortMode;
   if(saved.unit) unit=saved.unit;
+  if(saved.sessionSize) sessionSize=saved.sessionSize;
+  if(saved.examDate) examDate=saved.examDate;
   if(saved.periodKey) periodKey=saved.periodKey;
   customFrom=saved.customFrom||null; customTo=saved.customTo||null;
   restoredSel=saved.sel||null;
