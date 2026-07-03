@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f141a">
 <title>Tableau de bord Pilotest — Cadets Air France</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -84,6 +85,7 @@
   .focus-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
     margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
   .focus-head .desc{margin-bottom:0}
+  .focus-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .focus-head select{min-width:240px;font-size:13px;padding:10px 12px}
   .focus-charts{display:grid;grid-template-columns:1fr 1fr;gap:24px}
   .focus-chart h3{font-size:13px;font-weight:600;margin:0 0 3px;color:var(--ink)}
@@ -244,6 +246,7 @@
     .win input[type=range]{flex:1;width:auto}
     select{min-width:0;width:100%}
     .focus-head select{min-width:0;width:100%}
+    .focus-tools{width:100%}
     .panel{padding:14px}
     .panel.focus{padding:14px}
     .panel h2{font-size:14px}
@@ -397,9 +400,15 @@
       <div class="focus-head">
         <div>
           <h2>Focus sur un exercice</h2>
-          <p class="desc">Choisis un exercice (ou une catégorie) : ses deux graphiques sont juste en dessous.</p>
+          <p class="desc">Choisis un exercice (ou une catégorie). « Score % » montre la progression fine quand la classe ne bouge pas.</p>
         </div>
-        <select id="exSelect" aria-label="Choix de l'exercice ou de la catégorie"></select>
+        <div class="focus-tools">
+          <select id="exSelect" aria-label="Choix de l'exercice ou de la catégorie"></select>
+          <div class="seg" id="unitSeg" role="group" aria-label="Unité du graphique de progression">
+            <button data-unit="stanine" aria-pressed="true">Classe</button>
+            <button data-unit="score" aria-pressed="false">Score %</button>
+          </div>
+        </div>
       </div>
       <div class="focus-charts">
         <div class="focus-chart">
@@ -655,12 +664,14 @@ function parseCSV(text){
   for(const line of lines){
     const p=line.split(",");
     if(p.length<4) continue;
-    const test=p[0].trim();
-    const score=parseFloat(p[1]); // "27%" -> 27
-    const stanine=parseInt(p[2],10);
-    const date=parseFrDate(p.slice(3).join(","));
+    // la date (dernier champ) ne contient jamais de virgule : on lit depuis la fin,
+    // ce qui tolère les noms d'exercices contenant des virgules
+    const test=p.slice(0,p.length-3).join(",").trim().replace(/^"(.*)"$/,'$1');
+    const score=parseFloat(p[p.length-3]); // "27%" -> 27
+    const stanine=parseInt(p[p.length-2],10);
+    const date=parseFrDate(p[p.length-1]);
     if(!test||isNaN(stanine)||!date) continue;
-    const cfg=CONFIG[test]||{cat:"Autre",phase:"PSY0"};
+    const cfg=CONFIG[test]||{cat:"Autre",phase:"psy0"};
     out.push({test,score:isNaN(score)?null:score,stanine,date,cat:cfg.cat,phase:cfg.phase});
   }
   return out.sort((a,b)=>a.date-b.date);
@@ -673,6 +684,7 @@ let phase = "all";
 let catFilter = "all";
 let win = 0; // 0 = tous
 let sortMode = "mean";
+let unit = "stanine";           // stanine | score (graphique de progression du focus)
 let periodKey = "all";          // all | year:2026 | last:3 | last:6 | custom
 let customFrom = null, customTo = null; // 'YYYY-MM-DD' (mode "custom")
 let currentCSVText = null; // texte importé (null = données d'exemple)
@@ -685,7 +697,7 @@ function saveState(){
     const exSel = document.getElementById('exSelect');
     localStorage.setItem(LS_KEY, JSON.stringify({
       csv: currentCSVText, name: currentSrcName,
-      phase, catFilter, win, sortMode, periodKey, customFrom, customTo,
+      phase, catFilter, win, sortMode, unit, periodKey, customFrom, customTo,
       sel: exSel?exSel.value:null
     }));
   }catch(e){/* quota / mode privé : on ignore */}
@@ -697,6 +709,8 @@ function loadState(){
 const bandColor = v => v<=3?getCss('--red') : v<=6?getCss('--amber') : getCss('--green');
 function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 const fmt = x => (Math.round(x*10)/10).toFixed(1);
+// échappe les données (noms d'exercices importés) avant toute insertion en HTML
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Polices de graphiques agrandies sur petit écran (meilleure lisibilité mobile)
 const isPhone = () => typeof window!=='undefined' && window.matchMedia && window.matchMedia('(max-width:560px)').matches;
 function chartFont(n){ return isPhone()? n+2 : n; }
@@ -895,12 +909,15 @@ function renderStrips(){
   };
   entries.sort(sorters[sortMode]||sorters.mean);
   const pos=v=>((v-1)/8*100);
+  const now=refNow();
   box.innerHTML=entries.map(e=>{
     const lo=pos(e.min),hi=pos(e.max);
     const ti=trendInfo(e.trend);
-    return `<div class="strip" data-ex="${e.t.replace(/"/g,'&quot;')}" role="button" tabindex="0" title="Ouvrir « ${e.t.replace(/"/g,'&quot;')} » dans le focus">
+    const dj=Math.round((now-e.lastDate)/DAY);
+    const ago=dj<=0?"aujourd'hui":dj===1?'hier':`il y a ${dj} j`;
+    return `<div class="strip" data-ex="${esc(e.t)}" role="button" tabindex="0" title="Ouvrir « ${esc(e.t)} » dans le focus">
       <div class="top">
-        <div class="nm">${e.t}<span class="cat">${e.cat}</span><span class="trend" style="color:${ti.col}" title="${ti.txt}">${ti.sym}</span></div>
+        <div class="nm">${esc(e.t)}<span class="cat">${esc(e.cat)}</span><span class="trend" style="color:${ti.col}" title="${ti.txt}">${ti.sym}</span></div>
         <div class="rdwrap"><span title="${e.n} derniers essais (tendance)">${sparkline(e.series,ti.col)}</span><div class="rd" style="color:${bandColor(e.mean)}">${fmt(e.mean)}</div></div>
       </div>
       <div class="tape">
@@ -908,7 +925,7 @@ function renderStrips(){
         <div class="mean" style="left:${pos(e.mean)}%"></div>
         <div class="last" style="left:${pos(e.last)}%;background:${bandColor(e.last)}"></div>
       </div>
-      <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last} · régularité σ ${fmt(e.sd)}</div>
+      <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last} (${ago}) · régularité σ ${fmt(e.sd)}</div>
     </div>`;
   }).join('')+`<div class="scaleticks"><span>1</span><span>3</span><span>5</span><span>7</span><span>9</span></div>`;
 }
@@ -925,27 +942,44 @@ function renderProg(){
   }
   series=series.slice().sort((a,b)=>a.date-b.date);
   series=windowed(series);
-  const pts=series.map((r,i)=>({x:i+1,y:r.stanine}));
+  // unité : classe (stanine, 0-9) ou score brut (%, 0-100) — un seul axe à la fois
+  const useScore = unit==='score';
+  const usable = useScore ? series.filter(r=>r.score!==null) : series;
+  const val = r => useScore ? r.score : r.stanine;
+  const pts=usable.map((r,i)=>({x:i+1,y:val(r),d:r.date,st:r.stanine}));
   // moving average (3)
-  const ma=series.map((_,i)=>{
-    const s=series.slice(Math.max(0,i-2),i+1).map(r=>r.stanine);
+  const ma=usable.map((_,i)=>{
+    const s=usable.slice(Math.max(0,i-2),i+1).map(val);
     return {x:i+1,y:+fmt(mean(s))};
   });
-  document.getElementById('progDesc').textContent=label+' — points + moyenne mobile (3).';
+  const unitTxt = useScore ? 'score %' : 'classe';
+  const noScore = useScore && series.length && !usable.length;
+  document.getElementById('progDesc').textContent =
+    label+` — ${unitTxt}, points + moyenne mobile (3).`+(noScore?' (pas de score % dans ces données)':'');
+  const fd=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
   charts.prog?.destroy();
   charts.prog=new Chart(document.getElementById('prog'),{
     data:{datasets:[
       {type:'line',label:'Moyenne mobile',data:ma,borderColor:getCss('--accent'),borderWidth:2,
         tension:.3,pointRadius:0,fill:false},
       {type:'scatter',label:'Essais',data:pts,
-        pointBackgroundColor:pts.map(p=>bandColor(p.y)),pointRadius:4,pointBorderColor:getCss('--bg')}
+        pointBackgroundColor:pts.map(p=>bandColor(p.st)),pointRadius:4,pointBorderColor:getCss('--bg')}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)}}}},
+      plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)}}},
+        tooltip:{callbacks:{
+          title:c=>{const r=c[0].raw; return r&&r.d ? fd(r.d) : 'essai n°'+c[0].parsed.x;},
+          label:c=>{const r=c.raw||{};
+            return c.dataset.type==='scatter'
+              ? (useScore?`score ${c.parsed.y}% · classe ${r.st}`:`classe ${c.parsed.y}`)
+              : `${c.dataset.label} : ${c.parsed.y}${useScore?'%':''}`;}
+        }}},
       scales:{
         x:{type:'linear',title:{display:true,text:'n° d\'essai (chronologique)',color:getCss('--faint'),font:{size:chartFont(10)}},
           ticks:{color:getCss('--faint'),font:{size:chartFont(10)},precision:0},grid:{color:'rgba(255,255,255,.05)'}},
-        y:{min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:chartFont(10)}},grid:{color:'rgba(255,255,255,.05)'}}}}
+        y:useScore
+          ? {min:0,max:100,ticks:{stepSize:20,color:getCss('--faint'),font:{size:chartFont(10)},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,.05)'}}
+          : {min:0,max:9,ticks:{stepSize:1,color:getCss('--faint'),font:{size:chartFont(10)}},grid:{color:'rgba(255,255,255,.05)'}}}}
   });
 }
 
@@ -979,8 +1013,8 @@ function fillExerciseSelect(){
   const cats=[...new Set(rows.map(r=>r.cat))].sort();
   const tests=[...new Set(rows.map(r=>r.test))].sort();
   sel.innerHTML =
-    '<optgroup label="Catégories">'+cats.map(c=>`<option value="cat:${c}">▸ ${c}</option>`).join('')+'</optgroup>'+
-    '<optgroup label="Exercices">'+tests.map(t=>`<option value="${t}">${t}</option>`).join('')+'</optgroup>';
+    '<optgroup label="Catégories">'+cats.map(c=>`<option value="cat:${esc(c)}">▸ ${esc(c)}</option>`).join('')+'</optgroup>'+
+    '<optgroup label="Exercices">'+tests.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')+'</optgroup>';
   if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
 }
 
@@ -989,7 +1023,7 @@ function fillCatSelect(){
   const cats=[...new Set(phaseRows().map(r=>r.cat))].sort();
   if(catFilter!=="all" && !cats.includes(catFilter)) catFilter="all";
   sel.innerHTML='<option value="all">Toutes les catégories</option>'+
-    cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+    cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value=catFilter;
 }
 
@@ -1198,16 +1232,16 @@ function renderSessionPlan(rows, stats){
     const cls=bilan.missed.length===0?'ok':(bilan.done.length===0?'warn':'');
     const msg = bilan.missed.length===0
       ? `Séance du ${fday(bilan.latestKey)} : programme suivi (${bilan.done.length}/${bilan.total}) 👍`
-      : `Séance du ${fday(bilan.latestKey)} : ${bilan.done.length}/${bilan.total} conseillés faits · à rattraper : ${bilan.missed.slice(0,3).join(', ')}${bilan.missed.length>3?'…':''}`;
+      : `Séance du ${fday(bilan.latestKey)} : ${bilan.done.length}/${bilan.total} conseillés faits · à rattraper : ${esc(bilan.missed.slice(0,3).join(', '))}${bilan.missed.length>3?'…':''}`;
     bil=`<div class="session-bilan ${cls}">${msg}</div>`;
   }
   const dayHtml=(items,i)=>{
     const reps=items.reduce((a,b)=>a+b.reps,0);
     const head=`<div class="sday-h"><span class="sday-t">${labels[i]}</span><span class="sday-sub">${items.length?`${items.length} exo${items.length>1?'s':''} · ~${reps} essais`:'libre'}</span></div>`;
     const body=items.length
-      ? items.map(it=>`<div class="sitem" data-ex="${it.t.replace(/"/g,'&quot;')}" role="button" tabindex="0" title="Ouvrir « ${it.t.replace(/"/g,'&quot;')} » dans le focus">
+      ? items.map(it=>`<div class="sitem" data-ex="${esc(it.t)}" role="button" tabindex="0" title="Ouvrir « ${esc(it.t)} » dans le focus">
           <span class="si-reps">×${it.reps}</span>
-          <div class="si-main"><div class="si-n">${it.t}</div><div class="si-why">${it.why}</div></div></div>`).join('')
+          <div class="si-main"><div class="si-n">${esc(it.t)}</div><div class="si-why">${esc(it.why)}</div></div></div>`).join('')
       : `<div class="sday-rest">Rien d'imposé — révision libre ou repos.</div>`;
     return `<div class="sday">${head}${body}</div>`;
   };
@@ -1237,9 +1271,9 @@ function renderPriorities(){
   });
 
   const ago=d=> d<=0?'aujourd\'hui':(d===1?'hier':`il y a ${d} j`);
-  const card=s=>`<div class="card" data-ex="${s.t.replace(/"/g,'&quot;')}">
+  const card=s=>`<div class="card" data-ex="${esc(s.t)}">
       <div class="card-left">
-        <div class="cn">${s.t}</div><div class="cc">${s.cat}</div>
+        <div class="cn">${esc(s.t)}</div><div class="cc">${esc(s.cat)}</div>
         ${s.tags.length?`<div class="tags">${s.tags.map(g=>`<span class="tag ${g.c}">${g.t}</span>`).join('')}</div>`:''}
         ${s.showRhythm?`<div class="cmeta">Dernier essai ${ago(s.daysSince)} · rythme conseillé ~${s.ideal} j</div>`:''}
       </div>
@@ -1297,6 +1331,12 @@ wr.addEventListener('input',()=>{
   renderAll(); saveState();
 });
 document.getElementById('exSelect').addEventListener('change',()=>{renderProg();renderHist();saveState();});
+document.getElementById('unitSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  unit=b.dataset.unit;
+  [...e.currentTarget.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  renderProg(); saveState();
+});
 // clic / clavier sur une ligne « Niveau par exercice » → ouvre l'exercice dans le focus
 const stripsBox=document.getElementById('strips');
 stripsBox.addEventListener('click',e=>{
@@ -1310,7 +1350,7 @@ document.getElementById('resetBtn').addEventListener('click',()=>{
   try{ localStorage.removeItem(LS_KEY); }catch(e){}
   currentCSVText=null; currentSrcName="Données d'exemple";
   RAW=parseCSV(DEFAULT_CSV);
-  phase="all"; catFilter="all"; win=0; sortMode="mean";
+  phase="all"; catFilter="all"; win=0; sortMode="mean"; unit="stanine";
   periodKey="all"; customFrom=null; customTo=null;
   applyControlsToUI();
   buildPeriodSeg();
@@ -1377,6 +1417,7 @@ window.addEventListener('resize',()=>{
 // reflète l'état (phase / fenêtre / tri / catégorie) dans les contrôles
 function applyControlsToUI(){
   [...document.querySelectorAll('#phaseSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.phase===phase));
+  [...document.querySelectorAll('#unitSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.unit===unit));
   wr.value=win; wv.textContent = win===0?'Tous':('n = '+win);
   document.getElementById('sortSelect').value=sortMode;
 }
@@ -1393,6 +1434,7 @@ if(saved){
   if(saved.catFilter) catFilter=saved.catFilter;
   if(typeof saved.win==='number') win=saved.win;
   if(saved.sortMode) sortMode=saved.sortMode;
+  if(saved.unit) unit=saved.unit;
   if(saved.periodKey) periodKey=saved.periodKey;
   customFrom=saved.customFrom||null; customTo=saved.customTo||null;
   restoredSel=saved.sel||null;
