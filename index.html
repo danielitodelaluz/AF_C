@@ -709,7 +709,8 @@ let win = 0; // 0 = tous
 let sortMode = "mean";
 let unit = "stanine";           // stanine | score (graphique de progression du focus)
 let sessionSize = "normal";     // court | normal | long (budget d'essais du coach)
-let examDate = null;            // 'YYYY-MM-DD' — active la périodisation du coach
+const DEFAULT_EXAM_DATE = "2026-09-10"; // PSY0 ~ début/mi-septembre — ajustable via le champ date
+let examDate = DEFAULT_EXAM_DATE; // 'YYYY-MM-DD' ou null — active la périodisation du coach
 let periodKey = "all";          // all | year:2026 | last:3 | last:6 | custom
 let customFrom = null, customTo = null; // 'YYYY-MM-DD' (mode "custom")
 let currentCSVText = null; // texte importé (null = données d'exemple)
@@ -1469,7 +1470,7 @@ document.getElementById('resetBtn').addEventListener('click',()=>{
   currentCSVText=null; currentSrcName="Données d'exemple";
   RAW=parseCSV(DEFAULT_CSV);
   phase="all"; catFilter="all"; win=0; sortMode="mean"; unit="stanine";
-  sessionSize="normal"; examDate=null;
+  sessionSize="normal"; examDate=DEFAULT_EXAM_DATE;
   periodKey="all"; customFrom=null; customTo=null;
   applyControlsToUI();
   buildPeriodSeg();
@@ -1557,7 +1558,7 @@ if(saved){
   if(saved.sortMode) sortMode=saved.sortMode;
   if(saved.unit) unit=saved.unit;
   if(saved.sessionSize) sessionSize=saved.sessionSize;
-  if(saved.examDate) examDate=saved.examDate;
+  if('examDate' in saved) examDate=saved.examDate; // null explicite = date effacée volontairement
   if(saved.periodKey) periodKey=saved.periodKey;
   customFrom=saved.customFrom||null; customTo=saved.customTo||null;
   restoredSel=saved.sel||null;
