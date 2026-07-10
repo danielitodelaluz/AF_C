@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f141a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pilotest">
 <title>Tableau de bord Pilotest — Cadets Air France</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,14 +36,16 @@
   h1{font-size:clamp(22px,4vw,32px);font-weight:700;margin:0;letter-spacing:-.01em}
   .sub{color:var(--muted);font-size:13px;margin-top:4px;font-family:var(--mono)}
 
-  .readout{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
-  .gauge{flex:1;min-width:120px;background:var(--panel);border:1px solid var(--line);
-    border-radius:10px;padding:12px 14px;position:relative;overflow:hidden}
-  .gauge .lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-  .gauge .val{font-family:var(--mono);font-size:26px;font-weight:600;margin-top:4px}
-  .gauge .val small{font-size:13px;color:var(--faint)}
-  .gauge.red::before,.gauge.amber::before,.gauge.green::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
-  .gauge.red::before{background:var(--red)} .gauge.amber::before{background:var(--amber)} .gauge.green::before{background:var(--green)}
+  .readout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+  .t-lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .t-val{font-family:var(--mono);font-size:26px;font-weight:600;margin-top:6px;line-height:1.1}
+  .t-val small{font-size:13px;color:var(--faint)}
+  .t-sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px}
+  .zbar{display:flex;height:20px;border-radius:10px;overflow:hidden;margin-top:10px;border:1px solid var(--line)}
+  .zseg{display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+    font-size:10px;font-weight:600;color:#0b1218;min-width:14px}
+  .zseg.none{color:var(--muted)}
 
   /* Controls */
   .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;
@@ -124,9 +132,13 @@
 
   .empty{color:var(--faint);font-family:var(--mono);font-size:12px;padding:30px 0;text-align:center}
 
-  /* KPI delta accents */
-  .gauge.pos::before{background:var(--green)} .gauge.neg::before{background:var(--red)} .gauge.flat::before{background:var(--amber)}
-  .gauge .val .delta{font-size:15px;margin-left:2px}
+  /* Bandeau records (import) */
+  .records{display:flex;justify-content:space-between;align-items:center;gap:12px;
+    background:rgba(70,185,133,.09);border:1px solid rgba(70,185,133,.4);border-radius:10px;
+    padding:10px 14px;margin-bottom:20px;font-family:var(--mono);font-size:12px;color:var(--ink)}
+  .records b{color:var(--green)}
+  .rb-x{background:none;border:0;color:var(--muted);font-size:17px;cursor:pointer;line-height:1;padding:2px 6px}
+  .rb-x:hover{color:var(--ink)}
 
   /* Reset button + sort */
   .import-actions{display:flex;gap:10px;align-items:center}
@@ -192,16 +204,18 @@
   .tag.faint{color:var(--faint)}
 
   /* Training heatmap */
+  .hm-stats{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-bottom:12px}
+  .hm-stats b{color:var(--ink)}
   .hm-scroll{overflow-x:auto;padding-bottom:4px}
-  .hm-months{display:flex;gap:3px;padding-left:30px;height:13px;margin-bottom:4px;
+  .hm-months{display:flex;gap:3px;padding-left:34px;height:13px;margin-bottom:5px;
     font-family:var(--mono);font-size:9px;color:var(--faint)}
-  .hm-months .m{flex:0 0 12px;width:12px;white-space:nowrap;position:relative;overflow:visible}
+  .hm-months .m{flex:0 0 16px;width:16px;white-space:nowrap;position:relative;overflow:visible}
   .hm-body{display:flex;gap:6px}
   .hm-days{display:flex;flex-direction:column;gap:3px;padding-top:0}
-  .hm-days span{height:12px;line-height:12px;font-family:var(--mono);font-size:9px;color:var(--faint);width:24px;text-align:right}
+  .hm-days span{height:16px;line-height:16px;font-family:var(--mono);font-size:9px;color:var(--faint);width:28px;text-align:right}
   .hm-grid{display:flex;gap:3px}
   .hm-col{display:flex;flex-direction:column;gap:3px}
-  .hm-cell{width:12px;height:12px;border-radius:3px;background:var(--panel2);border:1px solid var(--line)}
+  .hm-cell{width:16px;height:16px;border-radius:4px;background:var(--panel2);border:1px solid var(--line)}
   .hm-cell.lvl1{background:rgba(90,209,196,.22);border-color:transparent}
   .hm-cell.lvl2{background:rgba(90,209,196,.45);border-color:transparent}
   .hm-cell.lvl3{background:rgba(90,209,196,.72);border-color:transparent}
@@ -241,9 +255,14 @@
     .wrap{padding:12px 11px 48px}
     header{padding-bottom:14px;margin-bottom:14px}
     .sub{font-size:12px}
-    .readout{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .gauge{min-width:0;padding:11px 12px}
-    .gauge .val{font-size:21px}
+    .readout{grid-template-columns:1fr 1fr;gap:8px}
+    .tile{padding:11px 12px}
+    .t-val{font-size:21px}
+    /* iOS : Safari zoome sur tout champ < 16px — on force 16px sur mobile */
+    select,input[type=date]{font-size:16px}
+    /* graphiques nettement plus compacts sur téléphone */
+    .chartbox{height:225px}
+    .chartbox.tall{height:245px}
     .import{padding:13px 14px}
     .import-actions{flex-basis:100%;justify-content:space-between}
     .controls{flex-direction:column;align-items:stretch;padding:14px;gap:15px}
@@ -281,12 +300,13 @@
 
   <nav class="secnav" aria-label="Navigation rapide">
     <a href="#sec-top">Synthèse</a>
-    <a href="#sec-profil">Profil</a>
-    <a href="#sec-prog">Progression</a>
-    <a href="#sec-regularite">Régularité</a>
-    <a href="#sec-prio">Priorités</a>
+    <a href="#sec-essais">Essais</a>
     <a href="#sec-niveau">Niveau</a>
     <a href="#sec-focus">Focus</a>
+    <a href="#sec-prog">Progression</a>
+    <a href="#sec-profil">Profil</a>
+    <a href="#sec-regularite">Régularité</a>
+    <a href="#sec-prio">Coach</a>
   </nav>
 
   <div class="import" id="dropzone">
@@ -303,6 +323,8 @@
     </div>
     <input type="file" id="fileIn" accept=".csv,text/csv">
   </div>
+
+  <div class="records" id="recordsBanner" hidden></div>
 
   <div class="controls">
     <div class="ctl">
@@ -347,13 +369,7 @@
   </div>
 
   <div class="grid">
-    <div class="panel" id="sec-profil">
-      <h2>Profil par catégorie</h2>
-      <p class="desc">Classe moyenne par catégorie — où concentrer l'effort.</p>
-      <div class="chartbox"><canvas id="radar"></canvas></div>
-    </div>
-
-    <div class="panel">
+    <div class="panel" id="sec-essais">
       <h2>Nombre d'essais par exercice</h2>
       <p class="desc">Détecteur d'acharnement — couleur = tendance (début vs fin). Inclut les exercices de la phase choisie jamais tentés.</p>
       <div class="chartbox"><canvas id="volume"></canvas></div>
@@ -366,48 +382,7 @@
       </div>
     </div>
 
-    <div class="panel full" id="sec-prog">
-      <h2>Progression globale dans le temps</h2>
-      <p class="desc">Classe moyenne par session (points) et tendance lissée — la trajectoire d'ensemble. Les sessions sont espacées régulièrement (pas selon le calendrier réel) : plus de plateaux trompeurs liés aux mois sans entraînement. Réagit à la phase, à la période et à la catégorie.</p>
-      <div class="chartbox tall"><canvas id="trend"></canvas></div>
-    </div>
-
-    <div class="panel full" id="sec-regularite">
-      <h2>Régularité d'entraînement</h2>
-      <p class="desc">Essais par jour — repère les séries d'entraînement et les périodes creuses. Réagit à la phase et à la période.</p>
-      <div class="hm-scroll" id="heatmap"></div>
-      <div class="hm-legend">
-        <span>Moins</span>
-        <i class="hm-cell"></i><i class="hm-cell lvl1"></i><i class="hm-cell lvl2"></i><i class="hm-cell lvl3"></i><i class="hm-cell lvl4"></i>
-        <span>Plus</span>
-      </div>
-    </div>
-
-    <div class="panel full" id="sec-prio">
-      <h2>Priorités &amp; points forts</h2>
-      <p class="desc">Recommandations façon coach : on combine ton niveau et le temps écoulé. Un point faible négligé remonte vite ; un exercice acquis (classes 8-9) se révise rarement — le rythme conseillé s'allonge avec la maîtrise. Clique une carte pour l'ouvrir dans le focus.</p>
-      <div class="coach-ctl">
-        <div class="ctl">
-          <label>Taille de séance</label>
-          <div class="seg" id="sizeSeg" role="group" aria-label="Taille de séance">
-            <button data-size="court" aria-pressed="false">Courte ~5</button>
-            <button data-size="normal" aria-pressed="true">Normale ~10</button>
-            <button data-size="long" aria-pressed="false">Longue ~16</button>
-          </div>
-        </div>
-        <div class="ctl">
-          <label>Date d'examen (optionnel)</label>
-          <input type="date" id="examDateIn" aria-label="Date de l'examen">
-        </div>
-      </div>
-      <div id="sessionPlan"></div>
-      <div class="prio-grid">
-        <div class="prio-col"><h3>🎯 À travailler en priorité</h3><div id="prioWork"></div></div>
-        <div class="prio-col"><h3>✅ Points forts</h3><div id="prioStrong"></div></div>
-      </div>
-    </div>
-
-    <div class="panel full" id="sec-niveau">
+    <div class="panel" id="sec-niveau">
       <h2>Niveau par exercice</h2>
       <p class="desc">Bande = zone de classe (rouge 1-3 · ambre 4-6 · vert 7-9). Trait = moyenne · point = dernier essai · zone claire = plage min–max. Clique un exercice pour l'ouvrir dans le focus.</p>
       <div id="strips"></div>
@@ -444,6 +419,54 @@
           <p class="desc" id="histDesc">Répartition des essais par classe — régularité vs volatilité.</p>
           <div class="chartbox tall"><canvas id="hist"></canvas></div>
         </div>
+      </div>
+    </div>
+
+    <div class="panel full" id="sec-prog">
+      <h2>Progression globale dans le temps</h2>
+      <p class="desc">Classe moyenne par session (points) et tendance lissée — la trajectoire d'ensemble. Les sessions sont espacées régulièrement (pas selon le calendrier réel) : plus de plateaux trompeurs liés aux mois sans entraînement. Réagit à la phase, à la période et à la catégorie.</p>
+      <div class="chartbox tall"><canvas id="trend"></canvas></div>
+    </div>
+
+    <div class="panel" id="sec-profil">
+      <h2>Profil par catégorie</h2>
+      <p class="desc">Classe moyenne par catégorie — où concentrer l'effort.</p>
+      <div class="chartbox"><canvas id="radar"></canvas></div>
+    </div>
+
+    <div class="panel" id="sec-regularite">
+      <h2>Régularité d'entraînement</h2>
+      <p class="desc">26 dernières semaines — essais par jour. Réagit à la phase et à la période.</p>
+      <div class="hm-stats" id="hmStats"></div>
+      <div class="hm-scroll" id="heatmap"></div>
+      <div class="hm-legend">
+        <span>Moins</span>
+        <i class="hm-cell"></i><i class="hm-cell lvl1"></i><i class="hm-cell lvl2"></i><i class="hm-cell lvl3"></i><i class="hm-cell lvl4"></i>
+        <span>Plus</span>
+      </div>
+    </div>
+
+    <div class="panel full" id="sec-prio">
+      <h2>Priorités &amp; points forts</h2>
+      <p class="desc">Recommandations façon coach : on combine ton niveau et le temps écoulé. Un point faible négligé remonte vite ; un exercice acquis (classes 8-9) se révise rarement — le rythme conseillé s'allonge avec la maîtrise. Clique une carte pour l'ouvrir dans le focus.</p>
+      <div class="coach-ctl">
+        <div class="ctl">
+          <label>Taille de séance</label>
+          <div class="seg" id="sizeSeg" role="group" aria-label="Taille de séance">
+            <button data-size="court" aria-pressed="false">Courte ~5</button>
+            <button data-size="normal" aria-pressed="true">Normale ~10</button>
+            <button data-size="long" aria-pressed="false">Longue ~16</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <label>Date d'examen (optionnel)</label>
+          <input type="date" id="examDateIn" aria-label="Date de l'examen">
+        </div>
+      </div>
+      <div id="sessionPlan"></div>
+      <div class="prio-grid">
+        <div class="prio-col"><h3>🎯 À travailler en priorité</h3><div id="prioWork"></div></div>
+        <div class="prio-col"><h3>✅ Points forts</h3><div id="prioStrong"></div></div>
       </div>
     </div>
   </div>
@@ -819,38 +842,61 @@ function idealInterval(m){ return Math.round(2*Math.pow(1.4, clamp(m,1,9)-1)); }
 /* ----------------------- Renderers ----------------------- */
 function renderReadout(){
   const rows=viewRows();
-  const map=byExercise(rows);
-  let g=0,a=0,r=0;
-  for(const arr of map.values()){
-    const m=mean(windowed(arr).map(x=>x.stanine));
-    if(m>=7)g++; else if(m>=4)a++; else r++;
-  }
   const dates=rows.map(x=>x.date).sort((p,q)=>p-q);
   const f=v=>v.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+  const nEx=new Set(rows.map(r=>r.test)).size;
   document.getElementById('rangeline').textContent =
-    rows.length? `${rows.length} essais · ${map.size} exercices · ${f(dates[0])} → ${f(dates[dates.length-1])}` : 'Aucune donnée';
-  // momentum + nombre de sessions (jours distincts)
-  const mom=momentum(rows);
-  let momHtml;
-  if(mom===null){ momHtml=`<div class="gauge"><div class="lab">Momentum récent</div><div class="val">–</div></div>`; }
-  else{
-    const cls = mom>=0.5?'pos':mom<=-0.5?'neg':'flat';
-    const arrow = mom>=0.5?'▲':mom<=-0.5?'▼':'▶';
-    momHtml=`<div class="gauge ${cls}"><div class="lab">Momentum récent</div>
-      <div class="val">${mom>0?'+':''}${fmt(mom)}<span class="delta">${arrow}</span></div></div>`;
+    rows.length? `${rows.length} essais · ${nEx} exercices · ${f(dates[0])} → ${f(dates[dates.length-1])}` : 'Aucune donnée';
+  const now=refNow();
+  const stats=rows.length?coachStats(rows,now):[];
+  // zones (niveau pondéré récence, cohérent avec le coach) + jamais tentés
+  let zNone=0,zRed=0,zAmb=0,zGrn=0,prepSum=0;
+  stats.forEach(s=>{
+    if(s.discover){ zNone++; return; }
+    if(s.m>=7)zGrn++; else if(s.m>=4)zAmb++; else zRed++;
+    prepSum+=Math.min(s.m,7)/7;
+  });
+  const totalEx=stats.length;
+  // Préparation = niveau moyen /objectif 7, les jamais-tentés comptant 0 (couverture)
+  const prep=totalEx?Math.round(prepSum/totalEx*100):0;
+  const prepCol=prep>=75?getCss('--green'):prep>=45?getCss('--amber'):getCss('--red');
+  // ⏱ examen
+  const mode=examMode();
+  let exVal='—',exSub='ajoute ta date d\'examen (coach)',exCol=getCss('--muted');
+  if(mode.key==='past'){ exVal='⚠️'; exSub='date passée — mets-la à jour'; exCol=getCss('--amber'); }
+  else if(mode.key){
+    exVal='J-'+mode.days;
+    exSub={acquisition:'mode acquisition',consolidation:'mode consolidation',affutage:'mode affûtage'}[mode.key];
+    exCol=mode.days<=14?getCss('--amber'):getCss('--accent');
   }
-  const sessions=new Set(rows.map(x=>dayKey(x.date))).size;
-  const ro=document.getElementById('readout');
-  ro.innerHTML=`
-    <div class="gauge green"><div class="lab">Zone verte · 7-9</div><div class="val">${g}<small> exos</small></div></div>
-    <div class="gauge amber"><div class="lab">Zone ambre · 4-6</div><div class="val">${a}<small> exos</small></div></div>
-    <div class="gauge red"><div class="lab">Zone rouge · 1-3</div><div class="val">${r}<small> exos</small></div></div>
-    <div class="gauge"><div class="lab">Classe moy. globale</div><div class="val">${rows.length?fmt(mean(windowed_all(map))):'–'}</div></div>
-    ${momHtml}
-    <div class="gauge"><div class="lab">Sessions</div><div class="val">${sessions}<small> jours</small></div></div>`;
-}
-function windowed_all(map){
-  let acc=[]; for(const arr of map.values()) acc=acc.concat(windowed(arr).map(x=>x.stanine)); return acc;
+  // 📈 dernière séance + momentum
+  let formeHtml='<div class="t-val">–</div>';
+  if(rows.length){
+    const lastKey=dayKey(dates[dates.length-1]);
+    const lastRows=rows.filter(r=>dayKey(r.date)===lastKey);
+    const lm=mean(lastRows.map(r=>r.stanine));
+    const mom=momentum(rows);
+    const arrow=mom===null?'':mom>=0.5?' ▲':mom<=-0.5?' ▼':' ▶';
+    const arrowCol=mom===null?'':mom>=0.5?getCss('--green'):mom<=-0.5?getCss('--red'):getCss('--amber');
+    formeHtml=`<div class="t-val" style="color:${bandColor(lm)}">${fmt(lm)}<small>/9</small><span style="color:${arrowCol}">${arrow}</span></div>
+      <div class="t-sub">${lastRows.length} essai${lastRows.length>1?'s':''} · ${f(dates[dates.length-1])}</div>`;
+  }
+  // 🎨 barre de répartition par zone stanine
+  const segs=[
+    {n:zGrn,c:'var(--green)',cls:'',lbl:'en zone verte (7-9)'},
+    {n:zAmb,c:'var(--amber)',cls:'',lbl:'en zone ambre (4-6)'},
+    {n:zRed,c:'var(--red)',cls:'',lbl:'en zone rouge (1-3)'},
+    {n:zNone,c:'rgba(139,152,168,.3)',cls:'none',lbl:'jamais tentés'}
+  ].filter(s=>s.n>0);
+  const barHtml=totalEx
+    ? `<div class="zbar">${segs.map(s=>`<div class="zseg ${s.cls}" style="flex:${s.n};background:${s.c}" title="${s.n} exercice${s.n>1?'s':''} ${s.lbl}">${s.n}</div>`).join('')}</div>
+       <div class="t-sub">${zGrn} vert · ${zAmb} ambre · ${zRed} rouge${zNone?` · ${zNone} à découvrir`:''}</div>`
+    : '<div class="t-val">–</div>';
+  document.getElementById('readout').innerHTML=`
+    <div class="tile"><div class="t-lab">⏱ Examen</div><div class="t-val" style="color:${exCol}">${exVal}</div><div class="t-sub">${exSub}</div></div>
+    <div class="tile"><div class="t-lab">🎯 Préparation</div><div class="t-val" style="color:${prepCol}">${prep}<small>%</small></div><div class="t-sub">niveau × couverture · phase filtrée</div></div>
+    <div class="tile"><div class="t-lab">🎨 Zones stanine</div>${barHtml}</div>
+    <div class="tile"><div class="t-lab">📈 Dernière séance</div>${formeHtml}</div>`;
 }
 
 function renderRadar(){
@@ -898,7 +944,8 @@ function renderVolume(){
     return {t,n:st.length,col};
   }).sort((a,b)=>b.n-a.n || a.t.localeCompare(b.t,'fr'));
   // hauteur adaptative : des barres lisibles même avec beaucoup d'exercices
-  document.getElementById('volume').parentElement.style.height = Math.min(Math.max(240, entries.length*19), 1100)+'px';
+  const rowH=isPhone()?15:19;
+  document.getElementById('volume').parentElement.style.height = Math.min(Math.max(240, entries.length*rowH), 1100)+'px';
   charts.volume?.destroy();
   charts.volume=new Chart(document.getElementById('volume'),{
     type:'bar',
@@ -911,7 +958,10 @@ function renderVolume(){
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw===0?'Jamais tenté':`${c.raw} essai${c.raw>1?'s':''}`}}},
       scales:{x:{ticks:{color:getCss('--faint'),font:{size:chartFont(10)},precision:0},grid:{color:'rgba(255,255,255,.05)'},beginAtZero:true},
-        y:{ticks:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)}},grid:{display:false}}}}
+        y:{ticks:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)},
+          // iPhone : noms tronqués (nom complet dans l'infobulle)
+          callback:function(v){const l=this.getLabelForValue(v);const mx=isPhone()?15:64;
+            return l.length>mx?l.slice(0,mx-1)+'…':l;}},grid:{display:false}}}}
   });
 }
 
@@ -1115,14 +1165,24 @@ function renderTrend(){
 function renderHeatmap(){
   const rows=phaseRows();
   const box=document.getElementById('heatmap');
-  if(!rows.length){ box.innerHTML='<div class="empty">Aucune donnée pour ce filtre.</div>'; return; }
+  const statsEl=document.getElementById('hmStats');
+  if(!rows.length){ box.innerHTML='<div class="empty">Aucune donnée pour ce filtre.</div>'; if(statsEl) statsEl.innerHTML=''; return; }
   const byDay=new Map();
   rows.forEach(r=>{ const k=dayKey(r.date); const o=byDay.get(k)||{n:0,sum:0}; o.n++; o.sum+=r.stanine; byDay.set(k,o); });
   const ts=rows.map(r=>r.date.getTime());
-  let start=new Date(Math.min(...ts)), end=new Date(Math.max(...ts));
-  start.setHours(0,0,0,0); end.setHours(0,0,0,0);
+  let end=new Date(Math.max(...ts)); end.setHours(0,0,0,0);
+  // fenêtre : 26 dernières semaines (le reste est accessible via le filtre Période)
+  let start=new Date(Math.max(Math.min(...ts), end.getTime()-181*DAY));
+  start.setHours(0,0,0,0);
   // reculer jusqu'au lundi
   start.setDate(start.getDate()-((start.getDay()+6)%7));
+  // stats de régularité (relatives à la dernière séance)
+  if(statsEl){
+    let streak=0; { const c=new Date(end); while(byDay.has(dayKey(c))){ streak++; c.setDate(c.getDate()-1); } }
+    let act30=0; for(let i=0;i<30;i++){ const c=new Date(end.getTime()-i*DAY); if(byDay.has(dayKey(c))) act30++; }
+    let w7=0; for(let i=0;i<7;i++){ const o=byDay.get(dayKey(new Date(end.getTime()-i*DAY))); if(o) w7+=o.n; }
+    statsEl.innerHTML=`🔥 Série : <b>${streak} j</b> · <b>${act30}</b> j actifs / 30 derniers · <b>${w7}</b> essais / 7 derniers j`;
+  }
   const lvl=n=> n===0?0 : n<=1?1 : n<=2?2 : n<=4?3 : 4;
   const MN=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
   const weeks=[]; let cur=new Date(start);
@@ -1158,6 +1218,7 @@ function renderHeatmap(){
     `<div class="hm-months">${months}</div>`+
     `<div class="hm-body"><div class="hm-days">${days.map(d=>`<span>${d}</span>`).join('')}</div>`+
     `<div class="hm-grid">${grid}</div></div>`;
+  box.scrollLeft=box.scrollWidth; // ouvre sur les semaines les plus récentes
 }
 
 function selectFocus(value){
@@ -1476,6 +1537,7 @@ document.getElementById('resetBtn').addEventListener('click',()=>{
   buildPeriodSeg();
   fillCatSelect(); fillExerciseSelect();
   document.getElementById('exSelect').value='Grilles de calculs';
+  document.getElementById('recordsBanner').hidden=true;
   renderAll();
   setStatus("Données d'exemple rechargées — glisse ton export ici ou clique sur « Choisir un fichier ».");
 });
@@ -1491,12 +1553,31 @@ function statusFromData(srcName){
   const nEx=new Set(RAW.map(r=>r.test)).size;
   setStatus(`✓ ${srcName} — ${RAW.length} essais · ${nEx} exercices · ${f(dates[0])} → ${f(dates[dates.length-1])}`,'ok');
 }
+// 🎉 records : compare le nouvel import aux données précédentes
+function showRecords(oldRows,newRows){
+  const el=document.getElementById('recordsBanner'); if(!el) return;
+  const mx=rows=>{const m={};rows.forEach(r=>{m[r.test]=Math.max(m[r.test]||0,r.stanine);});return m;};
+  const om=mx(oldRows), nm=mx(newRows);
+  const recs=Object.entries(nm).filter(([t,v])=>om[t]&&v>om[t])
+    .map(([t,v])=>({t,from:om[t],to:v})).sort((a,b)=>b.to-a.to);
+  const added=Math.max(0,newRows.length-oldRows.length);
+  if(!recs.length && !added){ el.hidden=true; return; }
+  const parts=[];
+  if(recs.length) parts.push('🎉 Record'+(recs.length>1?'s':'')+' : '+
+    recs.slice(0,4).map(r=>`${esc(r.t)} <b>${r.from}→${r.to}</b>`).join(' · ')+(recs.length>4?'…':''));
+  if(added) parts.push(added>1?`<b>+${added}</b> nouveaux essais`:`<b>+1</b> nouvel essai`);
+  el.innerHTML=`<span>${parts.join(' · ')}</span><button class="rb-x" aria-label="Fermer">×</button>`;
+  el.hidden=false;
+  el.querySelector('.rb-x').addEventListener('click',()=>{ el.hidden=true; });
+}
 function loadCSVText(text,srcName){
   let parsed;
   try{ parsed=parseCSV(text); }
   catch(err){ setStatus('Erreur de lecture : '+err.message,'err'); return; }
   if(!parsed.length){ setStatus('Aucune ligne exploitable dans ce fichier. Attendu : test,score,stanine,date','err'); return; }
+  const prevRows=RAW;
   RAW=parsed;
+  showRecords(prevRows,parsed);
   currentCSVText=text; currentSrcName=srcName;
   buildPeriodSeg();
   fillCatSelect();
