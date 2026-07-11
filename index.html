@@ -20,6 +20,9 @@
     --bg:#0f141a; --panel:#161e27; --panel2:#1d2733; --line:#2a3642;
     --ink:#e9eef4; --muted:#8b98a8; --faint:#5b6675;
     --red:#e2604f; --amber:#e0a23a; --green:#46b985; --accent:#5ad1c4;
+    /* échelle stanine officielle Pilotest (1 rouge → 9 bleu) : SEUL référentiel de niveau */
+    --s1:#e5342b; --s2:#ec6a26; --s3:#f39312; --s4:#f7b71d; --s5:#f5d90f;
+    --s6:#b4cf2c; --s7:#3aaa35; --s8:#4aa9dd; --s9:#3a70cf;
     --disp:"Saira",system-ui,sans-serif;
     --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
   }
@@ -42,10 +45,9 @@
   .t-val{font-family:var(--mono);font-size:26px;font-weight:600;margin-top:6px;line-height:1.1}
   .t-val small{font-size:13px;color:var(--faint)}
   .t-sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px}
-  .zbar{display:flex;height:20px;border-radius:10px;overflow:hidden;margin-top:10px;border:1px solid var(--line)}
-  .zseg{display:flex;align-items:center;justify-content:center;font-family:var(--mono);
-    font-size:10px;font-weight:600;color:#0b1218;min-width:14px}
-  .zseg.none{color:var(--muted)}
+  .zbar{display:flex;height:20px;border-radius:6px;overflow:hidden;margin-top:10px;border:1px solid var(--line)}
+  .zseg{min-width:5px}
+  .zseg+.zseg{box-shadow:inset 1px 0 0 rgba(11,18,24,.5)}
 
   /* Controls */
   .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;
@@ -112,24 +114,28 @@
   .strip .spark{display:block}
   .strip .rd{font-family:var(--mono);font-size:13px;font-weight:600;min-width:30px;text-align:right}
   .strip .meta{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  /* échelle stanine Pilotest (bandes 1→9) en fond de barre */
   .tape{position:relative;height:18px;border-radius:9px;margin-top:4px;
     background:linear-gradient(90deg,
-      rgba(226,96,79,.26) 0%, rgba(226,96,79,.26) 27.78%,
-      rgba(224,162,58,.24) 27.78%, rgba(224,162,58,.24) 66.67%,
-      rgba(70,185,133,.24) 66.67%, rgba(70,185,133,.24) 100%);
+      rgba(229,52,43,.42) 0%,   rgba(229,52,43,.42) 6.25%,
+      rgba(236,106,38,.42) 6.25%, rgba(236,106,38,.42) 18.75%,
+      rgba(243,147,18,.42) 18.75%, rgba(243,147,18,.42) 31.25%,
+      rgba(247,183,29,.42) 31.25%, rgba(247,183,29,.42) 43.75%,
+      rgba(245,217,15,.42) 43.75%, rgba(245,217,15,.42) 56.25%,
+      rgba(180,207,44,.42) 56.25%, rgba(180,207,44,.42) 68.75%,
+      rgba(58,170,53,.42) 68.75%, rgba(58,170,53,.42) 81.25%,
+      rgba(74,169,221,.42) 81.25%, rgba(74,169,221,.42) 93.75%,
+      rgba(58,112,207,.42) 93.75%, rgba(58,112,207,.42) 100%);
     border:1px solid var(--line)}
-  /* plage min–max : capsule contourée + embouts francs aux extrémités */
+  /* plage min–max : capsule à contour sombre discret (visible sur toutes les teintes) */
   .tape .range{position:absolute;top:2px;bottom:2px;border-radius:4px;
-    background:rgba(233,238,244,.20);
-    border:1.5px solid rgba(233,238,244,.72);
-    box-shadow:0 0 0 1px rgba(15,20,26,.55);}
-  .tape .range::before,.tape .range::after{content:"";position:absolute;top:-2px;bottom:-2px;width:2px;
-    background:var(--ink);border-radius:1px}
-  .tape .range::before{left:-1px} .tape .range::after{right:-1px}
-  .tape .mean{position:absolute;top:-3px;width:3px;height:24px;background:var(--accent);border-radius:2px;
+    background:rgba(11,18,24,.12);
+    border:1.5px solid rgba(11,18,24,.66);
+    box-shadow:0 0 0 1px rgba(233,238,244,.22)}
+  .tape .mean{position:absolute;top:-3px;width:3px;height:24px;background:var(--ink);border-radius:2px;
     transform:translateX(-50%);box-shadow:0 0 0 2px var(--bg);z-index:2}
   .tape .last{position:absolute;top:3px;width:12px;height:12px;border-radius:50%;transform:translateX(-50%);
-    border:2px solid var(--bg);box-shadow:0 0 0 1px rgba(255,255,255,.35);z-index:3}
+    border:2px solid var(--bg);box-shadow:0 0 0 1.5px rgba(255,255,255,.55);z-index:3}
   .scaleticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:2px}
 
   .legend{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px}
@@ -391,12 +397,12 @@
 
     <div class="panel" id="sec-niveau">
       <h2>Niveau par exercice</h2>
-      <p class="desc">Bande = zone de classe (rouge 1-3 · ambre 4-6 · vert 7-9). Trait = moyenne · point = dernier essai · capsule = plage min–max. Clique un exercice pour l'ouvrir dans le focus.</p>
+      <p class="desc">Fond = échelle stanine Pilotest (1 rouge → 9 bleu ; objectif concours ≥ 7). Trait = moyenne · point = dernier essai · capsule = plage min–max. Clique un exercice pour l'ouvrir dans le focus.</p>
       <div id="strips"></div>
       <div class="legend">
-        <span><i class="bar3" style="background:var(--accent)"></i>moyenne (fenêtre)</span>
+        <span><i class="bar3" style="background:var(--ink)"></i>moyenne (fenêtre)</span>
         <span><i class="dot" style="background:var(--ink)"></i>dernier essai</span>
-        <span style="display:inline-flex;align-items:center;gap:6px"><i style="width:20px;height:11px;background:rgba(233,238,244,.20);border:1.5px solid rgba(233,238,244,.72);border-radius:3px"></i>plage min–max</span>
+        <span style="display:inline-flex;align-items:center;gap:6px"><i style="width:20px;height:11px;background:rgba(11,18,24,.12);border:1.5px solid rgba(11,18,24,.66);box-shadow:0 0 0 1px rgba(233,238,244,.22);border-radius:3px"></i>plage min–max</span>
         <span style="display:inline-flex;align-items:center;gap:6px"><svg width="22" height="11" viewBox="0 0 22 11" aria-hidden="true"><polyline points="1,8 7,5 13,6 21,2" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>courbe = derniers essais</span>
       </div>
     </div>
@@ -762,7 +768,8 @@ function loadState(){
   try{ return JSON.parse(localStorage.getItem(LS_KEY)||"null"); }catch(e){ return null; }
 }
 
-const bandColor = v => v<=3?getCss('--red') : v<=6?getCss('--amber') : getCss('--green');
+// couleur = classe stanine exacte (échelle Pilotest 1→9), unique référentiel de niveau
+const bandColor = v => getCss('--s'+Math.min(9,Math.max(1,Math.round(v))));
 function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 const fmt = x => (Math.round(x*10)/10).toFixed(1);
 // échappe les données (noms d'exercices importés) avant toute insertion en HTML
@@ -856,25 +863,26 @@ function renderReadout(){
     rows.length? `${rows.length} essais · ${nEx} exercices · ${f(dates[0])} → ${f(dates[dates.length-1])}` : 'Aucune donnée';
   const now=refNow();
   const stats=rows.length?coachStats(rows,now):[];
-  // zones (niveau pondéré récence, cohérent avec le coach) + jamais tentés
-  let zNone=0,zRed=0,zAmb=0,zGrn=0,prepSum=0;
+  // répartition par classe (round du niveau pondéré récence) + jamais tentés + préparation
+  const bucket=Array(10).fill(0); let zNone=0,ready=0,prepSum=0;
   stats.forEach(s=>{
     if(s.discover){ zNone++; return; }
-    if(s.m>=7)zGrn++; else if(s.m>=4)zAmb++; else zRed++;
+    bucket[Math.min(9,Math.max(1,Math.round(s.m)))]++;
+    if(s.m>=7) ready++;
     prepSum+=Math.min(s.m,7)/7;
   });
   const totalEx=stats.length;
   // Préparation = niveau moyen /objectif 7, les jamais-tentés comptant 0 (couverture)
   const prep=totalEx?Math.round(prepSum/totalEx*100):0;
-  const prepCol=prep>=75?getCss('--green'):prep>=45?getCss('--amber'):getCss('--red');
+  const prepCol=bandColor(prep/100*7); // couleur Pilotest correspondant au niveau moyen
   // ⏱ examen
   const mode=examMode();
   let exVal='—',exSub='ajoute ta date d\'examen (coach)',exCol=getCss('--muted');
-  if(mode.key==='past'){ exVal='⚠️'; exSub='date passée — mets-la à jour'; exCol=getCss('--amber'); }
+  if(mode.key==='past'){ exVal='⚠️'; exSub='date passée — mets-la à jour'; exCol=getCss('--s3'); }
   else if(mode.key){
     exVal='J-'+mode.days;
     exSub={acquisition:'mode acquisition',consolidation:'mode consolidation',affutage:'mode affûtage'}[mode.key];
-    exCol=mode.days<=14?getCss('--amber'):getCss('--accent');
+    exCol=mode.days<=14?getCss('--s3'):getCss('--accent');
   }
   // 📈 dernière séance + momentum
   let formeHtml='<div class="t-val">–</div>';
@@ -884,25 +892,22 @@ function renderReadout(){
     const lm=mean(lastRows.map(r=>r.stanine));
     const mom=momentum(rows);
     const arrow=mom===null?'':mom>=0.5?' ▲':mom<=-0.5?' ▼':' ▶';
-    const arrowCol=mom===null?'':mom>=0.5?getCss('--green'):mom<=-0.5?getCss('--red'):getCss('--amber');
+    const arrowCol=mom===null?'':mom>=0.5?getCss('--s7'):mom<=-0.5?getCss('--s2'):getCss('--muted');
     formeHtml=`<div class="t-val" style="color:${bandColor(lm)}">${fmt(lm)}<small>/9</small><span style="color:${arrowCol}">${arrow}</span></div>
       <div class="t-sub">${lastRows.length} essai${lastRows.length>1?'s':''} · ${f(dates[dates.length-1])}</div>`;
   }
-  // 🎨 barre de répartition par zone stanine
-  const segs=[
-    {n:zGrn,c:'var(--green)',cls:'',lbl:'en zone verte (7-9)'},
-    {n:zAmb,c:'var(--amber)',cls:'',lbl:'en zone ambre (4-6)'},
-    {n:zRed,c:'var(--red)',cls:'',lbl:'en zone rouge (1-3)'},
-    {n:zNone,c:'rgba(139,152,168,.3)',cls:'none',lbl:'jamais tentés'}
-  ].filter(s=>s.n>0);
+  // 🎨 répartition par classe (couleurs Pilotest 1→9) + jamais tentés
+  const segs=[];
+  for(let k=1;k<=9;k++) if(bucket[k]) segs.push({n:bucket[k],c:bandColor(k),cls:'',lbl:`en classe ${k}`});
+  if(zNone) segs.push({n:zNone,c:'rgba(139,152,168,.3)',cls:'none',lbl:'jamais tentés'});
   const barHtml=totalEx
-    ? `<div class="zbar">${segs.map(s=>`<div class="zseg ${s.cls}" style="flex:${s.n};background:${s.c}" title="${s.n} exercice${s.n>1?'s':''} ${s.lbl}">${s.n}</div>`).join('')}</div>
-       <div class="t-sub">${zGrn} vert · ${zAmb} ambre · ${zRed} rouge${zNone?` · ${zNone} à découvrir`:''}</div>`
+    ? `<div class="zbar">${segs.map(s=>`<div class="zseg ${s.cls}" style="flex:${s.n};background:${s.c}" title="${s.n} exercice${s.n>1?'s':''} ${s.lbl}"></div>`).join('')}</div>
+       <div class="t-sub"><b style="color:${getCss('--s7')}">${ready}</b> exo${ready>1?'s':''} ≥ 7 (objectif)${zNone?` · ${zNone} à découvrir`:''}</div>`
     : '<div class="t-val">–</div>';
   document.getElementById('readout').innerHTML=`
     <div class="tile"><div class="t-lab">⏱ Examen</div><div class="t-val" style="color:${exCol}">${exVal}</div><div class="t-sub">${exSub}</div></div>
     <div class="tile"><div class="t-lab">🎯 Préparation</div><div class="t-val" style="color:${prepCol}">${prep}<small>%</small></div><div class="t-sub">niveau × couverture · phase filtrée</div></div>
-    <div class="tile"><div class="t-lab">🎨 Zones stanine</div>${barHtml}</div>
+    <div class="tile"><div class="t-lab">🎨 Répartition par classe</div>${barHtml}</div>
     <div class="tile"><div class="t-lab">📈 Dernière séance</div>${formeHtml}</div>`;
 }
 
@@ -923,7 +928,7 @@ function renderRadar(){
         backgroundColor:'rgba(90,209,196,.16)',borderColor:tip,
         pointBackgroundColor:tip,borderWidth:2,pointRadius:3},
       {label:'Objectif (7)',data:labels.map(()=>7),fill:false,
-        borderColor:'rgba(70,185,133,.55)',borderDash:[5,4],borderWidth:1,pointRadius:0}
+        borderColor:'rgba(58,170,53,.55)',borderDash:[5,4],borderWidth:1,pointRadius:0}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)}}}},
@@ -1001,7 +1006,7 @@ function renderStrips(){
     return `<div class="strip" data-ex="${esc(e.t)}" role="button" tabindex="0" title="Ouvrir « ${esc(e.t)} » dans le focus">
       <div class="top">
         <div class="nm">${esc(e.t)}<span class="cat">${esc(e.cat)}</span><span class="trend" style="color:${ti.col}" title="${ti.txt}">${ti.sym}</span></div>
-        <div class="rdwrap"><span title="${e.n} derniers essais (tendance)">${sparkline(e.series,ti.col)}</span><div class="rd" style="color:${bandColor(e.mean)}">${fmt(e.mean)}</div></div>
+        <div class="rdwrap"><span title="${e.n} derniers essais">${sparkline(e.series,getCss('--muted'))}</span><div class="rd" style="color:${bandColor(e.mean)}">${fmt(e.mean)}</div></div>
       </div>
       <div class="tape">
         <div class="range" style="left:${lo}%;width:${Math.max(hi-lo,1.5)}%"></div>
@@ -1010,7 +1015,7 @@ function renderStrips(){
       </div>
       <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last} (${ago}) · régularité σ ${fmt(e.sd)}</div>
     </div>`;
-  }).join('')+`<div class="scaleticks"><span>1</span><span>3</span><span>5</span><span>7</span><span>9</span></div>`;
+  }).join('')+`<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)};font-weight:600">${k}</span>`).join('')}</div>`;
 }
 
 function renderProg(){
@@ -1153,7 +1158,7 @@ function renderTrend(){
         borderWidth:2.5,tension:.3,pointRadius:0,fill:false},
       {type:'scatter',label:'Moyenne / session',data:pts,
         pointBackgroundColor:pts.map(p=>bandColor(p.y)),pointRadius:3.5,pointBorderColor:getCss('--bg'),pointBorderWidth:1},
-      {type:'line',label:'Objectif (7)',data:obj,borderColor:'rgba(70,185,133,.55)',
+      {type:'line',label:'Objectif (7)',data:obj,borderColor:'rgba(58,170,53,.55)',
         borderDash:[5,4],borderWidth:1,pointRadius:0,fill:false}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
