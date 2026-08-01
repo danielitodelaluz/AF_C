@@ -159,6 +159,19 @@
     .scaleticks{padding-left:0}
   }
 
+  /* Grille heure × jour */
+  .cg{margin-bottom:18px}
+  .cg-nm{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:7px}
+  .cg-nm .mk{position:static;transform:none;flex:0 0 auto}
+  .cg-nm .mk.sh-diamond{transform:rotate(45deg)}
+  .cg-body{overflow-x:auto;padding-bottom:2px}
+  .cg-row{display:flex;gap:3px;align-items:center;margin-bottom:3px}
+  .cg-row>span{width:14px;flex:0 0 auto;font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+  .cg-row>i{flex:0 0 auto;width:26px;height:15px;border-radius:3px;border:1px solid var(--line)}
+  .cg-ax>i{border:0;background:none!important;opacity:1!important;height:12px;
+    font-family:var(--mono);font-size:9px;color:var(--faint);font-style:normal;line-height:12px}
+  @media (max-width:600px){ .cg-row>i{width:20px} }
+
   /* Tableau (heures) */
   .tblwrap{overflow-x:auto}
   table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:11.5px;white-space:nowrap}
@@ -282,9 +295,15 @@
   </div>
 
   <div class="panel">
-    <h2>Plage horaire de travail</h2>
-    <p class="desc">Répartition des essais dans la journée, par tranche de 2 h et en % du total de chacun — comparable malgré des volumes très différents.</p>
-    <div class="chartbox"><canvas id="chClock"></canvas></div>
+    <h2>Quand travaillent-ils ?</h2>
+    <p class="desc" id="clockDesc"></p>
+    <div class="seg" id="segClock" style="margin-bottom:14px">
+      <button data-v="hour" aria-pressed="true">Par heure</button>
+      <button data-v="day" aria-pressed="false">Par jour</button>
+      <button data-v="grid" aria-pressed="false">Heure × jour</button>
+    </div>
+    <div class="chartbox" id="clockBox"><canvas id="chClock"></canvas></div>
+    <div id="clockGrid"></div>
   </div>
 
 </div>
@@ -489,6 +508,7 @@ const ME_COLOR='#5ad1c4';
 let phase='psy0', stage=null, stageTouched=false;
 let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le monde
 let scaleFrom=-13;      // début de l'axe : le graphique va de là jusqu'au jour J
+let clockMode='hour'; // hour | day | grid — lecture du panneau « Quand travaillent-ils ? »
 let sessionFilter='all';// all | first | last — pour les candidats à plusieurs sessions
 // Un symbole par personne, repris sur les courbes et les réglettes
 const SHAPES=['circle','square','diamond','triangle','down'];
@@ -757,13 +777,21 @@ function hoursStats(p){
   const days=new Set(p.camp.campRows.map(r=>dayIdx(r.date))).size;
   const spanW=Math.max(1,(p.camp.end-p.camp.start)/(7*DAY)+1);
   const durs=bl.map(b=>b.min).sort((a,b)=>a-b);
-  const byH=Array(24).fill(0);
-  p.camp.campRows.forEach(r=>byH[r.date.getHours()]++);
+  // répartition des essais : par heure, par jour de la semaine, et croisée
+  const byH=Array(24).fill(0), byD=Array(7).fill(0);
+  const byDH=Array.from({length:7},()=>Array(12).fill(0));
+  p.camp.campRows.forEach(r=>{
+    const h=r.date.getHours(), d=(r.date.getDay()+6)%7;   // 0 = lundi
+    byH[h]++; byD[d]++; byDH[d][Math.floor(h/2)]++;
+  });
   const peak=byH.indexOf(Math.max(...byH));
+  const peakDay=byD.indexOf(Math.max(...byD));
   return {hours:totMin/60, perWeek:totMin/60/spanW, perDay:totMin/60/Math.max(1,days),
     sessions:bl.length, medMin:durs.length?durs[Math.floor(durs.length/2)]:0,
-    days, peak, byH};
+    days, peak, peakDay, byH, byD, byDH, total:p.camp.campRows.length};
 }
+const DAYS=['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+const DAYS_S=['L','M','M','J','V','S','D'];
 // Bornes du curseur de stade
 function stageRange(ps){
   if(!ps.length) return [0,1];
@@ -1012,30 +1040,69 @@ function renderCharts(ps,exSet){
       backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
       borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1};
   })},optH);
-  // H1 — plage horaire : histogramme par tranche de 2 h, en % des essais
-  const BINS=12, binLab=i=>`${String(i*2).padStart(2,'0')}–${String(i*2+2).padStart(2,'0')}h`;
-  const optC=baseOpts('tranche horaire','% des essais');
-  optC.scales.x={type:'category',
-    ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},maxRotation:60},
-    grid:{display:false}};
-  optC.plugins.tooltip.callbacks.title=it=>it[0].label;
-  optC.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} %`;
-  mk('chClock','bar',{labels:Array.from({length:BINS},(_,i)=>binLab(i)),
-    datasets:ps.map(p=>{
-      const st=hoursStats(p), tot=st.byH.reduce((a,b)=>a+b,0)||1;
-      const bins=Array(BINS).fill(0);
-      st.byH.forEach((n,h)=>{ bins[Math.floor(h/2)]+=n; });
-      return {label:p.name,data:bins.map(n=>Math.round(n/tot*1000)/10),
+  renderClock(ps);
+}
+/* Quand travaillent-ils ? trois lectures d'une même donnée :
+   par heure de la journée, par jour de la semaine, ou les deux croisés. */
+const BIN_LAB=i=>`${String(i*2).padStart(2,'0')}–${String(i*2+2).padStart(2,'0')}h`;
+function renderClock(ps){
+  const box=document.getElementById('clockBox');
+  const grid=document.getElementById('clockGrid');
+  const desc=document.getElementById('clockDesc');
+  const bars=(labels,pick,xlab)=>{
+    const o=baseOpts(xlab,'% des essais');
+    o.scales.x={type:'category',
+      ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},maxRotation:60},
+      grid:{display:false}};
+    o.plugins.tooltip.callbacks.title=it=>it[0].label;
+    o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} %`;
+    mk('chClock','bar',{labels,datasets:ps.map(p=>{
+      const st=hoursStats(p), tot=st.total||1;
+      return {label:p.name,data:pick(st).map(n=>Math.round(n/tot*1000)/10),
         backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
         borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1};
-    })},optC);
+    })},o);
+  };
+  if(clockMode==='grid'){
+    box.style.display='none'; grid.style.display='';
+    desc.innerHTML='Chaque case croise un jour et une tranche de 2 h : plus elle est vive, plus la personne y a travaillé. Un profil par session.';
+    grid.innerHTML=ps.map(p=>{
+      const st=hoursStats(p);
+      const max=Math.max(...st.byDH.flat())||1;
+      const rows=st.byDH.map((row,d)=>
+        `<div class="cg-row"><span>${DAYS_S[d]}</span>`+
+        row.map((n,i)=>{
+          const a=n?0.18+0.82*(n/max):0;
+          return `<i style="background:${n?p.color:'var(--panel2)'};opacity:${n?a:1}"
+            title="${DAYS[d]} ${BIN_LAB(i)} — ${n} essai${n>1?'s':''}"></i>`;
+        }).join('')+'</div>').join('');
+      return `<div class="cg">
+        <div class="cg-nm"><i class="mk sh-${p.shape}${p.me?' me':''}" style="--c:${p.color}"></i>
+          ${esc(p.name)}${p.me?' (moi)':''}</div>
+        <div class="cg-body">${rows}
+          <div class="cg-row cg-ax"><span></span>${Array.from({length:12},(_,i)=>
+            `<i>${i%2?'':String(i*2).padStart(2,'0')}</i>`).join('')}</div></div></div>`;
+    }).join('');
+    return;
+  }
+  box.style.display=''; grid.style.display='none'; grid.innerHTML='';
+  if(clockMode==='day'){
+    desc.innerHTML='Répartition des essais sur les jours de la semaine, en % du total de chacun — révèle qui travaille en semaine et qui travaille le week-end.';
+    bars(DAYS.map(d=>d[0].toUpperCase()+d.slice(1)),st=>st.byD,'jour de la semaine');
+  }else{
+    desc.innerHTML='Répartition des essais dans la journée, par tranche de 2 h et en % du total de chacun — comparable malgré des volumes très différents.';
+    bars(Array.from({length:12},(_,i)=>BIN_LAB(i)),
+      st=>{const b=Array(12).fill(0); st.byH.forEach((n,hh)=>b[Math.floor(hh/2)]+=n); return b;},
+      'tranche horaire');
+  }
 }
+
 /* H3 — récapitulatif chiffré du temps de travail */
 function renderHours(ps){
   const box=document.getElementById('hoursTbl');
   if(!ps.length){ box.innerHTML='<div class="empty">Rien à afficher.</div>'; return; }
   const head=`<tr><th>Session</th><th>Total</th><th>Par semaine</th><th>Par jour actif</th>
-    <th>Séances</th><th>Séance médiane</th><th>Pic</th></tr>`;
+    <th>Séances</th><th>Séance médiane</th><th>Pic</th><th>Jour fort</th></tr>`;
   const body=ps.map(p=>{
     const s=hoursStats(p);
     return `<tr>
@@ -1045,7 +1112,8 @@ function renderHours(ps){
       <td>${s.perDay.toFixed(1)} h</td>
       <td>${s.sessions}</td>
       <td>${Math.round(s.medMin)} min</td>
-      <td>${s.peak}h</td></tr>`;
+      <td>${s.peak}h</td>
+      <td>${DAYS[s.peakDay].slice(0,3)}.</td></tr>`;
   }).join('');
   box.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
@@ -1227,6 +1295,7 @@ function renderAll(){
     ['chGlobal','chVol','chHours','chClock'].forEach(id=>{
       if(charts[id]){charts[id].destroy(); delete charts[id];} });
     document.getElementById('hoursTbl').innerHTML='';
+    document.getElementById('clockGrid').innerHTML='';
   }
   renderTable(ps,exSet);
 }
@@ -1241,6 +1310,7 @@ function segHandler(id,fn){
 }
 segHandler('segPhase',v=>{ phase=v; stageTouched=false; });
 segHandler('segSess',v=>{ sessionFilter=v; stageTouched=false; });
+segHandler('segClock',v=>{ clockMode=v; });
 segHandler('segSet',v=>{ commonOnly=v==='common'; });
 document.getElementById('scale').addEventListener('input',e=>{
   scaleFrom=+e.target.value; stageTouched=false; renderAll();
