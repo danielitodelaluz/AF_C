@@ -71,7 +71,15 @@
   .cand button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;
     font-family:var(--mono);font-size:10px;padding:3px 8px;cursor:pointer}
   .cand button:hover{color:var(--ink);border-color:var(--accent)}
-  .cand input[type=checkbox]{margin-top:3px;accent-color:var(--accent);width:15px;height:15px;flex:0 0 auto}
+  .cand input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;flex:0 0 auto}
+  .cand .badge{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted);
+    border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  .sess{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+  .sess:first-of-type{border-top:0;margin-top:6px;padding-top:0}
+  .sess.off{opacity:.45}
+  .sess label{display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer}
+  .sess .det{margin-left:22px}
+  .sess .acts{margin-left:22px;margin-top:6px}
   .nodata{font-family:var(--mono);font-size:12px;color:var(--muted);padding:14px;text-align:center;
     border:1px dashed var(--line);border-radius:10px}
 
@@ -164,6 +172,14 @@
       </div>
     </div>
     <div class="ctl">
+      <span class="lab">Exercices</span>
+      <div class="seg" id="segSet">
+        <button data-v="all" aria-pressed="true">Tous</button>
+        <button data-v="common" aria-pressed="false">Communs uniquement</button>
+      </div>
+      <span class="stageval" id="exSetInfo"></span>
+    </div>
+    <div class="ctl">
       <span class="lab">Stade comparé</span>
       <input type="range" id="stage" min="0" max="30" value="0" step="1">
       <span class="stageval" id="stageVal">—</span>
@@ -173,8 +189,14 @@
   <div class="readout" id="readout"></div>
 
   <div class="panel">
-    <h2>Trajectoire de niveau</h2>
-    <p class="desc">Niveau moyen des essais sur les 30 jours précédents, semaine après semaine. <b>Ta courbe est en gras.</b></p>
+    <h2>Niveau global — moyenne par exercice</h2>
+    <p class="desc">Chaque exercice compte <b>pour un</b>, quel que soit le nombre de fois où il a été travaillé : son niveau est celui de ses 5 derniers essais à cet instant. Enchaîner un exercice facile ne gonfle donc pas la courbe. <b>Ta courbe est en gras</b> — le nombre d'exercices pris en compte apparaît dans l'infobulle.</p>
+    <div class="chartbox"><canvas id="chGlobal"></canvas></div>
+  </div>
+
+  <div class="panel">
+    <h2>Moyenne des essais réalisés</h2>
+    <p class="desc">Moyenne de <b>tous les essais</b> des 30 jours précédents. Reflète la difficulté de ce qui a été travaillé, pas le niveau d'ensemble : à lire comme la « forme des séances ».</p>
     <div class="chartbox"><canvas id="chLevel"></canvas></div>
   </div>
 
@@ -210,6 +232,7 @@ const PSY_PHASE_MAP = {
   "Cubes 2D/3D - psy0 Air France":"psy0","Grilles de calculs":"psy0","Boîtes à mots":"psy0",
   "Mots en étoile":"psy0","Angles":"psy1","Séries logiques":"psy0",
   "Anglais présélection cadets Air France":"psy0",
+  "Formes glissées":"psy0",                       // variante rencontrée dans d'autres exports
 
   "Mathématiques":"psy1","Voitures (séquentiel)":"psy1","Voitures (basique)":"psy1",
   "Test des compteurs":"psy1","Calcul mental 1":"psy1","Calcul mental 4":"psy1",
@@ -217,6 +240,7 @@ const PSY_PHASE_MAP = {
   "Memory 3 Back":"psy1","Memory 4 Back":"psy1","Memory 5 Back":"psy1",
   "Attention 1":"psy1","Attention 2":"psy1",
   "Patrons de cubes - psy1 - Cadets AF":"psy1",
+  "Patrons de cubes - psy1 ENAC - pilotes pros":"psy1",
   "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"psy1","Tangram":"psy1",
   "Psychomoteur ENAC":"psy1","EFG":"psy1","Matrices de Raven":"psy1","Lecture de textes":"psy1"
 };
@@ -226,6 +250,7 @@ const CATEGORY_MAP = {
   "Psychomoteur psy0 AF cadet":"Psychomoteur","Formes et couleurs":"Attention",
   "Airways":"Intellectuelle","Empilements":"Spatiale","Objets 3D":"Spatiale",
   "Billes":"Intellectuelle","Formes glissées - II":"Intellectuelle",
+  "Formes glissées":"Intellectuelle",
   "Cubes 2D/3D - psy0 Air France":"Spatiale","Grilles de calculs":"Numérique",
   "Boîtes à mots":"Verbale","Mots en étoile":"Verbale","Angles":"Spatiale",
   "Séries logiques":"Intellectuelle","Anglais présélection cadets Air France":"Anglais",
@@ -236,6 +261,7 @@ const CATEGORY_MAP = {
   "Attention 1":"Attention","Attention 2":"Attention","Attention 3":"Attention",
   "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
   "Patrons de cubes - psy1 - Cadets AF":"Spatiale",
+  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale",
   "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"Spatiale","Tangram":"Spatiale",
   "Psychomoteur ENAC":"Psychomoteur","EFG":"Intellectuelle",
   "Matrices de Raven":"Intellectuelle","Lecture de textes":"Verbale"
@@ -251,6 +277,7 @@ new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(n
 const DAY=86400000;
 const LS_MAIN="pilotest_dashboard_v2";
 const LS_REFS="pilotest_refs_v1";
+const LS_ME="pilotest_cmp_me_v1";
 const MONTHS={janvier:0,"février":1,fevrier:1,mars:2,avril:3,mai:4,juin:5,juillet:6,"août":7,aout:7,
   septembre:8,octobre:9,novembre:10,"décembre":11,decembre:11};
 function parseFrDate(s){
@@ -293,21 +320,33 @@ const chartFont=n=>isPhone()?n+2:n;
 const dayIdx=d=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/DAY);
 const fdate=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
 
-/* ----------------------- Détection de campagne -----------------------
+/* ----------------------- Détection des sessions -----------------------
    Le premier essai d'une phase ne marque PAS le début de la préparation :
    un exercice isolé suivi de deux semaines de rien, c'est du repérage.
    On découpe l'historique en blocs séparés par une longue coupure, on ne
-   garde que les blocs substantiels, puis on recale le départ sur le
-   premier jour réellement suivi d'un entraînement soutenu.
-   ------------------------------------------------------------------- */
-const GAP_DAYS=28;      // coupure au-delà de laquelle on change de campagne
+   garde que les blocs substantiels, puis on recale le départ de chacun sur
+   le premier jour réellement suivi d'un entraînement soutenu.
+   Un candidat peut avoir PLUSIEURS sessions (une tentative ratée, puis la
+   bonne) : chacune est analysable et comparable séparément.
+   -------------------------------------------------------------------- */
+const GAP_DAYS=28;      // coupure au-delà de laquelle on change de session
 const SUSTAIN_WIN=14;   // fenêtre d'observation du "vrai" départ
 const SUSTAIN_DAYS=3;   // jours actifs requis dans cette fenêtre
 const SUSTAIN_ATT=10;   // essais requis dans cette fenêtre
+const SUBST_DAYS=5, SUBST_ATT=30;  // seuil d'une session « substantielle »
 
-function detectCampaign(rows, ph){
-  const src = ph==='all' ? rows : rows.filter(r=>r.phase===ph);
-  if(!src.length) return null;
+// Exercices absents de la table de correspondance : on ne les rattache à
+// aucune phase (les classer d'office en PSY0 fausserait les moyennes).
+function phaseRows(rows,ph){
+  return ph==='all' ? rows.filter(r=>CONFIG[r.test])
+                    : rows.filter(r=>CONFIG[r.test]&&r.phase===ph);
+}
+function unknownTests(rows){
+  const s=new Set(); rows.forEach(r=>{ if(!CONFIG[r.test]) s.add(r.test); }); return s;
+}
+function detectCampaigns(rows, ph){
+  const src=phaseRows(rows,ph);
+  if(!src.length) return [];
   const byDay=new Map();
   src.forEach(r=>{
     const k=dayIdx(r.date);
@@ -322,69 +361,93 @@ function detectCampaign(rows, ph){
     cur.push(days[i]);
   }
   blocks.push(cur);
-  // 2) blocs substantiels — sinon on relâche, sinon on prend tout
   const att=b=>b.reduce((s,d)=>s+byDay.get(d).n,0);
-  let keep=blocks.filter(b=>b.length>=5 && att(b)>=30);
-  if(!keep.length) keep=blocks.filter(b=>b.length>=3 && att(b)>=10);
-  if(!keep.length) keep=blocks;
-  const block=keep[keep.length-1];      // la campagne qui mène à l'examen
-  const skipped=blocks.length-1-blocks.indexOf(block); // blocs postérieurs (aucun en principe)
-  // 3) recalage du vrai départ
-  let si=0;
-  for(let i=0;i<block.length;i++){
-    const lim=block[i]+SUSTAIN_WIN;
-    let d=0,a=0;
-    for(let j=i;j<block.length&&block[j]<=lim;j++){ d++; a+=byDay.get(block[j]).n; }
-    if(d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT){ si=i; break; }
-  }
-  const startK=block[si], endK=block[block.length-1];
-  const start=byDay.get(startK).date, end=byDay.get(endK).date;
-  // la campagne est bornée à sa période : ni le repérage d'avant,
-  // ni les essais isolés d'après (pour une référence : l'après-examen)
-  const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=startK&&k<=endK;});
-  const after=src.filter(r=>dayIdx(r.date)>endK).length;
-  return {
-    start, end, campRows,
-    trimmedDays:si,                        // jours de repérage écartés au début
-    priorBlocks:blocks.indexOf(block),     // campagnes antérieures ignorées
-    after,                                 // essais postérieurs écartés
-    activeDays:block.length-si,
-    attempts:campRows.length,
-    weeks:Math.max(1,Math.round((endK-startK)/7)+1)
-  };
+  // 2) recalage du départ de chaque bloc
+  const built=blocks.map(b=>{
+    let si=0;
+    for(let i=0;i<b.length;i++){
+      const lim=b[i]+SUSTAIN_WIN;
+      let d=0,a=0;
+      for(let j=i;j<b.length&&b[j]<=lim;j++){ d++; a+=byDay.get(b[j]).n; }
+      if(d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT){ si=i; break; }
+    }
+    const kept=b.slice(si);
+    return {startK:kept[0], endK:kept[kept.length-1], trimmedDays:si,
+            activeDays:kept.length, att:att(kept)};
+  });
+  // 3) on ne retient que les sessions substantielles ; à défaut, la plus grosse
+  let keep=built.filter(c=>c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
+  if(!keep.length) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
+  const dropped=built.length-keep.length;
+  return keep.map((c,i)=>{
+    const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=c.startK&&k<=c.endK;});
+    const start=byDay.get(c.startK).date, end=byDay.get(c.endK).date;
+    return {
+      index:i, total:keep.length, start, end, campRows,
+      trimmedDays:c.trimmedDays,
+      dropped:i===0?dropped:0,      // périodes trop courtes écartées (signalé une fois)
+      activeDays:c.activeDays,
+      attempts:campRows.length,
+      weeks:Math.max(1,Math.round((c.endK-c.startK)/7)+1),
+      label:periodLabel(start,end)
+    };
+  });
+}
+// Libellé compact d'une session : « 2023 » ou « 2022–23 »
+function periodLabel(a,b){
+  const ya=a.getFullYear(), yb=b.getFullYear();
+  return ya===yb? String(ya) : `${ya}–${String(yb).slice(2)}`;
 }
 
 /* ----------------------- État ----------------------- */
 const REF_COLORS=['#c792ea','#82aaff','#f78c6c','#c3e88d','#ffcb6b','#89ddff','#ff9cac','#a1e8cc'];
 const ME_COLOR='#5ad1c4';
 let phase='psy0', align='start', stage=null, stageTouched=false;
-let refs=[];            // [{id,name,csv,rows,examDate,on}]
-let me=null;            // {name,rows}
+let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le monde
+let refs=[];            // [{id,name,csv,rows,color,sess:{}}]
+let me=null;            // {name,rows,sess:{}}
 let myExamDate='2026-09-05';
 const charts={};
 
+// Clé stable d'une session (dépend de la phase et de sa date de début)
+const sessKey=(ph,c)=>ph+'|'+c.start.toISOString().slice(0,10);
+// Préférences d'une session : activée ? date d'examen ?
+function sessPref(owner,ph,c,isMe,camps){
+  const k=sessKey(ph,c), p=(owner.sess||{})[k];
+  if(p) return p;
+  // par défaut : toutes les sessions d'une référence, seulement la dernière pour moi
+  return {on:isMe? c.index===camps.length-1 : true, exam:null};
+}
+function setSessPref(owner,ph,c,patch){
+  owner.sess=owner.sess||{};
+  const k=sessKey(ph,c);
+  owner.sess[k]={...(owner.sess[k]||{on:true,exam:null}),...patch};
+}
+
 /* ----------------------- Chargement ----------------------- */
 function loadMe(){
-  let saved=null;
+  let saved=null,cfg=null;
   try{ saved=JSON.parse(localStorage.getItem(LS_MAIN)||'null'); }catch(e){}
+  try{ cfg=JSON.parse(localStorage.getItem(LS_ME)||'null'); }catch(e){}
   if(saved&&saved.examDate) myExamDate=saved.examDate;
   if(saved&&saved.csv){
     const rows=parseCSV(saved.csv);
-    if(rows.length){ me={name:'Moi',rows}; return; }
+    if(rows.length){ me={name:'Moi',rows,sess:(cfg&&cfg.sess)||{}}; return; }
   }
   me=null;
 }
 function loadRefs(){
   let saved=null;
   try{ saved=JSON.parse(localStorage.getItem(LS_REFS)||'null'); }catch(e){}
-  refs=(saved||[]).map((r,i)=>({...r,rows:parseCSV(r.csv),on:r.on!==false,
+  refs=(saved||[]).map((r,i)=>({...r,rows:parseCSV(r.csv),sess:r.sess||{},
     color:REF_COLORS[i%REF_COLORS.length]})).filter(r=>r.rows.length);
 }
 function saveRefs(){
   try{
     localStorage.setItem(LS_REFS,JSON.stringify(refs.map(r=>({
-      id:r.id,name:r.name,csv:r.csv,examDate:r.examDate||null,on:r.on
+      id:r.id,name:r.name,csv:r.csv,sess:r.sess||{}
     }))));
+    if(me) localStorage.setItem(LS_ME,JSON.stringify({sess:me.sess||{}}));
   }catch(e){ setStatus("Stockage plein : supprime un dossier de référence.",'err'); }
 }
 function setStatus(msg,cls){
@@ -401,7 +464,7 @@ function addRef(text,srcName){
   const rows=parseCSV(text);
   if(!rows.length){ setStatus(`« ${srcName} » : aucune ligne exploitable (format attendu : test,score,stanine,date).`,'err'); return false; }
   const id='r'+Date.now()+Math.random().toString(36).slice(2,6);
-  refs.push({id,name:nextName(),csv:text,rows,examDate:null,on:true,
+  refs.push({id,name:nextName(),csv:text,rows,sess:{},
     color:REF_COLORS[refs.length%REF_COLORS.length]});
   return true;
 }
@@ -424,20 +487,41 @@ function handleFiles(files){
 }
 
 /* ----------------------- Séries temporelles ----------------------- */
-// Un « participant » = moi ou un candidat de référence, avec sa campagne détectée.
+// Un « participant » = UNE session (moi ou une référence). Un candidat qui
+// s'est préparé deux fois donne deux participants comparables entre eux.
 function participants(){
   const out=[];
-  if(me){
-    const c=detectCampaign(me.rows,phase);
-    if(c) out.push({key:'me',name:'Moi',color:ME_COLOR,me:true,camp:c,
-      exam:myExamDate?new Date(myExamDate+'T00:00:00'):c.end});
-  }
-  refs.filter(r=>r.on).forEach(r=>{
-    const c=detectCampaign(r.rows,phase);
-    if(c) out.push({key:r.id,name:r.name,color:r.color,me:false,camp:c,
-      exam:r.examDate?new Date(r.examDate+'T00:00:00'):c.end});
-  });
+  const push=(owner,ph,camps,isMe,color,name)=>{
+    camps.forEach(c=>{
+      const pref=sessPref(owner,ph,c,isMe,camps);
+      if(!pref.on) return;
+      const multi=camps.length>1;
+      out.push({
+        key:(isMe?'me':owner.id)+'#'+c.index,
+        owner, camp:c, me:isMe, color,
+        name:multi?`${name} ${c.label}`:name,
+        exam:pref.exam?new Date(pref.exam+'T00:00:00')
+             :(isMe&&!multi&&myExamDate?new Date(myExamDate+'T00:00:00'):c.end)
+      });
+    });
+  };
+  if(me) push(me,phase,detectCampaigns(me.rows,phase),true,ME_COLOR,'Moi');
+  refs.forEach(r=>push(r,phase,detectCampaigns(r.rows,phase),false,r.color,r.name));
   return out;
+}
+// Exercices retenus pour la comparaison : tous, ou seulement ceux que
+// TOUT LE MONDE a pratiqués (utile si certains tests n'existent plus).
+function exerciseSet(ps){
+  const sets=ps.map(p=>new Set(p.camp.campRows.map(r=>r.test)));
+  const all=new Set(); sets.forEach(s=>s.forEach(x=>all.add(x)));
+  if(!commonOnly||sets.length<2) return {set:all,common:false,total:all.size};
+  const inter=new Set([...all].filter(x=>sets.every(s=>s.has(x))));
+  return {set:inter,common:true,total:all.size};
+}
+// Ma session de référence pour le verdict : la plus récente activée
+function myPart(ps){
+  const mine=ps.filter(p=>p.me);
+  return mine.length?mine[mine.length-1]:null;
 }
 // Abscisse d'un instant t pour un participant, en semaines
 function xOf(p,t){
@@ -451,11 +535,12 @@ const EOD=DAY-1;
 function instantAt(p,st){
   return (align==='start'?p.camp.start.getTime():p.exam.getTime())+st*7*DAY+EOD;
 }
-// Points hebdomadaires : niveau glissant 30 j, volume de la semaine, cumul
-function buildSeries(p){
+// Points hebdomadaires : niveau glissant 30 j, niveau global non pondéré,
+// volume de la semaine, cumul
+function buildSeries(p,exSet){
   const rows=p.camp.campRows;
   const t0=p.camp.start.getTime(), tEnd=p.camp.end.getTime()+EOD;
-  const level=[],vol=[],cum=[];
+  const level=[],glob=[],vol=[],cum=[];
   for(let w=0;;w++){
     const nominal=t0+w*7*DAY;          // sert d'abscisse (S+0, S+1, …)
     const cut=Math.min(nominal+EOD,tEnd); // sert de point de mesure
@@ -463,11 +548,13 @@ function buildSeries(p){
     const week=rows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-7*DAY);
     const x=Math.round(xOf(p,nominal)*10)/10;
     if(win.length) level.push({x,y:Math.round(mean(win.map(r=>r.stanine))*100)/100});
+    const g=globalLevelAtT(p,cut,exSet);
+    if(g) glob.push({x,y:Math.round(g.v*100)/100,n:g.n});
     vol.push({x,y:week.length});
     cum.push({x,y:rows.filter(r=>r.date.getTime()<=cut).length});
     if(nominal+EOD>=tEnd||w>400) break;
   }
-  return {level,vol,cum};
+  return {level,glob,vol,cum};
 }
 // Niveau global d'un participant à un stade donné (moyenne glissante 30 j)
 function levelAt(p,st){
@@ -486,12 +573,29 @@ function paceAt(p,st){ // essais sur les 30 derniers jours, ramenés à la semai
 }
 // Niveau par exercice à un stade : moyenne des K derniers essais avant cet instant
 const LASTK=5;
-function exLevelAt(p,ex,st){
-  const t=instantAt(p,st);
-  const prev=p.camp.campRows.filter(r=>r.test===ex&&r.date.getTime()<=t);
-  if(!prev.length) return null;
-  return mean(prev.slice(-LASTK).map(r=>r.stanine));
+function byEx(p){                       // index exercice → essais (construit une fois)
+  if(!p._byEx){
+    p._byEx=new Map();
+    p.camp.campRows.forEach(r=>{ (p._byEx.get(r.test)||p._byEx.set(r.test,[]).get(r.test)).push(r); });
+  }
+  return p._byEx;
 }
+function exLevelAtT(p,ex,t){
+  const arr=byEx(p).get(ex); if(!arr) return null;
+  let i=arr.length; while(i>0&&arr[i-1].date.getTime()>t) i--;
+  if(i===0) return null;
+  return mean(arr.slice(Math.max(0,i-LASTK),i).map(r=>r.stanine));
+}
+function exLevelAt(p,ex,st){ return exLevelAtT(p,ex,instantAt(p,st)); }
+/* Niveau GLOBAL non pondéré : chaque exercice compte pour un, quel que soit
+   le nombre de fois où il a été travaillé. Enchaîner un exercice facile ne
+   gonfle donc plus la courbe — contrairement à la moyenne des essais. */
+function globalLevelAtT(p,t,exSet){
+  const vals=[];
+  exSet.forEach(ex=>{ const v=exLevelAtT(p,ex,t); if(v!==null) vals.push(v); });
+  return vals.length?{v:mean(vals),n:vals.length}:null;
+}
+function globalLevelAt(p,st,exSet){ return globalLevelAtT(p,instantAt(p,st),exSet); }
 // Bornes du curseur de stade
 function stageRange(ps){
   if(!ps.length) return [0,1];
@@ -504,7 +608,7 @@ function stageRange(ps){
 }
 // Stade actuel de "Moi" (là où j'en suis aujourd'hui)
 function myStage(ps){
-  const m=ps.find(p=>p.me);
+  const m=myPart(ps);
   if(!m) return null;
   return Math.round(xOf(m,m.camp.end.getTime()));
 }
@@ -513,67 +617,78 @@ function myStage(ps){
 function renderCands(){
   const box=document.getElementById('cands');
   const parts=[];
-  if(me){
-    const c=detectCampaign(me.rows,phase);
-    parts.push(cardHtml({name:'Moi',color:ME_COLOR,me:true},c,null));
-  }else{
-    parts.push(`<div class="nodata">Aucun résultat personnel trouvé.<br>Importe d'abord ton export sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.</div>`);
-  }
-  refs.forEach(r=>parts.push(cardHtml(r,detectCampaign(r.rows,phase),r.id)));
+  if(me) parts.push(cardHtml(me,'me','Moi',ME_COLOR,true));
+  else parts.push(`<div class="nodata">Aucun résultat personnel trouvé.<br>Importe d'abord ton export sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.</div>`);
+  refs.forEach(r=>parts.push(cardHtml(r,r.id,r.name,r.color,false)));
   if(!refs.length) parts.push(`<div class="nodata">Aucun dossier de référence.<br>Glisse les CSV des candidats admis ci-dessus.</div>`);
   box.innerHTML=parts.join('');
-  box.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+  const own=id=>id==='me'?me:refs.find(x=>x.id===id);
+  box.querySelectorAll('input[data-sess]').forEach(cb=>{
     cb.addEventListener('change',()=>{
-      const r=refs.find(x=>x.id===cb.dataset.id);
-      if(r){ r.on=cb.checked; saveRefs(); renderAll(); }
+      const o=own(cb.dataset.id); if(!o) return;
+      const camps=detectCampaigns(o.rows,phase);
+      const c=camps.find(x=>String(x.index)===cb.dataset.sess);
+      if(c){ setSessPref(o,phase,c,{on:cb.checked}); saveRefs(); stageTouched=false; renderAll(); }
     });
   });
   box.querySelectorAll('button[data-act]').forEach(b=>{
     b.addEventListener('click',()=>{
-      const r=refs.find(x=>x.id===b.dataset.id); if(!r) return;
-      if(b.dataset.act==='del'){
-        if(!confirm(`Supprimer « ${r.name} » ?`)) return;
-        refs=refs.filter(x=>x.id!==r.id);
+      const o=own(b.dataset.id); if(!o) return;
+      const act=b.dataset.act;
+      if(act==='del'){
+        if(!confirm(`Supprimer « ${o.name} » et ses données ?`)) return;
+        refs=refs.filter(x=>x.id!==o.id);
         refs.forEach((x,i)=>x.color=REF_COLORS[i%REF_COLORS.length]);
-        saveRefs(); renderAll(); setStatus('Dossier supprimé.');
-      }else if(b.dataset.act==='ren'){
-        const n=prompt('Nom du candidat :',r.name);
-        if(n&&n.trim()){ r.name=n.trim(); saveRefs(); renderAll(); }
-      }else if(b.dataset.act==='exam'){
-        const d=prompt("Date d'examen (AAAA-MM-JJ) — laisse vide si inconnue :",r.examDate||'');
+        saveRefs(); stageTouched=false; renderAll(); setStatus('Dossier supprimé.');
+      }else if(act==='ren'){
+        const n=prompt('Nom du candidat :',o.name);
+        if(n&&n.trim()){ o.name=n.trim(); saveRefs(); renderAll(); }
+      }else if(act==='exam'){
+        const camps=detectCampaigns(o.rows,phase);
+        const c=camps.find(x=>String(x.index)===b.dataset.sess); if(!c) return;
+        const cur=sessPref(o,phase,c,o===me,camps).exam||'';
+        const d=prompt(`Date d'examen de la session ${c.label} (AAAA-MM-JJ) — vide si inconnue :`,cur);
         if(d===null) return;
-        r.examDate=/^\d{4}-\d{2}-\d{2}$/.test(d.trim())?d.trim():null;
+        setSessPref(o,phase,c,{exam:/^\d{4}-\d{2}-\d{2}$/.test(d.trim())?d.trim():null});
         saveRefs(); renderAll();
       }
     });
   });
 }
-function cardHtml(r,c,id){
-  const on=id?r.on:true;
-  const cb=id?`<input type="checkbox" data-id="${id}" ${on?'checked':''} aria-label="Comparer ${esc(r.name)}">`
-             :`<input type="checkbox" checked disabled aria-label="Moi">`;
-  let det;
-  if(!c){ det=`<span style="color:var(--s3)">aucun entraînement détecté pour cette phase</span>`; }
-  else{
-    const notes=[];
-    if(c.trimmedDays) notes.push(`${c.trimmedDays} j de repérage écartés`);
-    if(c.priorBlocks) notes.push(`${c.priorBlocks} campagne${c.priorBlocks>1?'s':''} antérieure${c.priorBlocks>1?'s':''} ignorée${c.priorBlocks>1?'s':''}`);
-    if(c.after) notes.push(`${c.after} essai${c.after>1?'s':''} isolé${c.after>1?'s':''} après la campagne`);
-    det=`<b>${fdate(c.start)}</b> → <b>${fdate(c.end)}</b><br>`+
-        `${c.weeks} sem. · ${c.attempts} essais · ${c.activeDays} j actifs`+
-        (notes.length?`<br><span style="color:var(--faint)">${notes.join(' · ')}</span>`:'');
+function cardHtml(owner,id,name,color,isMe){
+  const camps=detectCampaigns(owner.rows,phase);
+  const unk=unknownTests(owner.rows);
+  let body;
+  if(!camps.length){
+    body=`<div class="det"><span style="color:var(--s3)">aucun entraînement détecté pour cette phase</span></div>`;
+  }else{
+    body=camps.map(c=>{
+      const pref=sessPref(owner,phase,c,isMe,camps);
+      const notes=[];
+      if(c.trimmedDays) notes.push(`${c.trimmedDays} j de repérage écartés`);
+      if(c.dropped) notes.push(`${c.dropped} période${c.dropped>1?'s':''} trop courte${c.dropped>1?'s':''} ignorée${c.dropped>1?'s':''}`);
+      return `<div class="sess${pref.on?'':' off'}">
+        <label><input type="checkbox" data-id="${id}" data-sess="${c.index}" ${pref.on?'checked':''}>
+          <b>${camps.length>1?`Session ${c.index+1} · ${c.label}`:'Préparation'}</b></label>
+        <div class="det">${fdate(c.start)} → ${fdate(c.end)}<br>
+          ${c.weeks} sem. · ${c.attempts} essais · ${c.activeDays} j actifs
+          ${pref.exam?`<br>examen : ${fdate(new Date(pref.exam+'T00:00:00'))}`:''}
+          ${notes.length?`<br><span style="color:var(--faint)">${notes.join(' · ')}</span>`:''}</div>
+        <div class="acts"><button data-act="exam" data-id="${id}" data-sess="${c.index}">Date d'examen</button></div>
+      </div>`;
+    }).join('');
   }
-  const acts=id?`<div class="acts">
+  const acts=isMe?'':`<div class="acts">
       <button data-act="ren" data-id="${id}">Renommer</button>
-      <button data-act="exam" data-id="${id}">Date d'examen</button>
-      <button data-act="del" data-id="${id}">Supprimer</button>
-    </div>`:'';
-  const exam=id&&r.examDate?`<br>examen : ${fdate(new Date(r.examDate+'T00:00:00'))}`:'';
-  return `<div class="cand${on?'':' off'}">
-    ${cb}<div class="sw" style="background:${r.color}"></div>
+      <button data-act="del" data-id="${id}">Supprimer</button></div>`;
+  const unkNote=unk.size?`<div class="det" style="color:var(--s3);margin-top:7px" title="${esc([...unk].join(', '))}">
+      ${unk.size} exercice${unk.size>1?'s':''} non reconnu${unk.size>1?'s':''}, ignoré${unk.size>1?'s':''}</div>`:'';
+  return `<div class="cand">
+    <div class="sw" style="background:${color}"></div>
     <div class="body">
-      <div class="nm">${esc(r.name)}${r.me?'<span class="me">MOI</span>':''}</div>
-      <div class="det">${det}${exam}</div>${acts}
+      <div class="nm">${esc(name)}${isMe?'<span class="me">MOI</span>':''}
+        ${camps.length>1?`<span class="badge">${camps.length} sessions</span>`:''}</div>
+      ${body}${unkNote}${acts}
     </div></div>`;
 }
 
@@ -621,31 +736,40 @@ function dsFor(p,data,opts={}){
     tension:.3,borderDash:p.me?[]:(opts.dash||[]),order:p.me?0:1,...opts.extra
   };
 }
-function renderCharts(ps){
-  const series=new Map(ps.map(p=>[p.key,buildSeries(p)]));
-  // repère médian du groupe (hors moi), si au moins 2 références
+function medianCurve(refsP,series,field){
+  if(refsP.length<2) return null;
+  const xs=new Set(); refsP.forEach(p=>series.get(p.key)[field].forEach(pt=>xs.add(pt.x)));
+  const pts=[...xs].sort((a,b)=>a-b).map(x=>{
+    const vals=refsP.map(p=>{
+      const s=series.get(p.key)[field];
+      let best=null,bd=Infinity;
+      s.forEach(pt=>{const d=Math.abs(pt.x-x); if(d<bd&&d<=0.6){bd=d;best=pt.y;}});
+      return best;
+    }).filter(v=>v!==null);
+    return vals.length>=2?{x,y:median(vals)}:null;
+  }).filter(Boolean);
+  return {label:'Médiane des sessions',data:pts,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
+    borderWidth:2,borderDash:[6,4],pointRadius:0,tension:.3,order:2};
+}
+function renderCharts(ps,exSet){
+  const series=new Map(ps.map(p=>[p.key,buildSeries(p,exSet.set)]));
   const refsP=ps.filter(p=>!p.me);
-  let medDs=null;
-  if(refsP.length>=2){
-    const xs=new Set(); refsP.forEach(p=>series.get(p.key).level.forEach(pt=>xs.add(pt.x)));
-    const pts=[...xs].sort((a,b)=>a-b).map(x=>{
-      const vals=refsP.map(p=>{
-        const s=series.get(p.key).level;
-        let best=null,bd=Infinity;
-        s.forEach(pt=>{const d=Math.abs(pt.x-x); if(d<bd&&d<=0.6){bd=d;best=pt.y;}});
-        return best;
-      }).filter(v=>v!==null);
-      return vals.length>=2?{x,y:median(vals)}:null;
-    }).filter(Boolean);
-    medDs={label:'Médiane du groupe',data:pts,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
-      borderWidth:2,borderDash:[6,4],pointRadius:0,tension:.3,order:2};
-  }
-  mk('chLevel','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).level,{dash:[5,4]})),...(medDs?[medDs]:[])]},
-     baseOpts(align==='start'?'semaines depuis le début':"avant l'examen",'classe stanine',true));
+  const xt=align==='start'?'semaines depuis le début':"avant l'examen";
+  const medL=medianCurve(refsP,series,'level'), medG=medianCurve(refsP,series,'glob');
+  // 1) niveau global non pondéré — la mesure de référence
+  const optG=baseOpts(xt,'classe stanine (moyenne par exercice)',true);
+  optG.plugins.tooltip.callbacks.label=it=>{
+    const n=it.raw&&it.raw.n;
+    return `${it.dataset.label} : ${fmt(it.parsed.y)}`+(n?` (sur ${n} exercice${n>1?'s':''})`:'');
+  };
+  mk('chGlobal','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).glob,{dash:[5,4]})),...(medG?[medG]:[])]},optG);
+  // 2) moyenne des essais (pondérée par ce qui a été travaillé)
+  mk('chLevel','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).level,{dash:[5,4]})),...(medL?[medL]:[])]},
+     baseOpts(xt,'classe stanine',true));
   mk('chVol','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).vol,{dash:[5,4]}))},
-     baseOpts(align==='start'?'semaines depuis le début':"avant l'examen",'essais / semaine'));
+     baseOpts(xt,'essais / semaine'));
   mk('chCum','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).cum,{dash:[5,4]}))},
-     baseOpts(align==='start'?'semaines depuis le début':"avant l'examen",'essais cumulés'));
+     baseOpts(xt,'essais cumulés'));
 }
 function mk(id,type,data,options){
   if(charts[id]) charts[id].destroy();
@@ -653,9 +777,9 @@ function mk(id,type,data,options){
 }
 
 /* ----------------------- Rendu : verdict ----------------------- */
-function renderReadout(ps){
+function renderReadout(ps,exSet){
   const box=document.getElementById('readout');
-  const m=ps.find(p=>p.me), rp=ps.filter(p=>!p.me);
+  const m=myPart(ps), rp=ps.filter(p=>!p.me);
   if(!m||!rp.length){
     box.innerHTML=`<div class="tile" style="grid-column:1/-1"><div class="t-lab">Verdict</div>
       <div class="t-sub" style="font-size:11.5px;margin-top:8px">${
@@ -663,87 +787,126 @@ function renderReadout(ps){
           :"Ajoute au moins un dossier de référence pour lancer la comparaison."}</div></div>`;
     return;
   }
-  const st=stage;
-  const my=levelAt(m,st), grp=median(rp.map(p=>levelAt(p,st)).filter(v=>v!==null));
+  const st=stage, S=exSet.set;
+  const gl=p=>{ const g=globalLevelAt(p,st,S); return g?g.v:null; };
+  const mg=globalLevelAt(m,st,S);
+  const my=mg?mg.v:null;
+  const grp=median(rp.map(gl).filter(v=>v!==null));
   const myV=volumeAt(m,st), grpV=median(rp.map(p=>volumeAt(p,st)));
   const myP=paceAt(m,st), grpP=median(rp.map(p=>paceAt(p,st)));
   const d=(my!==null&&grp!==null)?my-grp:null;
   const dCol=d===null?getCss('--muted'):d>=0.3?getCss('--s7'):d<=-0.3?getCss('--s2'):getCss('--s5');
-  // Avance / retard : à quel stade le groupe avait-il mon niveau actuel ?
-  let shift=null;
-  if(my!==null&&rp.length){
+  /* « Ils avaient ton niveau à… » : premier stade où la médiane des sessions
+     de référence ATTEINT ton niveau ET s'y maintient (deux relevés d'affilée),
+     pour qu'un simple pic de bruit ne déclenche pas un faux retard. */
+  let cross=null, shift=null, single=false;
+  if(my!==null){
     const [lo,hi]=stageRange(ps);
-    let bestX=null,bd=Infinity;
+    let prevOk=false;
     for(let x=lo;x<=hi;x+=1){
-      const g=median(rp.map(p=>levelAt(p,x)).filter(v=>v!==null));
-      if(g===null) continue;
-      const diff=Math.abs(g-my);
-      if(diff<bd){bd=diff;bestX=x;}
+      const vals=rp.map(p=>gl2(p,x,S)).filter(v=>v!==null);
+      if(!vals.length){ prevOk=false; continue; }
+      if(vals.length===1) single=true;
+      const ok=median(vals)>=my-0.15;
+      if(ok&&prevOk){ cross=x-1; break; }
+      prevOk=ok;
     }
-    if(bestX!==null&&bd<=0.6) shift=st-bestX;   // >0 : j'ai ce niveau plus tard qu'eux → retard
+    if(cross!==null) shift=st-cross;   // >0 : ils y étaient plus tôt → retard
   }
   const sCol=shift===null?getCss('--muted'):shift<=-1?getCss('--s7'):shift>=1?getCss('--s2'):getCss('--s5');
-  const sTxt=shift===null?'—':shift===0?'à leur rythme':
-    (shift<0?`${Math.abs(shift)} sem. d'avance`:`${shift} sem. de retard`);
+  let sTxt,sSub;
+  if(my===null){ sTxt='—'; sSub='pas encore de niveau mesurable'; }
+  else if(cross===null){ sTxt='jamais'; sSub='ils n\'ont pas atteint ton niveau sur la période observée'; }
+  else{
+    sTxt=xLabel(cross);
+    sSub=shift===0?'exactement ton rythme'
+      :(shift<0?`tu y es ${Math.abs(shift)} sem. plus tôt → en avance`
+               :`tu y es ${shift} sem. plus tard → en retard`);
+  }
   const vRatio=grpV?Math.round(myV/grpV*100):null;
+  const nSess=rp.length;
   box.innerHTML=`
     <div class="tile"><div class="t-lab">📍 Stade comparé</div>
       <div class="t-val">${xLabel(st)}</div>
-      <div class="t-sub">${xLabelDays(st)}<br>${rp.length} référence${rp.length>1?'s':''} · phase ${phase.toUpperCase()}</div></div>
-    <div class="tile"><div class="t-lab">🎯 Mon niveau</div>
+      <div class="t-sub">${xLabelDays(st)}<br>${nSess} session${nSess>1?'s':''} de référence · ${phase.toUpperCase()}</div></div>
+    <div class="tile"><div class="t-lab">🎯 Mon niveau global</div>
       <div class="t-val" style="color:${my===null?getCss('--muted'):bandColor(my)}">${fmt(my)}<small>/9</small></div>
       <div class="t-sub">groupe : <b style="color:${grp===null?'':bandColor(grp)}">${fmt(grp)}</b>${
-        d===null?'':` · <span style="color:${dCol}">${d>0?'+':''}${fmt(d)}</span>`}</div></div>
-    <div class="tile"><div class="t-lab">⏳ Avance / retard</div>
-      <div class="t-val" style="color:${sCol};font-size:19px">${sTxt}</div>
-      <div class="t-sub">à niveau égal avec le groupe</div></div>
+        d===null?'':` · <span style="color:${dCol}">${d>0?'+':''}${fmt(d)}</span>`}
+        <br>moyenne sur ${mg?mg.n:0} exercice${mg&&mg.n>1?'s':''}${exSet.common?' communs':''}</div></div>
+    <div class="tile"><div class="t-lab">⏳ Ils avaient ton niveau à</div>
+      <div class="t-val" style="color:${sCol};font-size:20px">${sTxt}</div>
+      <div class="t-sub">${sSub}${single?'<br><span style="color:var(--s3)">une seule session sur une partie de la période</span>':''}</div></div>
     <div class="tile"><div class="t-lab">🔁 Volume cumulé</div>
       <div class="t-val">${myV}<small> essais</small></div>
       <div class="t-sub">groupe : ${grpV}${vRatio!==null?` · <b style="color:${vRatio>=90?getCss('--s7'):vRatio>=60?getCss('--s5'):getCss('--s2')}">${vRatio}%</b>`:''}
         <br>rythme : ${Math.round(myP)}/sem contre ${Math.round(grpP)}/sem</div></div>`;
 }
+function gl2(p,x,S){ const g=globalLevelAt(p,x,S); return g?g.v:null; }
 
 /* ----------------------- Rendu : tableau par exercice ----------------------- */
-function renderTable(ps){
+function renderTable(ps,exSet){
   const box=document.getElementById('tbl');
-  const m=ps.find(p=>p.me), rp=ps.filter(p=>!p.me);
+  const m=myPart(ps), rp=ps.filter(p=>!p.me);
   if(!ps.length){ box.innerHTML='<div class="empty">Rien à comparer pour cette phase.</div>'; return; }
-  // exercices présents chez au moins un participant, triés par écart croissant
-  const exs=new Set();
-  ps.forEach(p=>p.camp.campRows.forEach(r=>exs.add(r.test)));
-  const rows=[...exs].map(ex=>{
+  // Cellule : on distingue « pas encore démarré », « jamais pratiqué » et
+  // « pas encore abordé à ce stade » — sinon un vide reste inexplicable.
+  function cellFor(p,ex){
+    if(!p) return '';
+    const t=instantAt(p,stage);
+    if(t<p.camp.start.getTime())
+      return `<td style="color:var(--faint)" title="Session non commencée à ce stade (démarrage le ${fdate(p.camp.start)})">⏳</td>`;
+    if(!byEx(p).has(ex))
+      return `<td style="color:var(--faint)" title="Exercice jamais pratiqué durant cette session">—</td>`;
+    const v=exLevelAtT(p,ex,t);
+    if(v===null)
+      return `<td style="color:var(--faint)" title="Pas encore abordé à ce stade">·</td>`;
+    return `<td class="val" style="color:${bandColor(v)}">${fmt(v)}</td>`;
+  }
+  const rows=[...exSet.set].map(ex=>{
     const mine=m?exLevelAt(m,ex,stage):null;
     const vals=rp.map(p=>exLevelAt(p,ex,stage));
     const grp=median(vals.filter(v=>v!==null));
     return {ex,mine,vals,grp,gap:(mine!==null&&grp!==null)?mine-grp:null};
-  }).filter(r=>r.mine!==null||r.vals.some(v=>v!==null));
+  });
   rows.sort((a,b)=>{
     if(a.gap===null&&b.gap===null) return a.ex.localeCompare(b.ex);
     if(a.gap===null) return 1; if(b.gap===null) return -1;
     return a.gap-b.gap;            // les plus en retard d'abord
   });
   if(!rows.length){ box.innerHTML='<div class="empty">Aucun exercice comparable à ce stade.</div>'; return; }
-  const cell=v=>v===null?'<td style="color:var(--faint)">–</td>'
-    :`<td class="val" style="color:${bandColor(v)}">${fmt(v)}</td>`;
-  const head=`<tr><th>Exercice</th>${m?'<th>Moi</th>':''}`+
-    rp.map(p=>`<th style="color:${p.color}">${esc(p.name)}</th>`).join('')+
+  const th=p=>`<th style="color:${p.color}" title="${esc(p.name)} · ${fdate(p.camp.start)} → ${fdate(p.camp.end)}">${esc(p.name)}</th>`;
+  const head=`<tr><th>Exercice</th>${m?th(m):''}`+rp.map(th).join('')+
     (rp.length>1?'<th>Médiane</th>':'')+(m&&rp.length?'<th>Écart</th>':'')+'</tr>';
+  const cellV=v=>v===null?'<td style="color:var(--faint)">–</td>'
+    :`<td class="val" style="color:${bandColor(v)}">${fmt(v)}</td>`;
   const body=rows.map(r=>{
     const gapCol=r.gap===null?'var(--faint)':r.gap>=0.3?getCss('--s7'):r.gap<=-0.3?getCss('--s2'):getCss('--s5');
-    return `<tr><td>${esc(r.ex)}</td>${m?cell(r.mine):''}`+
-      r.vals.map(cell).join('')+
-      (rp.length>1?cell(r.grp):'')+
+    return `<tr><td>${esc(r.ex)}</td>${m?cellFor(m,r.ex):''}`+
+      rp.map(p=>cellFor(p,r.ex)).join('')+
+      (rp.length>1?cellV(r.grp):'')+
       (m&&rp.length?`<td class="gap" style="color:${gapCol}">${r.gap===null?'–':(r.gap>0?'+':'')+fmt(r.gap)}</td>`:'')+
       '</tr>';
   }).join('');
   box.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`+
-    `<div class="legend"><span>Écart = mon niveau moins la médiane du groupe · les exercices les plus en retard sont en haut</span></div>`;
+    `<div class="legend">
+       <span>Écart = mon niveau moins la médiane · les exercices les plus en retard sont en haut</span>
+       <span>⏳ session pas encore commencée à ce stade</span>
+       <span>— jamais pratiqué &nbsp;·&nbsp; · pas encore abordé</span>
+     </div>`;
 }
 
 /* ----------------------- Orchestration ----------------------- */
+function describeStage(exSet){
+  document.getElementById('tblDesc').innerHTML=
+    `Niveau estimé sur chaque exercice à <b>${xLabel(stage)}</b> (moyenne des ${LASTK} derniers essais à cet instant)`+
+    (exSet&&exSet.common?` — <b>exercices communs uniquement</b> (${exSet.set.size} sur ${exSet.total})`:'')+
+    `. Déplace le curseur « Stade comparé » pour te situer à un autre moment.`;
+}
 function renderAll(){
   renderCands();
   const ps=participants();
+  const exSet=exerciseSet(ps);
   // curseur de stade
   const [lo,hi]=stageRange(ps);
   const sl=document.getElementById('stage');
@@ -754,12 +917,14 @@ function renderAll(){
   sl.value=stage;
   document.getElementById('stageVal').textContent=
     xLabel(stage)+(auto!==null&&stage===auto?' · où j\'en suis':'');
-  document.getElementById('tblDesc').innerHTML=
-    `Niveau estimé sur chaque exercice à <b>${xLabel(stage)}</b> (moyenne des ${LASTK} derniers essais à cet instant). Déplace le curseur « Stade comparé » pour te situer à un autre moment.`;
-  renderReadout(ps);
-  if(ps.length) renderCharts(ps);
-  else ['chLevel','chVol','chCum'].forEach(id=>{ if(charts[id]){charts[id].destroy(); delete charts[id];} });
-  renderTable(ps);
+  document.getElementById('exSetInfo').textContent=ps.length
+    ? (exSet.common?`${exSet.set.size} exercices communs sur ${exSet.total}`:`${exSet.set.size} exercices`)
+    : '';
+  describeStage(exSet);
+  renderReadout(ps,exSet);
+  if(ps.length) renderCharts(ps,exSet);
+  else ['chGlobal','chLevel','chVol','chCum'].forEach(id=>{ if(charts[id]){charts[id].destroy(); delete charts[id];} });
+  renderTable(ps,exSet);
 }
 
 /* ----------------------- Événements ----------------------- */
@@ -775,13 +940,17 @@ document.getElementById('segAlign').addEventListener('click',e=>{
   [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
   renderAll();
 });
+document.getElementById('segSet').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  commonOnly=b.dataset.v==='common';
+  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  renderAll();
+});
 document.getElementById('stage').addEventListener('input',e=>{
   stage=+e.target.value; stageTouched=true;
-  const ps=participants();
+  const ps=participants(), exSet=exerciseSet(ps);
   document.getElementById('stageVal').textContent=xLabel(stage);
-  renderReadout(ps); renderTable(ps);
-  document.getElementById('tblDesc').innerHTML=
-    `Niveau estimé sur chaque exercice à <b>${xLabel(stage)}</b> (moyenne des ${LASTK} derniers essais à cet instant). Déplace le curseur « Stade comparé » pour te situer à un autre moment.`;
+  renderReadout(ps,exSet); renderTable(ps,exSet); describeStage(exSet);
 });
 document.getElementById('fileIn').addEventListener('change',e=>{
   if(e.target.files.length) handleFiles(e.target.files);
