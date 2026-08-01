@@ -236,12 +236,9 @@
       <span class="stageval" id="exSetInfo"></span>
     </div>
     <div class="ctl">
-      <span class="lab">Fenêtre affichée</span>
-      <div class="seg" id="segZoom">
-        <button data-v="13" aria-pressed="true">3 mois</button>
-        <button data-v="26" aria-pressed="false">6 mois</button>
-        <button data-v="0" aria-pressed="false">Tout</button>
-      </div>
+      <span class="lab">Échelle du graphique</span>
+      <input type="range" id="scale" min="-52" max="-2" value="-13" step="1">
+      <span class="stageval" id="scaleVal">—</span>
     </div>
     <div class="ctl">
       <span class="lab">Semaine comparée</span>
@@ -491,7 +488,7 @@ const REF_COLORS=['#c792ea','#82aaff','#f78c6c','#c3e88d','#ffcb6b','#89ddff','#
 const ME_COLOR='#5ad1c4';
 let phase='psy0', stage=null, stageTouched=false;
 let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le monde
-let zoomWeeks=13;       // fenêtre affichée avant l'examen (0 = tout)
+let scaleFrom=-13;      // début de l'axe : le graphique va de là jusqu'au jour J
 let sessionFilter='all';// all | first | last — pour les candidats à plusieurs sessions
 // Un symbole par personne, repris sur les courbes et les réglettes
 const SHAPES=['circle','square','diamond','triangle','down'];
@@ -524,9 +521,29 @@ function loadMe(){
   if(saved&&saved.examDate) myExamDate=saved.examDate;
   if(saved&&saved.csv){
     const rows=parseCSV(saved.csv);
-    if(rows.length){ me={name:'Moi',rows,sess:(cfg&&cfg.sess)||{}}; return; }
+    if(rows.length){
+      me={name:'Moi',rows,csv:saved.csv,src:saved.name||'fichier importé',
+          sess:(cfg&&cfg.sess)||{}};
+      return;
+    }
   }
   me=null;
+}
+// Empreinte d'un dossier : sert à repérer qu'un même fichier sert deux fois
+const fingerprint=rows=>rows.length?`${rows.length}|${rows[0].date.getTime()}|${rows[rows.length-1].date.getTime()}`:'';
+// Désigner un dossier comme étant le mien (il devient aussi celui du tableau de bord)
+function promoteToMe(ref){
+  let saved={};
+  try{ saved=JSON.parse(localStorage.getItem(LS_MAIN)||'{}')||{}; }catch(e){}
+  saved.csv=ref.csv; saved.name=ref.name;
+  try{ localStorage.setItem(LS_MAIN,JSON.stringify(saved)); }catch(e){
+    setStatus('Stockage plein : impossible de mémoriser tes résultats.','err'); return;
+  }
+  try{ localStorage.removeItem(LS_ME); }catch(e){}   // les sessions cochées ne valent plus
+  refs=refs.filter(r=>r.id!==ref.id);
+  refs.forEach((r,i)=>r.color=REF_COLORS[i%REF_COLORS.length]);
+  saveRefs(); loadMe(); stageTouched=false; renderAll();
+  setStatus(`« ${ref.name} » est désormais ton dossier — le tableau de bord l'utilise aussi.`,'ok');
 }
 function loadRefs(){
   let saved=null;
@@ -772,11 +789,13 @@ function covers(p,x){
    Une seule source pour le curseur, les axes et les histogrammes — sinon
    une session hors saison peut disparaître d'un graphique et pas de l'autre. */
 function viewRange(ps){
+  const lo=scaleFrom, hi=1;              // de l'échelle choisie jusqu'au jour J
+  // sauf si plus rien n'est visible dans cette fenêtre (sessions hors saison
+  // uniquement) : on élargit alors plutôt que d'afficher une page vide
+  const visible=ps.some(p=>xOf(p,p.camp.end.getTime())>=lo&&xOf(p,p.camp.start.getTime())<=hi);
+  if(visible||!ps.length) return [lo,hi];
   const [rlo,rhi]=stageRange(ps);
-  const flo=Math.floor(rlo), fhi=Math.ceil(rhi);
-  if(!zoomWeeks) return [flo,fhi];
-  const lo=Math.max(flo,-zoomWeeks), hi=Math.min(fhi,1);
-  return hi>lo?[lo,hi]:[flo,fhi];   // fenêtre vide → on retombe sur tout
+  return [Math.min(lo,Math.floor(rlo)),Math.max(hi,Math.ceil(rhi))];
 }
 /* Semaine proposée par défaut : la plus proche de l'examen où MOI et au moins
    une référence avons des données — sinon la comparaison s'ouvre sur du vide. */
@@ -813,7 +832,10 @@ function renderCands(){
     b.addEventListener('click',()=>{
       const o=own(b.dataset.id); if(!o) return;
       const act=b.dataset.act;
-      if(act==='del'){
+      if(act==='mine'){
+        if(!confirm(`Utiliser « ${o.name} » comme TES résultats ?\n\nLe tableau de bord utilisera aussi ce fichier.`)) return;
+        promoteToMe(o);
+      }else if(act==='del'){
         if(!confirm(`Supprimer « ${o.name} » et ses données ?`)) return;
         refs=refs.filter(x=>x.id!==o.id);
         refs.forEach((x,i)=>x.color=REF_COLORS[i%REF_COLORS.length]);
@@ -866,8 +888,21 @@ function cardHtml(owner,id,name,color,isMe){
     }).join('');
   }
   const acts=isMe?'':`<div class="acts">
+      <button data-act="mine" data-id="${id}">C’est mon dossier</button>
       <button data-act="ren" data-id="${id}">Renommer</button>
       <button data-act="del" data-id="${id}">Supprimer</button></div>`;
+  // provenance du dossier « Moi » + alerte si le même fichier sert de référence
+  let srcNote='';
+  if(isMe){
+    const fp=fingerprint(owner.rows);
+    const clash=refs.find(r=>fingerprint(r.rows)===fp);
+    srcNote=`<div class="det" style="margin-top:7px">d’après <b>${esc(owner.src||'?')}</b>
+      <span style="color:var(--faint)">(repris du tableau de bord)</span></div>`;
+    if(clash) srcNote+=`<div class="det" style="color:var(--s2);margin-top:5px">
+      ⚠ Ce fichier est aussi chargé comme référence sous « ${esc(clash.name)} » :
+      ce ne sont probablement pas tes résultats. Ouvre le tableau de bord pour importer
+      ton export, ou clique « C’est mon dossier » sur le bon fichier.</div>`;
+  }
   const unkNote=unk.size?`<div class="det" style="color:var(--s3);margin-top:7px" title="${esc([...unk].join(', '))}">
       ${unk.size} exercice${unk.size>1?'s':''} non reconnu${unk.size>1?'s':''}, ignoré${unk.size>1?'s':''}</div>`:'';
   return `<div class="cand">
@@ -875,7 +910,7 @@ function cardHtml(owner,id,name,color,isMe){
     <div class="body">
       <div class="nm">${esc(name)}${isMe?'<span class="me">MOI</span>':''}
         ${camps.length>1?`<span class="badge">${camps.length} sessions</span>`:''}</div>
-      ${body}${unkNote}${acts}
+      ${body}${srcNote}${unkNote}${acts}
     </div></div>`;
 }
 
@@ -1031,6 +1066,21 @@ function renderReadout(ps,exSet){
     return;
   }
   const st=stage, S=exSet.set;
+  /* Avant le début de ma préparation il n'y a rien à mesurer : on l'explique
+     plutôt que d'afficher des zéros inexplicables. En revanche, après ma
+     dernière séance, mon niveau reste celui de mes derniers essais — la
+     préparation est en cours, on continue donc d'afficher, avec une mention. */
+  if(instantAt(m,st)<m.camp.start.getTime()){
+    box.innerHTML=`<div class="tile" style="grid-column:1/-1">
+      <div class="t-lab">📍 ${xLabel(st)}</div>
+      <div class="t-sub" style="font-size:11.5px;margin-top:8px;color:var(--s3)">
+        Ta préparation ne commence qu’au <b>${fdate(m.camp.start)}</b>
+        (${xLabel(Math.ceil(xOf(m,m.camp.start.getTime())))}) : rien à comparer à cette semaine.
+        <br>Déplace « Semaine comparée » vers la droite.</div></div>`;
+    return;
+  }
+  const stale=instantAt(m,st)>m.camp.end.getTime()+EOD
+    ? `<br><span style="color:var(--faint)">niveau de ta dernière séance (${fdate(m.camp.end)})</span>` : '';
   const gl=p=>{ const g=globalLevelAt(p,st,S); return g?g.v:null; };
   const mg=globalLevelAt(m,st,S);
   const my=mg?mg.v:null;
@@ -1076,7 +1126,7 @@ function renderReadout(ps,exSet){
       <div class="t-val" style="color:${my===null?getCss('--muted'):bandColor(my)}">${fmt(my)}<small>/9</small></div>
       <div class="t-sub">groupe : <b style="color:${grp===null?'':bandColor(grp)}">${fmt(grp)}</b>${
         d===null?'':` · <span style="color:${dCol}">${d>0?'+':''}${fmt(d)}</span>`}
-        <br>moyenne sur ${mg?mg.n:0} exercice${mg&&mg.n>1?'s':''}${exSet.common?' communs':''}</div></div>
+        <br>moyenne sur ${mg?mg.n:0} exercice${mg&&mg.n>1?'s':''}${exSet.common?' communs':''}${stale}</div></div>
     <div class="tile"><div class="t-lab">⏳ Ils avaient ton niveau à</div>
       <div class="t-val" style="color:${sCol};font-size:20px">${sTxt}</div>
       <div class="t-sub">${sSub}${single?'<br><span style="color:var(--s3)">une seule session sur une partie de la période</span>':''}</div></div>
@@ -1164,6 +1214,9 @@ function renderAll(){
   sl.value=stage;
   document.getElementById('stageVal').textContent=
     xLabel(stage)+(auto!==null&&stage===auto?" · où j'en suis":'');
+  const sc=document.getElementById('scale');
+  sc.value=scaleFrom;
+  document.getElementById('scaleVal').textContent=`de ${xLabel(scaleFrom)} au jour J`;
   document.getElementById('exSetInfo').textContent=ps.length
     ? (exSet.common?`${exSet.set.size} exercices communs sur ${exSet.total}`:`${exSet.set.size} exercices`)
     : '';
@@ -1189,7 +1242,9 @@ function segHandler(id,fn){
 segHandler('segPhase',v=>{ phase=v; stageTouched=false; });
 segHandler('segSess',v=>{ sessionFilter=v; stageTouched=false; });
 segHandler('segSet',v=>{ commonOnly=v==='common'; });
-segHandler('segZoom',v=>{ zoomWeeks=+v; });
+document.getElementById('scale').addEventListener('input',e=>{
+  scaleFrom=+e.target.value; stageTouched=false; renderAll();
+});
 document.getElementById('stage').addEventListener('input',e=>{
   stage=+e.target.value; stageTouched=true;
   const ps=participants(), exSet=exerciseSet(ps);
