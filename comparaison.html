@@ -264,18 +264,6 @@
     <div id="strips"></div>
   </div>
 
-  <div class="grid">
-    <div class="panel">
-      <h2>Volume hebdomadaire</h2>
-      <p class="desc">Essais réalisés chaque semaine — souvent le vrai écart.</p>
-      <div class="chartbox"><canvas id="chVol"></canvas></div>
-    </div>
-    <div class="panel">
-      <h2>Volume cumulé</h2>
-      <p class="desc">Total d’essais depuis le début de la préparation.</p>
-      <div class="chartbox"><canvas id="chCum"></canvas></div>
-    </div>
-  </div>
 
   <div class="panel">
     <h2>Temps de travail</h2>
@@ -285,22 +273,23 @@
 
   <div class="grid">
     <div class="panel">
+      <h2>Volume hebdomadaire</h2>
+      <p class="desc">Essais réalisés chaque semaine — souvent le vrai écart.</p>
+      <div class="chartbox"><canvas id="chVol"></canvas></div>
+    </div>
+    <div class="panel">
       <h2>Heures par semaine</h2>
       <p class="desc">Temps de travail hebdomadaire estimé, avant l’examen.</p>
       <div class="chartbox"><canvas id="chHours"></canvas></div>
     </div>
-    <div class="panel">
-      <h2>Plage horaire de travail</h2>
-      <p class="desc">Répartition des essais dans la journée, en % de chacun (comparable malgré des volumes différents).</p>
-      <div class="chartbox"><canvas id="chClock"></canvas></div>
-    </div>
   </div>
 
   <div class="panel">
-    <h2>Moyenne des essais réalisés</h2>
-    <p class="desc">Moyenne de <b>tous les essais</b> des 30 jours précédents. Reflète la difficulté de ce qui a été travaillé, pas le niveau d’ensemble : à lire comme la « forme des séances », pas comme un niveau.</p>
-    <div class="chartbox"><canvas id="chLevel"></canvas></div>
+    <h2>Plage horaire de travail</h2>
+    <p class="desc">Répartition des essais dans la journée, par tranche de 2 h et en % du total de chacun — comparable malgré des volumes très différents.</p>
+    <div class="chartbox"><canvas id="chClock"></canvas></div>
   </div>
+
 </div>
 
 <script>
@@ -668,31 +657,22 @@ function buildSeries(p,exSet,minCover){
   const rows=p.camp.campRows;
   const t0=p.camp.start.getTime(), tEnd=p.camp.end.getTime()+EOD;
   const bl=workBlocks(p);
-  const level=[],glob=[],vol=[],cum=[],hrs=[];
+  const glob=[],vol=[],hrs=[];
   for(let w=0;;w++){
     const nominal=t0+w*7*DAY;          // sert d'abscisse (S−3, S−2, …)
     const cut=Math.min(nominal+EOD,tEnd); // sert de point de mesure
-    const win=rows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-30*DAY);
     const week=rows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-7*DAY);
     const x=Math.round(xOf(p,nominal)*10)/10;
-    if(win.length) level.push({x,y:Math.round(mean(win.map(r=>r.stanine))*100)/100});
     const g=globalLevelAtT(p,cut,exSet);
     // un point calculé sur trop peu d'exercices n'est pas comparable : on l'omet
     if(g&&g.n>=minCover) glob.push({x,y:Math.round(g.v*100)/100,n:g.n});
     vol.push({x,y:week.length});
-    cum.push({x,y:rows.filter(r=>r.date.getTime()<=cut).length});
     const hm=bl.filter(b=>b.start.getTime()<=cut&&b.start.getTime()>cut-7*DAY)
                .reduce((s,b)=>s+b.min,0);
     hrs.push({x,y:Math.round(hm/60*10)/10});
     if(nominal+EOD>=tEnd||w>400) break;
   }
-  return {level,glob,vol,cum,hrs};
-}
-// Niveau global d'un participant à un stade donné (moyenne glissante 30 j)
-function levelAt(p,st){
-  const t=instantAt(p,st);
-  const win=p.camp.campRows.filter(r=>r.date.getTime()<=t&&r.date.getTime()>t-30*DAY);
-  return win.length?mean(win.map(r=>r.stanine)):null;
+  return {glob,vol,hrs};
 }
 function volumeAt(p,st){ // essais cumulés à ce stade
   const t=instantAt(p,st);
@@ -787,6 +767,16 @@ function myStage(ps){
 function covers(p,x){
   const t=instantAt(p,x);
   return t>=p.camp.start.getTime() && t<=p.camp.end.getTime()+EOD;
+}
+/* Bornes affichées : intersection des données et de la fenêtre choisie.
+   Une seule source pour le curseur, les axes et les histogrammes — sinon
+   une session hors saison peut disparaître d'un graphique et pas de l'autre. */
+function viewRange(ps){
+  const [rlo,rhi]=stageRange(ps);
+  const flo=Math.floor(rlo), fhi=Math.ceil(rhi);
+  if(!zoomWeeks) return [flo,fhi];
+  const lo=Math.max(flo,-zoomWeeks), hi=Math.min(fhi,1);
+  return hi>lo?[lo,hi]:[flo,fhi];   // fenêtre vide → on retombe sur tout
 }
 /* Semaine proposée par défaut : la plus proche de l'examen où MOI et au moins
    une référence avons des données — sinon la comparaison s'ouvre sur du vide. */
@@ -961,8 +951,9 @@ function renderCharts(ps,exSet){
   const series=new Map(ps.map(p=>[p.key,buildSeries(p,exSet.set,minCover)]));
   const refsP=ps.filter(p=>!p.me);
   const xt="semaines avant l'examen";
-  const withZoom=o=>{ if(zoomWeeks){ o.scales.x.min=-zoomWeeks; o.scales.x.max=1; } return o; };
-  const medL=medianCurve(refsP,series,'level'), medG=medianCurve(refsP,series,'glob');
+  const [vlo,vhi]=viewRange(ps);
+  const withZoom=o=>{ o.scales.x.min=vlo; o.scales.x.max=vhi; return o; };
+  const medG=medianCurve(refsP,series,'glob');
   // 1) niveau global non pondéré — la mesure de référence
   const optG=withZoom(baseOpts(xt,'classe stanine (moyenne par exercice)',true));
   optG.plugins.tooltip.callbacks.label=it=>{
@@ -971,10 +962,9 @@ function renderCharts(ps,exSet){
   };
   mk('chGlobal','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).glob)),...(medG?[medG]:[])]},optG);
   mk('chVol','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).vol))},withZoom(baseOpts(xt,'essais / semaine')));
-  mk('chCum','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).cum))},withZoom(baseOpts(xt,'essais cumulés')));
   // H2 — heures par semaine : histogramme groupé (une barre par personne et par semaine)
   const wks=[];
-  for(let x=(zoomWeeks?-zoomWeeks:Math.floor(stageRange(ps)[0]));x<=0;x++) wks.push(x);
+  for(let x=vlo;x<=vhi;x++) wks.push(x);
   const optH=baseOpts(xt,'heures / semaine');
   optH.scales.x={type:'category',labels:wks.map(xLabel),
     ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},
@@ -1004,9 +994,6 @@ function renderCharts(ps,exSet){
         backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
         borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1};
     })},optC);
-  // 2) moyenne des essais (pondérée par ce qui a été travaillé)
-  mk('chLevel','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).level)),...(medL?[medL]:[])]},
-     withZoom(baseOpts(xt,'classe stanine',true)));
 }
 /* H3 — récapitulatif chiffré du temps de travail */
 function renderHours(ps){
@@ -1167,15 +1154,13 @@ function renderAll(){
   renderCands();
   const ps=participants();
   const exSet=exerciseSet(ps);
-  // curseur : semaines avant l'examen, borné à la fenêtre affichée
-  const [rlo,rhi]=stageRange(ps);
-  const lo=zoomWeeks?Math.max(rlo,-zoomWeeks):rlo;
-  const hi=zoomWeeks?Math.min(rhi,0):rhi;
+  // curseur : semaines avant l'examen, mêmes bornes que les graphiques
+  const [lo,hi]=ps.length?viewRange(ps):[-13,0];
   const sl=document.getElementById('stage');
-  sl.min=lo; sl.max=Math.max(lo,hi);
+  sl.min=lo; sl.max=hi;
   const auto=myStage(ps);
-  if(!stageTouched||stage===null||stage<lo||stage>hi) stage=bestStage(ps,lo,Math.max(lo,hi));
-  stage=Math.min(Math.max(lo,hi),Math.max(lo,stage));
+  if(!stageTouched||stage===null||stage<lo||stage>hi) stage=bestStage(ps,lo,hi);
+  stage=Math.min(hi,Math.max(lo,stage));
   sl.value=stage;
   document.getElementById('stageVal').textContent=
     xLabel(stage)+(auto!==null&&stage===auto?" · où j'en suis":'');
@@ -1186,7 +1171,7 @@ function renderAll(){
   renderReadout(ps,exSet);
   if(ps.length){ renderCharts(ps,exSet); renderHours(ps); }
   else{
-    ['chGlobal','chLevel','chVol','chCum','chHours','chClock'].forEach(id=>{
+    ['chGlobal','chVol','chHours','chClock'].forEach(id=>{
       if(charts[id]){charts[id].destroy(); delete charts[id];} });
     document.getElementById('hoursTbl').innerHTML='';
   }
