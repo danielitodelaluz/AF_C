@@ -104,7 +104,44 @@
   .t-val small{font-size:12px;color:var(--faint)}
   .t-sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px;line-height:1.5}
 
-  /* Tableau par exercice */
+  /* Comparatif par exercice — réglettes stanine */
+  .grp{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .grp:first-child{margin-top:4px}
+  .grp.behind{color:var(--s2)} .grp.ahead{color:var(--s7)} .grp.na{color:var(--faint)}
+  .row{display:grid;grid-template-columns:170px 1fr 58px;gap:12px;align-items:center;padding:5px 0}
+  .row .ex{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .dl{font-family:var(--mono);font-size:12px;font-weight:600;text-align:right}
+  .tape{position:relative;height:22px;border-radius:11px;
+    background:linear-gradient(90deg,
+      rgba(229,52,43,.34) 0%,   rgba(229,52,43,.34) 6.25%,
+      rgba(236,106,38,.34) 6.25%, rgba(236,106,38,.34) 18.75%,
+      rgba(243,147,18,.34) 18.75%, rgba(243,147,18,.34) 31.25%,
+      rgba(247,183,29,.34) 31.25%, rgba(247,183,29,.34) 43.75%,
+      rgba(245,217,15,.34) 43.75%, rgba(245,217,15,.34) 56.25%,
+      rgba(180,207,44,.34) 56.25%, rgba(180,207,44,.34) 68.75%,
+      rgba(58,170,53,.34) 68.75%, rgba(58,170,53,.34) 81.25%,
+      rgba(74,169,221,.34) 81.25%, rgba(74,169,221,.34) 93.75%,
+      rgba(58,112,207,.34) 93.75%, rgba(58,112,207,.34) 100%);
+    border:1px solid var(--line)}
+  .tape .seg{position:absolute;top:50%;height:4px;transform:translateY(-50%);border-radius:2px;z-index:1}
+  .tape .ref{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+    transform:translate(-50%,-50%);border:1.5px solid rgba(11,18,24,.7);z-index:2}
+  .tape .med{position:absolute;top:50%;width:3px;height:16px;background:var(--ink);border-radius:2px;
+    transform:translate(-50%,-50%);box-shadow:0 0 0 1.5px rgba(11,18,24,.65);z-index:3}
+  .tape .mine{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;
+    transform:translate(-50%,-50%);border:2.5px solid var(--bg);
+    box-shadow:0 0 0 1.5px rgba(255,255,255,.75);z-index:4}
+  .scaleticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
+    margin:6px 0 0;padding:0 0 0 182px}
+  .scaleticks span{font-weight:600}
+  @media (max-width:600px){
+    .row{grid-template-columns:1fr;gap:3px;padding:8px 0}
+    .row .dl{text-align:left}
+    .scaleticks{padding-left:0}
+  }
+
+  /* Tableau (heures) */
   .tblwrap{overflow-x:auto}
   table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:11.5px;white-space:nowrap}
   th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
@@ -165,13 +202,6 @@
       </div>
     </div>
     <div class="ctl">
-      <span class="lab">Recalage</span>
-      <div class="seg" id="segAlign">
-        <button data-v="start" aria-pressed="true">Depuis le début</button>
-        <button data-v="exam" aria-pressed="false">Avant l'examen</button>
-      </div>
-    </div>
-    <div class="ctl">
       <span class="lab">Exercices</span>
       <div class="seg" id="segSet">
         <button data-v="all" aria-pressed="true">Tous</button>
@@ -180,8 +210,16 @@
       <span class="stageval" id="exSetInfo"></span>
     </div>
     <div class="ctl">
-      <span class="lab">Stade comparé</span>
-      <input type="range" id="stage" min="0" max="30" value="0" step="1">
+      <span class="lab">Fenêtre affichée</span>
+      <div class="seg" id="segZoom">
+        <button data-v="13" aria-pressed="true">3 mois</button>
+        <button data-v="26" aria-pressed="false">6 mois</button>
+        <button data-v="0" aria-pressed="false">Tout</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="lab">Semaine comparée</span>
+      <input type="range" id="stage" min="-26" max="0" value="0" step="1">
       <span class="stageval" id="stageVal">—</span>
     </div>
   </div>
@@ -189,15 +227,15 @@
   <div class="readout" id="readout"></div>
 
   <div class="panel">
-    <h2>Niveau global — moyenne par exercice</h2>
-    <p class="desc">Chaque exercice compte <b>pour un</b>, quel que soit le nombre de fois où il a été travaillé : son niveau est celui de ses 5 derniers essais à cet instant. Enchaîner un exercice facile ne gonfle donc pas la courbe. <b>Ta courbe est en gras</b> — le nombre d'exercices pris en compte apparaît dans l'infobulle.</p>
-    <div class="chartbox"><canvas id="chGlobal"></canvas></div>
+    <h2>Niveau global — une valeur par personne</h2>
+    <p class="desc">À chaque semaine avant l’examen : pour chaque exercice PSY0 déjà pratiqué, on prend la moyenne de ses <b>5 derniers essais à cette date</b>, puis on fait la moyenne de ces valeurs — <b>chaque exercice comptant pour un</b>. <b>Ta courbe est en gras</b> ; une couleur par personne, un style de trait par session. Les points calculés sur trop peu d’exercices ne sont pas tracés.</p>
+    <div class="chartbox tall"><canvas id="chGlobal"></canvas></div>
   </div>
 
   <div class="panel">
-    <h2>Moyenne des essais réalisés</h2>
-    <p class="desc">Moyenne de <b>tous les essais</b> des 30 jours précédents. Reflète la difficulté de ce qui a été travaillé, pas le niveau d'ensemble : à lire comme la « forme des séances ».</p>
-    <div class="chartbox"><canvas id="chLevel"></canvas></div>
+    <h2>Comparatif par exercice — <span id="tblStage">—</span></h2>
+    <p class="desc" id="tblDesc"></p>
+    <div id="strips"></div>
   </div>
 
   <div class="grid">
@@ -208,15 +246,34 @@
     </div>
     <div class="panel">
       <h2>Volume cumulé</h2>
-      <p class="desc">Total d'essais depuis le début de la préparation.</p>
+      <p class="desc">Total d’essais depuis le début de la préparation.</p>
       <div class="chartbox"><canvas id="chCum"></canvas></div>
     </div>
   </div>
 
   <div class="panel">
-    <h2>Comparatif par exercice, au même stade</h2>
-    <p class="desc" id="tblDesc">Niveau estimé sur chaque exercice (moyenne des 5 derniers essais à ce stade). Déplace le curseur « Stade comparé » pour te situer à un autre moment.</p>
-    <div class="tblwrap"><div id="tbl"></div></div>
+    <h2>Temps de travail</h2>
+    <p class="desc">Durées <b>estimées</b> : Pilotest n’exporte pas la durée des exercices, on reconstitue les séances en coupant dès que plus de 45 min séparent deux essais (l’écart habituel est de 7 min).</p>
+    <div class="tblwrap"><div id="hoursTbl"></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Heures par semaine</h2>
+      <p class="desc">Temps de travail hebdomadaire estimé, avant l’examen.</p>
+      <div class="chartbox"><canvas id="chHours"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Plage horaire de travail</h2>
+      <p class="desc">Répartition des essais dans la journée, en % de chacun (comparable malgré des volumes différents).</p>
+      <div class="chartbox"><canvas id="chClock"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Moyenne des essais réalisés</h2>
+    <p class="desc">Moyenne de <b>tous les essais</b> des 30 jours précédents. Reflète la difficulté de ce qui a été travaillé, pas le niveau d’ensemble : à lire comme la « forme des séances », pas comme un niveau.</p>
+    <div class="chartbox"><canvas id="chLevel"></canvas></div>
   </div>
 </div>
 
@@ -402,8 +459,9 @@ function periodLabel(a,b){
 /* ----------------------- État ----------------------- */
 const REF_COLORS=['#c792ea','#82aaff','#f78c6c','#c3e88d','#ffcb6b','#89ddff','#ff9cac','#a1e8cc'];
 const ME_COLOR='#5ad1c4';
-let phase='psy0', align='start', stage=null, stageTouched=false;
+let phase='psy0', stage=null, stageTouched=false;
 let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le monde
+let zoomWeeks=13;       // fenêtre affichée avant l'examen (0 = tout)
 let refs=[];            // [{id,name,csv,rows,color,sess:{}}]
 let me=null;            // {name,rows,sess:{}}
 let myExamDate='2026-09-05';
@@ -460,11 +518,34 @@ function nextName(){
   for(const L of LETTERS){ const n='Candidat '+L; if(!used.has(n)) return n; }
   return 'Candidat '+(refs.length+1);
 }
+/* Nom du candidat déduit du fichier : « ResultsforPierreMERMET_2.csv » → Pierre
+   (prénom seul dans les légendes, nom complet en infobulle). */
+function nameFromFile(fn){
+  let s=String(fn||'').replace(/\.[^.]+$/,'');
+  s=s.replace(/^[0-9a-f]{6,}[-_]/i,'');               // préfixe technique éventuel
+  s=s.replace(/^\s*(r[ée]sultats?\s*(de|pour)?|results?\s*(for|of)?|export|pilotest)[\s_-]*/i,'');
+  s=s.replace(/\d{4}[-_.]\d{2}[-_.]\d{2}/g,'');       // dates
+  s=s.replace(/[\s_-]*\(?\d+\)?\s*$/,'');             // _2, (1), -3 en fin
+  s=s.replace(/[_+.-]+/g,' ');
+  s=s.replace(/([a-zà-ÿ])([A-ZÀ-Ý])/g,'$1 $2');       // PierreMermet → Pierre Mermet
+  s=s.replace(/([A-ZÀ-Ý]{2,})([A-ZÀ-Ý][a-zà-ÿ])/g,'$1 $2');
+  s=s.replace(/\s+/g,' ').trim();
+  if(!s||s.length<2||/^\d+$/.test(s)) return null;
+  const cap=w=>w.length<2?w.toUpperCase()
+    :w[0].toUpperCase()+(w===w.toUpperCase()?w.slice(1).toLowerCase():w.slice(1));
+  const parts=s.split(' ').filter(Boolean).map(cap);
+  return {first:parts[0], full:parts.join(' ')};
+}
 function addRef(text,srcName){
   const rows=parseCSV(text);
   if(!rows.length){ setStatus(`« ${srcName} » : aucune ligne exploitable (format attendu : test,score,stanine,date).`,'err'); return false; }
   const id='r'+Date.now()+Math.random().toString(36).slice(2,6);
-  refs.push({id,name:nextName(),csv:text,rows,sess:{},
+  const nf=nameFromFile(srcName);
+  let name=nf?nf.first:nextName();
+  const used=new Set(refs.map(r=>r.name));
+  if(used.has(name)) name=nf&&nf.full!==nf.first?nf.full:name+' (2)';
+  if(used.has(name)) name=nextName();
+  refs.push({id,name,fullName:nf?nf.full:null,csv:text,rows,sess:{},
     color:REF_COLORS[refs.length%REF_COLORS.length]});
   return true;
 }
@@ -524,37 +605,39 @@ function myPart(ps){
   return mine.length?mine[mine.length-1]:null;
 }
 // Abscisse d'un instant t pour un participant, en semaines
-function xOf(p,t){
-  return align==='start'
-    ? (t-p.camp.start.getTime())/(7*DAY)
-    : (t-p.exam.getTime())/(7*DAY);
-}
+// Tout est exprimé par rapport à l'examen : S−3 = trois semaines avant le jour J.
+function xOf(p,t){ return (t-p.exam.getTime())/(7*DAY); }
 // Instant d'observation d'un stade : FIN de la journée visée, sinon les essais
 // du jour même (faits à 9h, 17h…) tomberaient après le point de mesure.
 const EOD=DAY-1;
 function instantAt(p,st){
-  return (align==='start'?p.camp.start.getTime():p.exam.getTime())+st*7*DAY+EOD;
+  return p.exam.getTime()+st*7*DAY+EOD;
 }
 // Points hebdomadaires : niveau glissant 30 j, niveau global non pondéré,
 // volume de la semaine, cumul
-function buildSeries(p,exSet){
+function buildSeries(p,exSet,minCover){
   const rows=p.camp.campRows;
   const t0=p.camp.start.getTime(), tEnd=p.camp.end.getTime()+EOD;
-  const level=[],glob=[],vol=[],cum=[];
+  const bl=workBlocks(p);
+  const level=[],glob=[],vol=[],cum=[],hrs=[];
   for(let w=0;;w++){
-    const nominal=t0+w*7*DAY;          // sert d'abscisse (S+0, S+1, …)
+    const nominal=t0+w*7*DAY;          // sert d'abscisse (S−3, S−2, …)
     const cut=Math.min(nominal+EOD,tEnd); // sert de point de mesure
     const win=rows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-30*DAY);
     const week=rows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-7*DAY);
     const x=Math.round(xOf(p,nominal)*10)/10;
     if(win.length) level.push({x,y:Math.round(mean(win.map(r=>r.stanine))*100)/100});
     const g=globalLevelAtT(p,cut,exSet);
-    if(g) glob.push({x,y:Math.round(g.v*100)/100,n:g.n});
+    // un point calculé sur trop peu d'exercices n'est pas comparable : on l'omet
+    if(g&&g.n>=minCover) glob.push({x,y:Math.round(g.v*100)/100,n:g.n});
     vol.push({x,y:week.length});
     cum.push({x,y:rows.filter(r=>r.date.getTime()<=cut).length});
+    const hm=bl.filter(b=>b.start.getTime()<=cut&&b.start.getTime()>cut-7*DAY)
+               .reduce((s,b)=>s+b.min,0);
+    hrs.push({x,y:Math.round(hm/60*10)/10});
     if(nominal+EOD>=tEnd||w>400) break;
   }
-  return {level,glob,vol,cum};
+  return {level,glob,vol,cum,hrs};
 }
 // Niveau global d'un participant à un stade donné (moyenne glissante 30 j)
 function levelAt(p,st){
@@ -596,6 +679,45 @@ function globalLevelAtT(p,t,exSet){
   return vals.length?{v:mean(vals),n:vals.length}:null;
 }
 function globalLevelAt(p,st,exSet){ return globalLevelAtT(p,instantAt(p,st),exSet); }
+
+/* ----------------------- Temps de travail -----------------------
+   Le CSV ne contient pas la durée des exercices : on reconstitue les séances
+   en coupant dès que plus de BLOCK_GAP minutes séparent deux essais (l'écart
+   habituel entre deux essais est de ~7 min), et on ajoute un forfait pour le
+   dernier exercice du bloc, dont la fin n'est pas horodatée.
+   --------------------------------------------------------------- */
+const BLOCK_GAP=45, LAST_EX_MIN=4;
+function workBlocks(p){
+  if(p._blocks) return p._blocks;
+  const rows=p.camp.campRows;
+  const out=[];
+  if(rows.length){
+    let cur=[rows[0]];
+    for(let i=1;i<rows.length;i++){
+      if((rows[i].date-rows[i-1].date)/60000>BLOCK_GAP){ out.push(cur); cur=[]; }
+      cur.push(rows[i]);
+    }
+    out.push(cur);
+  }
+  p._blocks=out.map(b=>({
+    start:b[0].date, end:b[b.length-1].date, n:b.length,
+    min:(b[b.length-1].date-b[0].date)/60000+LAST_EX_MIN
+  }));
+  return p._blocks;
+}
+function hoursStats(p){
+  const bl=workBlocks(p);
+  const totMin=bl.reduce((s,b)=>s+b.min,0);
+  const days=new Set(p.camp.campRows.map(r=>dayIdx(r.date))).size;
+  const spanW=Math.max(1,(p.camp.end-p.camp.start)/(7*DAY)+1);
+  const durs=bl.map(b=>b.min).sort((a,b)=>a-b);
+  const byH=Array(24).fill(0);
+  p.camp.campRows.forEach(r=>byH[r.date.getHours()]++);
+  const peak=byH.indexOf(Math.max(...byH));
+  return {hours:totMin/60, perWeek:totMin/60/spanW, perDay:totMin/60/Math.max(1,days),
+    sessions:bl.length, medMin:durs.length?durs[Math.floor(durs.length/2)]:0,
+    days, peak, byH};
+}
 // Bornes du curseur de stade
 function stageRange(ps){
   if(!ps.length) return [0,1];
@@ -611,6 +733,23 @@ function myStage(ps){
   const m=myPart(ps);
   if(!m) return null;
   return Math.round(xOf(m,m.camp.end.getTime()));
+}
+// Une session a-t-elle des données à cette semaine ?
+function covers(p,x){
+  const t=instantAt(p,x);
+  return t>=p.camp.start.getTime() && t<=p.camp.end.getTime()+EOD;
+}
+/* Semaine proposée par défaut : la plus proche de l'examen où MOI et au moins
+   une référence avons des données — sinon la comparaison s'ouvre sur du vide. */
+function bestStage(ps,lo,hi){
+  const m=myPart(ps), rp=ps.filter(p=>!p.me);
+  let fallback=null;
+  for(let x=hi;x>=lo;x--){
+    const meOk=m?covers(m,x):false, refOk=rp.some(p=>covers(p,x));
+    if(meOk&&refOk) return x;
+    if(fallback===null&&(meOk||refOk)) fallback=x;
+  }
+  return fallback!==null?fallback:hi;
 }
 
 /* ----------------------- Rendu : cartes candidats ----------------------- */
@@ -721,19 +860,24 @@ function baseOpts(xTitle,yTitle,yMax){
 // Abscisse lisible : semaines depuis le début (S+6) ou avant l'examen (S-9, S+0 = jour J)
 const xLabel=v=>{
   const n=Math.round(v);
-  return align==='start'?`S+${n}`:(n>=0?`S+${n}`:`S−${Math.abs(n)}`);
+  return n===0?'jour J':(n>0?`S+${n}`:`S−${Math.abs(n)}`);
 };
 // Même stade, exprimé en jours avant l'examen (pour la tuile de synthèse)
 const xLabelDays=v=>{
   const d=Math.round(v*7);
-  return align==='start'?`${d} j d'entraînement`:(d>=0?`J+${d}`:`J−${Math.abs(d)}`);
+  return d===0?"le jour de l'examen":(d>0?`J+${d}`:`J−${Math.abs(d)}`);
 };
 
+/* Une couleur par personne, un style de trait par session :
+   session 1 = trait plein, 2 = tirets, 3 = pointillés, 4 = mixte. */
+const DASHES=[[],[7,4],[2,3],[9,3,2,3]];
+const dashOf=p=>DASHES[(p.camp.index||0)%DASHES.length];
+const dashName=p=>['trait plein','tirets','pointillés','trait-point'][(p.camp.index||0)%DASHES.length];
 function dsFor(p,data,opts={}){
   return {
     label:p.name,data,borderColor:p.color,backgroundColor:p.color,
-    borderWidth:p.me?3.2:1.8,pointRadius:0,pointHoverRadius:4,
-    tension:.3,borderDash:p.me?[]:(opts.dash||[]),order:p.me?0:1,...opts.extra
+    borderWidth:p.me?3.4:2,pointRadius:0,pointHoverRadius:4,
+    tension:.3,borderDash:dashOf(p),order:p.me?0:1,...opts.extra
   };
 }
 function medianCurve(refsP,series,field){
@@ -752,24 +896,57 @@ function medianCurve(refsP,series,field){
     borderWidth:2,borderDash:[6,4],pointRadius:0,tension:.3,order:2};
 }
 function renderCharts(ps,exSet){
-  const series=new Map(ps.map(p=>[p.key,buildSeries(p,exSet.set)]));
+  const minCover=Math.max(3,Math.round(exSet.set.size*0.5));
+  const series=new Map(ps.map(p=>[p.key,buildSeries(p,exSet.set,minCover)]));
   const refsP=ps.filter(p=>!p.me);
-  const xt=align==='start'?'semaines depuis le début':"avant l'examen";
+  const xt="semaines avant l'examen";
+  const withZoom=o=>{ if(zoomWeeks){ o.scales.x.min=-zoomWeeks; o.scales.x.max=1; } return o; };
   const medL=medianCurve(refsP,series,'level'), medG=medianCurve(refsP,series,'glob');
   // 1) niveau global non pondéré — la mesure de référence
-  const optG=baseOpts(xt,'classe stanine (moyenne par exercice)',true);
+  const optG=withZoom(baseOpts(xt,'classe stanine (moyenne par exercice)',true));
   optG.plugins.tooltip.callbacks.label=it=>{
     const n=it.raw&&it.raw.n;
     return `${it.dataset.label} : ${fmt(it.parsed.y)}`+(n?` (sur ${n} exercice${n>1?'s':''})`:'');
   };
-  mk('chGlobal','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).glob,{dash:[5,4]})),...(medG?[medG]:[])]},optG);
+  mk('chGlobal','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).glob)),...(medG?[medG]:[])]},optG);
+  mk('chVol','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).vol))},withZoom(baseOpts(xt,'essais / semaine')));
+  mk('chCum','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).cum))},withZoom(baseOpts(xt,'essais cumulés')));
+  // H2 — heures par semaine
+  const optH=withZoom(baseOpts(xt,'heures / semaine'));
+  optH.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} h`;
+  mk('chHours','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).hrs))},optH);
+  // H1 — plage horaire : % des essais par heure de la journée
+  const optC=baseOpts('heure de la journée','% des essais');
+  optC.scales.x.min=0; optC.scales.x.max=23;
+  optC.scales.x.ticks.callback=v=>v+'h';
+  optC.plugins.tooltip.callbacks.title=it=>it[0].parsed.x+'h';
+  optC.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} %`;
+  mk('chClock','line',{datasets:ps.map(p=>{
+    const st=hoursStats(p), tot=st.byH.reduce((a,b)=>a+b,0)||1;
+    return dsFor(p,st.byH.map((n,h)=>({x:h,y:Math.round(n/tot*1000)/10})),{extra:{tension:.4}});
+  })},optC);
   // 2) moyenne des essais (pondérée par ce qui a été travaillé)
-  mk('chLevel','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).level,{dash:[5,4]})),...(medL?[medL]:[])]},
-     baseOpts(xt,'classe stanine',true));
-  mk('chVol','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).vol,{dash:[5,4]}))},
-     baseOpts(xt,'essais / semaine'));
-  mk('chCum','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).cum,{dash:[5,4]}))},
-     baseOpts(xt,'essais cumulés'));
+  mk('chLevel','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).level)),...(medL?[medL]:[])]},
+     withZoom(baseOpts(xt,'classe stanine',true)));
+}
+/* H3 — récapitulatif chiffré du temps de travail */
+function renderHours(ps){
+  const box=document.getElementById('hoursTbl');
+  if(!ps.length){ box.innerHTML='<div class="empty">Rien à afficher.</div>'; return; }
+  const head=`<tr><th>Session</th><th>Total</th><th>Par semaine</th><th>Par jour actif</th>
+    <th>Séances</th><th>Séance médiane</th><th>Pic</th></tr>`;
+  const body=ps.map(p=>{
+    const s=hoursStats(p);
+    return `<tr>
+      <td><span style="color:${p.color}">■</span> ${esc(p.name)}${p.me?' <b>(moi)</b>':''}</td>
+      <td>${s.hours.toFixed(1)} h</td>
+      <td><b>${s.perWeek.toFixed(1)} h</b></td>
+      <td>${s.perDay.toFixed(1)} h</td>
+      <td>${s.sessions}</td>
+      <td>${Math.round(s.medMin)} min</td>
+      <td>${s.peak}h</td></tr>`;
+  }).join('');
+  box.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 function mk(id,type,data,options){
   if(charts[id]) charts[id].destroy();
@@ -845,107 +1022,109 @@ function renderReadout(ps,exSet){
 function gl2(p,x,S){ const g=globalLevelAt(p,x,S); return g?g.v:null; }
 
 /* ----------------------- Rendu : tableau par exercice ----------------------- */
+/* Comparatif par exercice — réglettes à l'échelle stanine Pilotest.
+   Ta position et celle du groupe sur la même barre, reliées par un trait
+   dont la couleur dit qui est devant. Les exercices où tu es en dessous
+   sont regroupés en tête : c'est là qu'il faut travailler. */
 function renderTable(ps,exSet){
-  const box=document.getElementById('tbl');
+  const box=document.getElementById('strips');
   const m=myPart(ps), rp=ps.filter(p=>!p.me);
   if(!ps.length){ box.innerHTML='<div class="empty">Rien à comparer pour cette phase.</div>'; return; }
-  // Cellule : on distingue « pas encore démarré », « jamais pratiqué » et
-  // « pas encore abordé à ce stade » — sinon un vide reste inexplicable.
-  function cellFor(p,ex){
-    if(!p) return '';
-    const t=instantAt(p,stage);
-    if(t<p.camp.start.getTime())
-      return `<td style="color:var(--faint)" title="Session non commencée à ce stade (démarrage le ${fdate(p.camp.start)})">⏳</td>`;
-    if(!byEx(p).has(ex))
-      return `<td style="color:var(--faint)" title="Exercice jamais pratiqué durant cette session">—</td>`;
-    const v=exLevelAtT(p,ex,t);
-    if(v===null)
-      return `<td style="color:var(--faint)" title="Pas encore abordé à ce stade">·</td>`;
-    return `<td class="val" style="color:${bandColor(v)}">${fmt(v)}</td>`;
-  }
+  const pos=v=>((Math.max(1,Math.min(9,v))-1)/8)*100;
   const rows=[...exSet.set].map(ex=>{
     const mine=m?exLevelAt(m,ex,stage):null;
-    const vals=rp.map(p=>exLevelAt(p,ex,stage));
-    const grp=median(vals.filter(v=>v!==null));
+    const vals=rp.map(p=>({p,v:exLevelAt(p,ex,stage)})).filter(o=>o.v!==null);
+    const grp=median(vals.map(o=>o.v));
     return {ex,mine,vals,grp,gap:(mine!==null&&grp!==null)?mine-grp:null};
   });
-  rows.sort((a,b)=>{
-    if(a.gap===null&&b.gap===null) return a.ex.localeCompare(b.ex);
-    if(a.gap===null) return 1; if(b.gap===null) return -1;
-    return a.gap-b.gap;            // les plus en retard d'abord
-  });
-  if(!rows.length){ box.innerHTML='<div class="empty">Aucun exercice comparable à ce stade.</div>'; return; }
-  const th=p=>`<th style="color:${p.color}" title="${esc(p.name)} · ${fdate(p.camp.start)} → ${fdate(p.camp.end)}">${esc(p.name)}</th>`;
-  const head=`<tr><th>Exercice</th>${m?th(m):''}`+rp.map(th).join('')+
-    (rp.length>1?'<th>Médiane</th>':'')+(m&&rp.length?'<th>Écart</th>':'')+'</tr>';
-  const cellV=v=>v===null?'<td style="color:var(--faint)">–</td>'
-    :`<td class="val" style="color:${bandColor(v)}">${fmt(v)}</td>`;
-  const body=rows.map(r=>{
-    const gapCol=r.gap===null?'var(--faint)':r.gap>=0.3?getCss('--s7'):r.gap<=-0.3?getCss('--s2'):getCss('--s5');
-    return `<tr><td>${esc(r.ex)}</td>${m?cellFor(m,r.ex):''}`+
-      rp.map(p=>cellFor(p,r.ex)).join('')+
-      (rp.length>1?cellV(r.grp):'')+
-      (m&&rp.length?`<td class="gap" style="color:${gapCol}">${r.gap===null?'–':(r.gap>0?'+':'')+fmt(r.gap)}</td>`:'')+
-      '</tr>';
-  }).join('');
-  box.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`+
+  const behind=rows.filter(r=>r.gap!==null&&r.gap<-0.15).sort((a,b)=>a.gap-b.gap);
+  const ahead =rows.filter(r=>r.gap!==null&&r.gap>0.15).sort((a,b)=>b.gap-a.gap);
+  const level =rows.filter(r=>r.gap!==null&&Math.abs(r.gap)<=0.15).sort((a,b)=>a.ex.localeCompare(b.ex));
+  const na    =rows.filter(r=>r.gap===null).sort((a,b)=>a.ex.localeCompare(b.ex));
+  function strip(r){
+    let seg='';
+    if(r.mine!==null&&r.grp!==null){
+      const lo=Math.min(pos(r.mine),pos(r.grp)), w=Math.abs(pos(r.mine)-pos(r.grp));
+      const col=r.gap>=0?getCss('--s7'):getCss('--s2');
+      seg=`<div class="seg" style="left:${lo}%;width:${w}%;background:${col}"></div>`;
+    }
+    const dots=r.vals.map(o=>
+      `<div class="ref" style="left:${pos(o.v)}%;background:${o.p.color}"
+            title="${esc(o.p.name)} : ${fmt(o.v)}"></div>`).join('');
+    const med=r.grp!==null?`<div class="med" style="left:${pos(r.grp)}%" title="Médiane du groupe : ${fmt(r.grp)}"></div>`:'';
+    const mine=r.mine!==null?`<div class="mine" style="left:${pos(r.mine)}%;background:${bandColor(r.mine)}" title="Moi : ${fmt(r.mine)}"></div>`:'';
+    let lab,labCol;
+    if(r.gap===null){ lab=r.mine!==null?'—':'pas de repère'; labCol='var(--faint)'; }
+    else { lab=(r.gap>0?'+':'')+fmt(r.gap); labCol=r.gap>=0.15?getCss('--s7'):r.gap<=-0.15?getCss('--s2'):getCss('--s5'); }
+    return `<div class="row">
+      <div class="ex" title="${esc(r.ex)}">${esc(r.ex)}</div>
+      <div class="tape">${seg}${dots}${med}${mine}</div>
+      <div class="dl" style="color:${labCol}">${lab}</div></div>`;
+  }
+  const grp=(cls,title,list)=>list.length
+    ? `<div class="grp ${cls}">${title} · ${list.length}</div>`+list.map(strip).join('') : '';
+  box.innerHTML=
+    grp('behind','▼ Tu es en dessous',behind)+
+    grp('ahead','▲ Tu es au-dessus',ahead)+
+    grp('na','= À égalité',level)+
+    grp('na','Pas comparable à ce stade',na)+
+    `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`+
     `<div class="legend">
-       <span>Écart = mon niveau moins la médiane · les exercices les plus en retard sont en haut</span>
-       <span>⏳ session pas encore commencée à ce stade</span>
-       <span>— jamais pratiqué &nbsp;·&nbsp; · pas encore abordé</span>
-     </div>`;
+      <span><i style="width:13px;height:13px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 1.5px rgba(255,255,255,.75)"></i>ma position</span>
+      <span><i style="width:3px;height:13px;border-radius:2px;background:var(--ink)"></i>médiane du groupe</span>
+      <span><i style="width:9px;height:9px;border-radius:50%;background:var(--muted)"></i>chaque session de référence</span>
+      <span>trait <span style="color:${getCss('--s7')}">vert</span> = tu es devant · <span style="color:${getCss('--s2')}">orange</span> = tu es derrière</span>
+    </div>`;
 }
-
 /* ----------------------- Orchestration ----------------------- */
 function describeStage(exSet){
+  document.getElementById('tblStage').textContent=xLabel(stage);
   document.getElementById('tblDesc').innerHTML=
-    `Niveau estimé sur chaque exercice à <b>${xLabel(stage)}</b> (moyenne des ${LASTK} derniers essais à cet instant)`+
+    `Position de chacun sur l'échelle stanine à <b>${xLabel(stage)}</b> (niveau = moyenne des ${LASTK} derniers essais à cette date)`+
     (exSet&&exSet.common?` — <b>exercices communs uniquement</b> (${exSet.set.size} sur ${exSet.total})`:'')+
-    `. Déplace le curseur « Stade comparé » pour te situer à un autre moment.`;
+    `. Déplace « Semaine comparée » pour te situer à un autre moment.`;
 }
 function renderAll(){
   renderCands();
   const ps=participants();
   const exSet=exerciseSet(ps);
-  // curseur de stade
-  const [lo,hi]=stageRange(ps);
+  // curseur : semaines avant l'examen, borné à la fenêtre affichée
+  const [rlo,rhi]=stageRange(ps);
+  const lo=zoomWeeks?Math.max(rlo,-zoomWeeks):rlo;
+  const hi=zoomWeeks?Math.min(rhi,0):rhi;
   const sl=document.getElementById('stage');
-  sl.min=lo; sl.max=hi;
+  sl.min=lo; sl.max=Math.max(lo,hi);
   const auto=myStage(ps);
-  if(!stageTouched||stage===null||stage<lo||stage>hi) stage=(auto!==null?auto:hi);
-  stage=Math.min(hi,Math.max(lo,stage));
+  if(!stageTouched||stage===null||stage<lo||stage>hi) stage=bestStage(ps,lo,Math.max(lo,hi));
+  stage=Math.min(Math.max(lo,hi),Math.max(lo,stage));
   sl.value=stage;
   document.getElementById('stageVal').textContent=
-    xLabel(stage)+(auto!==null&&stage===auto?' · où j\'en suis':'');
+    xLabel(stage)+(auto!==null&&stage===auto?" · où j'en suis":'');
   document.getElementById('exSetInfo').textContent=ps.length
     ? (exSet.common?`${exSet.set.size} exercices communs sur ${exSet.total}`:`${exSet.set.size} exercices`)
     : '';
   describeStage(exSet);
   renderReadout(ps,exSet);
-  if(ps.length) renderCharts(ps,exSet);
-  else ['chGlobal','chLevel','chVol','chCum'].forEach(id=>{ if(charts[id]){charts[id].destroy(); delete charts[id];} });
+  if(ps.length){ renderCharts(ps,exSet); renderHours(ps); }
+  else{
+    ['chGlobal','chLevel','chVol','chCum','chHours','chClock'].forEach(id=>{
+      if(charts[id]){charts[id].destroy(); delete charts[id];} });
+    document.getElementById('hoursTbl').innerHTML='';
+  }
   renderTable(ps,exSet);
 }
 
 /* ----------------------- Événements ----------------------- */
-document.getElementById('segPhase').addEventListener('click',e=>{
-  const b=e.target.closest('button'); if(!b) return;
-  phase=b.dataset.v; stageTouched=false;
-  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
-  renderAll();
-});
-document.getElementById('segAlign').addEventListener('click',e=>{
-  const b=e.target.closest('button'); if(!b) return;
-  align=b.dataset.v; stageTouched=false;
-  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
-  renderAll();
-});
-document.getElementById('segSet').addEventListener('click',e=>{
-  const b=e.target.closest('button'); if(!b) return;
-  commonOnly=b.dataset.v==='common';
-  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
-  renderAll();
-});
+function segHandler(id,fn){
+  document.getElementById(id).addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+    fn(b.dataset.v); renderAll();
+  });
+}
+segHandler('segPhase',v=>{ phase=v; stageTouched=false; });
+segHandler('segSet',v=>{ commonOnly=v==='common'; });
+segHandler('segZoom',v=>{ zoomWeeks=+v; });
 document.getElementById('stage').addEventListener('input',e=>{
   stage=+e.target.value; stageTouched=true;
   const ps=participants(), exSet=exerciseSet(ps);
