@@ -125,13 +125,31 @@
       rgba(58,112,207,.34) 93.75%, rgba(58,112,207,.34) 100%);
     border:1px solid var(--line)}
   .tape .seg{position:absolute;top:50%;height:4px;transform:translateY(-50%);border-radius:2px;z-index:1}
-  .tape .ref{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
-    transform:translate(-50%,-50%);border:1.5px solid rgba(11,18,24,.7);z-index:2}
   .tape .med{position:absolute;top:50%;width:3px;height:16px;background:var(--ink);border-radius:2px;
     transform:translate(-50%,-50%);box-shadow:0 0 0 1.5px rgba(11,18,24,.65);z-index:3}
-  .tape .mine{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;
-    transform:translate(-50%,-50%);border:2.5px solid var(--bg);
-    box-shadow:0 0 0 1.5px rgba(255,255,255,.75);z-index:4}
+  /* un symbole par personne */
+  .mk{position:absolute;top:50%;width:11px;height:11px;background:var(--c);
+    transform:translate(-50%,-50%);border:1.5px solid rgba(11,18,24,.75);z-index:2}
+  .mk.sh-circle{border-radius:50%}
+  .mk.sh-square{border-radius:2px}
+  .mk.sh-diamond{border-radius:2px;transform:translate(-50%,-50%) rotate(45deg)}
+  .mk.sh-triangle,.mk.sh-down{width:0;height:0;background:none;border:6px solid transparent;
+    border-bottom:11px solid var(--c);margin-top:-3px}
+  .mk.sh-down{border-bottom:0;border-top:11px solid var(--c);margin-top:3px}
+  .mk.me{width:16px;height:16px;z-index:4;border:2.5px solid var(--bg);
+    box-shadow:0 0 0 1.5px rgba(255,255,255,.8)}
+  .mk.me.sh-triangle,.mk.me.sh-down{width:0;height:0;border:8px solid transparent;
+    border-bottom:15px solid var(--c);box-shadow:none;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9))}
+  .mk.me.sh-down{border-bottom:0;border-top:15px solid var(--c)}
+  /* légende */
+  .keys{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10.5px;
+    color:var(--muted);padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .keys .k{display:inline-flex;align-items:center;gap:7px}
+  .keys .mk{position:static;transform:none;flex:0 0 auto}
+  .keys .mk.sh-diamond{transform:rotate(45deg)}
+  .keys .mk.me{width:13px;height:13px}
+  .keys .med-k{display:inline-block;width:3px;height:12px;background:var(--ink);border-radius:2px}
+  .keys .seg-k{display:inline-block;width:16px;height:4px;border-radius:2px}
   .scaleticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
     margin:6px 0 0;padding:0 0 0 182px}
   .scaleticks span{font-weight:600}
@@ -199,6 +217,14 @@
         <button data-v="psy0" aria-pressed="true">PSY0</button>
         <button data-v="psy1" aria-pressed="false">PSY1</button>
         <button data-v="all" aria-pressed="false">Tout</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="lab">Sessions</span>
+      <div class="seg" id="segSess">
+        <button data-v="all" aria-pressed="true">Toutes</button>
+        <button data-v="first" aria-pressed="false">Première</button>
+        <button data-v="last" aria-pressed="false">Dernière</button>
       </div>
     </div>
     <div class="ctl">
@@ -450,6 +476,21 @@ function detectCampaigns(rows, ph){
     };
   });
 }
+/* Date d'examen fictive commune : le 8 septembre. On ignore l'année — les
+   préparations PSY0 se déroulent à peu près à la même saison — en retenant
+   le 8 septembre le plus proche de la fin de la session. Une date précise
+   reste renseignable session par session pour corriger un cas particulier. */
+const EXAM_DAY=8, EXAM_MONTH=8;   // 8 septembre (mois 0-indexé)
+function examAnchor(end){
+  const y=end.getFullYear();
+  let best=null,bd=Infinity;
+  for(const yy of [y-1,y,y+1]){
+    const d=new Date(yy,EXAM_MONTH,EXAM_DAY);
+    const dist=Math.abs(d-end);
+    if(dist<bd){ bd=dist; best=d; }
+  }
+  return best;
+}
 // Libellé compact d'une session : « 2023 » ou « 2022–23 »
 function periodLabel(a,b){
   const ya=a.getFullYear(), yb=b.getFullYear();
@@ -462,6 +503,10 @@ const ME_COLOR='#5ad1c4';
 let phase='psy0', stage=null, stageTouched=false;
 let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le monde
 let zoomWeeks=13;       // fenêtre affichée avant l'examen (0 = tout)
+let sessionFilter='all';// all | first | last — pour les candidats à plusieurs sessions
+// Un symbole par personne, repris sur les courbes et les réglettes
+const SHAPES=['circle','square','diamond','triangle','down'];
+const CHART_POINT={circle:'circle',square:'rect',diamond:'rectRot',triangle:'triangle',down:'triangle'};
 let refs=[];            // [{id,name,csv,rows,color,sess:{}}]
 let me=null;            // {name,rows,sess:{}}
 let myExamDate='2026-09-05';
@@ -572,22 +617,26 @@ function handleFiles(files){
 // s'est préparé deux fois donne deux participants comparables entre eux.
 function participants(){
   const out=[];
-  const push=(owner,ph,camps,isMe,color,name)=>{
-    camps.forEach(c=>{
+  const push=(owner,ph,camps,isMe,color,name,shape)=>{
+    // filtre global : toutes les sessions, la première, ou la dernière
+    let sel=camps;
+    if(camps.length>1&&sessionFilter==='first') sel=[camps[0]];
+    else if(camps.length>1&&sessionFilter==='last') sel=[camps[camps.length-1]];
+    sel.forEach(c=>{
       const pref=sessPref(owner,ph,c,isMe,camps);
       if(!pref.on) return;
       const multi=camps.length>1;
       out.push({
         key:(isMe?'me':owner.id)+'#'+c.index,
-        owner, camp:c, me:isMe, color,
+        owner, camp:c, me:isMe, color, shape,
         name:multi?`${name} ${c.label}`:name,
-        exam:pref.exam?new Date(pref.exam+'T00:00:00')
-             :(isMe&&!multi&&myExamDate?new Date(myExamDate+'T00:00:00'):c.end)
+        exam:pref.exam?new Date(pref.exam+'T00:00:00'):examAnchor(c.end)
       });
     });
   };
-  if(me) push(me,phase,detectCampaigns(me.rows,phase),true,ME_COLOR,'Moi');
-  refs.forEach(r=>push(r,phase,detectCampaigns(r.rows,phase),false,r.color,r.name));
+  if(me) push(me,phase,detectCampaigns(me.rows,phase),true,ME_COLOR,'Moi',SHAPES[0]);
+  refs.forEach((r,i)=>push(r,phase,detectCampaigns(r.rows,phase),false,r.color,r.name,
+    SHAPES[(i+1)%SHAPES.length]));
   return out;
 }
 // Exercices retenus pour la comparaison : tous, ou seulement ceux que
@@ -806,13 +855,22 @@ function cardHtml(owner,id,name,color,isMe){
       const notes=[];
       if(c.trimmedDays) notes.push(`${c.trimmedDays} j de repérage écartés`);
       if(c.dropped) notes.push(`${c.dropped} période${c.dropped>1?'s':''} trop courte${c.dropped>1?'s':''} ignorée${c.dropped>1?'s':''}`);
+      /* Alerte si la session ne cadre pas avec l'examen fictif du 8 septembre.
+         Une préparation en cours s'arrête forcément avant l'examen : on ne
+         signale donc que ce qui déborde après, ou ce qui est très en amont
+         (session manifestement destinée à un autre examen). */
+      let warn='';
+      if(!pref.exam&&!isMe){
+        const off=Math.round((c.end-examAnchor(c.end))/(7*DAY));
+        if(off>2||off<-20) warn=`<br><span style="color:var(--s3)">hors saison : se termine ${off>0?off+' sem. après':Math.abs(off)+' sem. avant'} le 8 septembre — renseigne sa vraie date d'examen pour la recaler</span>`;
+      }
       return `<div class="sess${pref.on?'':' off'}">
         <label><input type="checkbox" data-id="${id}" data-sess="${c.index}" ${pref.on?'checked':''}>
           <b>${camps.length>1?`Session ${c.index+1} · ${c.label}`:'Préparation'}</b></label>
         <div class="det">${fdate(c.start)} → ${fdate(c.end)}<br>
           ${c.weeks} sem. · ${c.attempts} essais · ${c.activeDays} j actifs
           ${pref.exam?`<br>examen : ${fdate(new Date(pref.exam+'T00:00:00'))}`:''}
-          ${notes.length?`<br><span style="color:var(--faint)">${notes.join(' · ')}</span>`:''}</div>
+          ${notes.length?`<br><span style="color:var(--faint)">${notes.join(' · ')}</span>`:''}${warn}</div>
         <div class="acts"><button data-act="exam" data-id="${id}" data-sess="${c.index}">Date d'examen</button></div>
       </div>`;
     }).join('');
@@ -876,7 +934,10 @@ const dashName=p=>['trait plein','tirets','pointillés','trait-point'][(p.camp.i
 function dsFor(p,data,opts={}){
   return {
     label:p.name,data,borderColor:p.color,backgroundColor:p.color,
-    borderWidth:p.me?3.4:2,pointRadius:0,pointHoverRadius:4,
+    borderWidth:p.me?3.4:2,
+    pointStyle:CHART_POINT[p.shape]||'circle',
+    pointRotation:p.shape==='down'?180:0,
+    pointRadius:p.me?3.4:2.8,pointHoverRadius:6,
     tension:.3,borderDash:dashOf(p),order:p.me?0:1,...opts.extra
   };
 }
@@ -911,20 +972,38 @@ function renderCharts(ps,exSet){
   mk('chGlobal','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).glob)),...(medG?[medG]:[])]},optG);
   mk('chVol','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).vol))},withZoom(baseOpts(xt,'essais / semaine')));
   mk('chCum','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).cum))},withZoom(baseOpts(xt,'essais cumulés')));
-  // H2 — heures par semaine
-  const optH=withZoom(baseOpts(xt,'heures / semaine'));
+  // H2 — heures par semaine : histogramme groupé (une barre par personne et par semaine)
+  const wks=[];
+  for(let x=(zoomWeeks?-zoomWeeks:Math.floor(stageRange(ps)[0]));x<=0;x++) wks.push(x);
+  const optH=baseOpts(xt,'heures / semaine');
+  optH.scales.x={type:'category',labels:wks.map(xLabel),
+    ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},
+      maxRotation:0,autoSkip:true},grid:{display:false}};
+  optH.plugins.tooltip.callbacks.title=it=>it[0].label;
   optH.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} h`;
-  mk('chHours','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).hrs))},optH);
-  // H1 — plage horaire : % des essais par heure de la journée
-  const optC=baseOpts('heure de la journée','% des essais');
-  optC.scales.x.min=0; optC.scales.x.max=23;
-  optC.scales.x.ticks.callback=v=>v+'h';
-  optC.plugins.tooltip.callbacks.title=it=>it[0].parsed.x+'h';
+  mk('chHours','bar',{labels:wks.map(xLabel),datasets:ps.map(p=>{
+    const map=new Map(series.get(p.key).hrs.map(pt=>[Math.round(pt.x),pt.y]));
+    return {label:p.name,data:wks.map(x=>map.has(x)?map.get(x):null),
+      backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
+      borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1};
+  })},optH);
+  // H1 — plage horaire : histogramme par tranche de 2 h, en % des essais
+  const BINS=12, binLab=i=>`${String(i*2).padStart(2,'0')}–${String(i*2+2).padStart(2,'0')}h`;
+  const optC=baseOpts('tranche horaire','% des essais');
+  optC.scales.x={type:'category',
+    ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},maxRotation:60},
+    grid:{display:false}};
+  optC.plugins.tooltip.callbacks.title=it=>it[0].label;
   optC.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} %`;
-  mk('chClock','line',{datasets:ps.map(p=>{
-    const st=hoursStats(p), tot=st.byH.reduce((a,b)=>a+b,0)||1;
-    return dsFor(p,st.byH.map((n,h)=>({x:h,y:Math.round(n/tot*1000)/10})),{extra:{tension:.4}});
-  })},optC);
+  mk('chClock','bar',{labels:Array.from({length:BINS},(_,i)=>binLab(i)),
+    datasets:ps.map(p=>{
+      const st=hoursStats(p), tot=st.byH.reduce((a,b)=>a+b,0)||1;
+      const bins=Array(BINS).fill(0);
+      st.byH.forEach((n,h)=>{ bins[Math.floor(h/2)]+=n; });
+      return {label:p.name,data:bins.map(n=>Math.round(n/tot*1000)/10),
+        backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
+        borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1};
+    })},optC);
   // 2) moyenne des essais (pondérée par ce qui a été travaillé)
   mk('chLevel','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).level)),...(medL?[medL]:[])]},
      withZoom(baseOpts(xt,'classe stanine',true)));
@@ -1041,6 +1120,8 @@ function renderTable(ps,exSet){
   const ahead =rows.filter(r=>r.gap!==null&&r.gap>0.15).sort((a,b)=>b.gap-a.gap);
   const level =rows.filter(r=>r.gap!==null&&Math.abs(r.gap)<=0.15).sort((a,b)=>a.ex.localeCompare(b.ex));
   const na    =rows.filter(r=>r.gap===null).sort((a,b)=>a.ex.localeCompare(b.ex));
+  const mark=(p,v,mine)=>`<div class="mk sh-${p.shape}${mine?' me':''}" style="left:${pos(v)}%;--c:${mine?bandColor(v):p.color}"
+      title="${esc(p.name)} : ${fmt(v)}"></div>`;
   function strip(r){
     let seg='';
     if(r.mine!==null&&r.grp!==null){
@@ -1048,11 +1129,10 @@ function renderTable(ps,exSet){
       const col=r.gap>=0?getCss('--s7'):getCss('--s2');
       seg=`<div class="seg" style="left:${lo}%;width:${w}%;background:${col}"></div>`;
     }
-    const dots=r.vals.map(o=>
-      `<div class="ref" style="left:${pos(o.v)}%;background:${o.p.color}"
-            title="${esc(o.p.name)} : ${fmt(o.v)}"></div>`).join('');
-    const med=r.grp!==null?`<div class="med" style="left:${pos(r.grp)}%" title="Médiane du groupe : ${fmt(r.grp)}"></div>`:'';
-    const mine=r.mine!==null?`<div class="mine" style="left:${pos(r.mine)}%;background:${bandColor(r.mine)}" title="Moi : ${fmt(r.mine)}"></div>`:'';
+    const dots=r.vals.map(o=>mark(o.p,o.v,false)).join('');
+    const med=r.grp!==null&&r.vals.length>1
+      ?`<div class="med" style="left:${pos(r.grp)}%" title="Médiane du groupe : ${fmt(r.grp)}"></div>`:'';
+    const mine=r.mine!==null&&m?mark(m,r.mine,true):'';
     let lab,labCol;
     if(r.gap===null){ lab=r.mine!==null?'—':'pas de repère'; labCol='var(--faint)'; }
     else { lab=(r.gap>0?'+':'')+fmt(r.gap); labCol=r.gap>=0.15?getCss('--s7'):r.gap<=-0.15?getCss('--s2'):getCss('--s5'); }
@@ -1063,18 +1143,17 @@ function renderTable(ps,exSet){
   }
   const grp=(cls,title,list)=>list.length
     ? `<div class="grp ${cls}">${title} · ${list.length}</div>`+list.map(strip).join('') : '';
+  // légende : un symbole et une couleur par personne
+  const keys=ps.map(p=>`<span class="k"><i class="mk sh-${p.shape}${p.me?' me':''}" style="--c:${p.color}"></i>${esc(p.name)}${p.me?' (moi)':''}</span>`).join('');
   box.innerHTML=
+    `<div class="keys">${keys}${rp.length>1?`<span class="k"><i class="med-k"></i>médiane du groupe</span>`:''}
+      <span class="k"><i class="seg-k" style="background:${getCss('--s7')}"></i>tu es devant</span>
+      <span class="k"><i class="seg-k" style="background:${getCss('--s2')}"></i>tu es derrière</span></div>`+
     grp('behind','▼ Tu es en dessous',behind)+
     grp('ahead','▲ Tu es au-dessus',ahead)+
     grp('na','= À égalité',level)+
     grp('na','Pas comparable à ce stade',na)+
-    `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`+
-    `<div class="legend">
-      <span><i style="width:13px;height:13px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 1.5px rgba(255,255,255,.75)"></i>ma position</span>
-      <span><i style="width:3px;height:13px;border-radius:2px;background:var(--ink)"></i>médiane du groupe</span>
-      <span><i style="width:9px;height:9px;border-radius:50%;background:var(--muted)"></i>chaque session de référence</span>
-      <span>trait <span style="color:${getCss('--s7')}">vert</span> = tu es devant · <span style="color:${getCss('--s2')}">orange</span> = tu es derrière</span>
-    </div>`;
+    `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`;
 }
 /* ----------------------- Orchestration ----------------------- */
 function describeStage(exSet){
@@ -1123,6 +1202,7 @@ function segHandler(id,fn){
   });
 }
 segHandler('segPhase',v=>{ phase=v; stageTouched=false; });
+segHandler('segSess',v=>{ sessionFilter=v; stageTouched=false; });
 segHandler('segSet',v=>{ commonOnly=v==='common'; });
 segHandler('segZoom',v=>{ zoomWeeks=+v; });
 document.getElementById('stage').addEventListener('input',e=>{
