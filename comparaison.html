@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f141a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Comparaison">
+<title>Comparaison — Pilotest Cadets Air France</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f141a; --panel:#161e27; --panel2:#1d2733; --line:#2a3642;
+    --ink:#e9eef4; --muted:#8b98a8; --faint:#5b6675;
+    --accent:#5ad1c4;
+    /* échelle stanine officielle Pilotest (1 rouge → 9 bleu) */
+    --s1:#e5342b; --s2:#ec6a26; --s3:#f39312; --s4:#f7b71d; --s5:#f5d90f;
+    --s6:#b4cf2c; --s7:#3aaa35; --s8:#4aa9dd; --s9:#3a70cf;
+    --disp:"Saira",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--disp);
+    -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 16px 80px}
+  header{margin-bottom:18px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 6px}
+  h1{font-size:clamp(22px,4vw,32px);font-weight:700;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px;margin-top:6px}
+  a.back{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;
+    border:1px solid var(--line);border-radius:20px;padding:5px 11px;display:inline-block;margin-bottom:14px}
+  a.back:hover{color:var(--ink);border-color:var(--accent)}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:20px}
+  .panel h2{font-size:15px;margin:0 0 4px;font-weight:600;letter-spacing:.01em}
+  .desc{color:var(--muted);font-size:12px;margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .grid .panel{margin-bottom:0}
+  .chartbox{position:relative;height:320px;height:clamp(260px,42vh,380px)}
+
+  /* Import */
+  .drop{border:1px dashed var(--line);border-radius:12px;padding:16px;text-align:center;
+    background:var(--panel);transition:border-color .15s,background .15s}
+  .drop.over{border-color:var(--accent);background:var(--panel2)}
+  .drop p{margin:0 0 10px;color:var(--muted);font-size:13px}
+  input[type=file]{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .status{font-family:var(--mono);font-size:11.5px;margin-top:10px;color:var(--muted)}
+  .status.err{color:var(--s1)} .status.ok{color:var(--s7)}
+
+  /* Cartes candidats */
+  .cands{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-top:14px}
+  .cand{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+    display:flex;gap:10px;align-items:flex-start}
+  .cand.off{opacity:.45}
+  .cand .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto;margin-top:4px}
+  .cand .body{flex:1;min-width:0}
+  .cand .nm{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .cand .nm .me{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--accent);
+    border:1px solid var(--accent);border-radius:4px;padding:1px 4px}
+  .cand .det{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.65}
+  .cand .det b{color:var(--ink)}
+  .cand .acts{display:flex;gap:6px;margin-top:8px}
+  .cand button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;
+    font-family:var(--mono);font-size:10px;padding:3px 8px;cursor:pointer}
+  .cand button:hover{color:var(--ink);border-color:var(--accent)}
+  .cand input[type=checkbox]{margin-top:3px;accent-color:var(--accent);width:15px;height:15px;flex:0 0 auto}
+  .nodata{font-family:var(--mono);font-size:12px;color:var(--muted);padding:14px;text-align:center;
+    border:1px dashed var(--line);border-radius:10px}
+
+  /* Contrôles */
+  .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:20px}
+  .ctl{display:flex;flex-direction:column;gap:6px}
+  .ctl .lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{font-family:var(--mono);font-size:11px;background:var(--panel2);color:var(--muted);
+    border:1px solid var(--line);border-radius:7px;padding:6px 11px;cursor:pointer}
+  .seg button[aria-pressed=true]{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
+  input[type=range]{accent-color:var(--accent);width:210px}
+  .stageval{font-family:var(--mono);font-size:12px;color:var(--ink)}
+
+  /* Tuiles verdict */
+  .readout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+  .t-lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .t-val{font-family:var(--mono);font-size:24px;font-weight:600;margin-top:6px;line-height:1.15}
+  .t-val small{font-size:12px;color:var(--faint)}
+  .t-sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px;line-height:1.5}
+
+  /* Tableau par exercice */
+  .tblwrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+  th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left;white-space:normal;min-width:150px;font-family:var(--disp);font-size:13px}
+  thead th{color:var(--faint);font-weight:500;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    position:sticky;top:0;background:var(--panel)}
+  td.val{font-weight:600}
+  td.gap{font-size:11px}
+  tbody tr:hover{background:var(--panel2)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{display:inline-block;width:16px;height:3px;border-radius:2px}
+  .empty{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:28px 10px}
+
+  @media (max-width:820px){
+    .grid{grid-template-columns:1fr}
+    .readout{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:600px){
+    .wrap{padding:12px 11px 48px}
+    .panel{padding:14px}
+    /* iOS : Safari zoome sur tout champ < 16px */
+    select,input[type=date],input[type=text]{font-size:16px}
+    .chartbox{height:225px}
+    .controls{flex-direction:column;align-items:stretch;padding:14px;gap:15px}
+    input[type=range]{width:100%}
+    .cands{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← Tableau de bord</a>
+  <header>
+    <p class="eyebrow">Comparaison · Pilotest</p>
+    <h1>Ma trajectoire face à ceux qui ont réussi</h1>
+    <p class="sub">Les calendriers sont recalés : on compare <b>au même stade de préparation</b>, pas à la même date.</p>
+  </header>
+
+  <div class="panel">
+    <h2>Dossiers de référence</h2>
+    <p class="desc">Importe les exports CSV des candidats admis (plusieurs fichiers à la fois). Ils sont <b>mémorisés sur cet appareil</b> — inutile de les réimporter à chaque visite. Tes résultats à toi sont repris automatiquement du tableau de bord.</p>
+    <div class="drop" id="drop">
+      <p>Glisse un ou plusieurs CSV ici</p>
+      <input type="file" id="fileIn" accept=".csv,text/csv" multiple>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="cands" id="cands"></div>
+  </div>
+
+  <div class="controls">
+    <div class="ctl">
+      <span class="lab">Phase</span>
+      <div class="seg" id="segPhase">
+        <button data-v="psy0" aria-pressed="true">PSY0</button>
+        <button data-v="psy1" aria-pressed="false">PSY1</button>
+        <button data-v="all" aria-pressed="false">Tout</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="lab">Recalage</span>
+      <div class="seg" id="segAlign">
+        <button data-v="start" aria-pressed="true">Depuis le début</button>
+        <button data-v="exam" aria-pressed="false">Avant l'examen</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="lab">Stade comparé</span>
+      <input type="range" id="stage" min="0" max="30" value="0" step="1">
+      <span class="stageval" id="stageVal">—</span>
+    </div>
+  </div>
+
+  <div class="readout" id="readout"></div>
+
+  <div class="panel">
+    <h2>Trajectoire de niveau</h2>
+    <p class="desc">Niveau moyen des essais sur les 30 jours précédents, semaine après semaine. <b>Ta courbe est en gras.</b></p>
+    <div class="chartbox"><canvas id="chLevel"></canvas></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Volume hebdomadaire</h2>
+      <p class="desc">Essais réalisés chaque semaine — souvent le vrai écart.</p>
+      <div class="chartbox"><canvas id="chVol"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Volume cumulé</h2>
+      <p class="desc">Total d'essais depuis le début de la préparation.</p>
+      <div class="chartbox"><canvas id="chCum"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Comparatif par exercice, au même stade</h2>
+    <p class="desc" id="tblDesc">Niveau estimé sur chaque exercice (moyenne des 5 derniers essais à ce stade). Déplace le curseur « Stade comparé » pour te situer à un autre moment.</p>
+    <div class="tblwrap"><div id="tbl"></div></div>
+  </div>
+</div>
+
+<script>
+/* =================================================================
+   Table de correspondance exercices → phase / catégorie
+   (identique au tableau de bord — injectée depuis index.html)
+   ================================================================= */
+const PSY_PHASE_MAP = {
+  "Un mot sur deux":"psy0","Pair ou impair":"psy0","M2 Back numérique":"psy0",
+  "Psychomoteur psy0 AF cadet":"psy0","Formes et couleurs":"psy0","Airways":"psy0",
+  "Empilements":"psy0","Objets 3D":"psy0","Billes":"psy0","Formes glissées - II":"psy0",
+  "Cubes 2D/3D - psy0 Air France":"psy0","Grilles de calculs":"psy0","Boîtes à mots":"psy0",
+  "Mots en étoile":"psy0","Angles":"psy1","Séries logiques":"psy0",
+  "Anglais présélection cadets Air France":"psy0",
+
+  "Mathématiques":"psy1","Voitures (séquentiel)":"psy1","Voitures (basique)":"psy1",
+  "Test des compteurs":"psy1","Calcul mental 1":"psy1","Calcul mental 4":"psy1",
+  "Calcul mental 2":"psy1","Attention 3":"psy1","Calcul mental 3":"psy1",
+  "Memory 3 Back":"psy1","Memory 4 Back":"psy1","Memory 5 Back":"psy1",
+  "Attention 1":"psy1","Attention 2":"psy1",
+  "Patrons de cubes - psy1 - Cadets AF":"psy1",
+  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"psy1","Tangram":"psy1",
+  "Psychomoteur ENAC":"psy1","EFG":"psy1","Matrices de Raven":"psy1","Lecture de textes":"psy1"
+};
+
+const CATEGORY_MAP = {
+  "Un mot sur deux":"Verbale","Pair ou impair":"Numérique","M2 Back numérique":"Mémorisation",
+  "Psychomoteur psy0 AF cadet":"Psychomoteur","Formes et couleurs":"Attention",
+  "Airways":"Intellectuelle","Empilements":"Spatiale","Objets 3D":"Spatiale",
+  "Billes":"Intellectuelle","Formes glissées - II":"Intellectuelle",
+  "Cubes 2D/3D - psy0 Air France":"Spatiale","Grilles de calculs":"Numérique",
+  "Boîtes à mots":"Verbale","Mots en étoile":"Verbale","Angles":"Spatiale",
+  "Séries logiques":"Intellectuelle","Anglais présélection cadets Air France":"Anglais",
+
+  "Mathématiques":"Numérique","Voitures (séquentiel)":"Spatiale","Voitures (basique)":"Spatiale",
+  "Test des compteurs":"Numérique","Calcul mental 1":"Numérique","Calcul mental 2":"Numérique",
+  "Calcul mental 3":"Numérique","Calcul mental 4":"Numérique",
+  "Attention 1":"Attention","Attention 2":"Attention","Attention 3":"Attention",
+  "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
+  "Patrons de cubes - psy1 - Cadets AF":"Spatiale",
+  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"Spatiale","Tangram":"Spatiale",
+  "Psychomoteur ENAC":"Psychomoteur","EFG":"Intellectuelle",
+  "Matrices de Raven":"Intellectuelle","Lecture de textes":"Verbale"
+};
+
+// Fusion des deux tables → config interne {cat, phase}
+const CONFIG = {};
+new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(name=>{
+  CONFIG[name] = { cat: CATEGORY_MAP[name] || "Autre", phase: PSY_PHASE_MAP[name] || "psy0" };
+});
+
+/* ----------------------- Utilitaires ----------------------- */
+const DAY=86400000;
+const LS_MAIN="pilotest_dashboard_v2";
+const LS_REFS="pilotest_refs_v1";
+const MONTHS={janvier:0,"février":1,fevrier:1,mars:2,avril:3,mai:4,juin:5,juillet:6,"août":7,aout:7,
+  septembre:8,octobre:9,novembre:10,"décembre":11,decembre:11};
+function parseFrDate(s){
+  if(!s) return null;
+  const m=s.trim().match(/(\d{1,2})\s+([A-Za-zÀ-ÿ]+)\s+(\d{4})(?:\s+(\d{1,2})h(\d{2}))?/i);
+  if(!m) return null;
+  const mon=MONTHS[m[2].toLowerCase()];
+  if(mon===undefined) return null;
+  return new Date(+m[3],mon,+m[1],+(m[4]||0),+(m[5]||0));
+}
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(lines.length && /^test\s*,/i.test(lines[0])) lines.shift();
+  const out=[];
+  for(const line of lines){
+    const p=line.split(",");
+    if(p.length<4) continue;
+    const test=p.slice(0,p.length-3).join(",").trim().replace(/^"(.*)"$/,'$1');
+    const score=parseFloat(p[p.length-3]);
+    const stanine=parseInt(p[p.length-2],10);
+    const date=parseFrDate(p[p.length-1]);
+    if(!test||isNaN(stanine)||!date) continue;
+    const cfg=CONFIG[test]||{cat:"Autre",phase:"psy0"};
+    out.push({test,score:isNaN(score)?null:score,stanine,date,cat:cfg.cat,phase:cfg.phase});
+  }
+  return out.sort((a,b)=>a.date-b.date);
+}
+const mean=a=>a.length? a.reduce((x,y)=>x+y,0)/a.length : 0;
+const fmt=v=>(v===null||v===undefined||isNaN(v))?'–':(Math.round(v*10)/10).toFixed(1);
+function median(a){
+  if(!a.length) return null;
+  const s=a.slice().sort((x,y)=>x-y), h=s.length>>1;
+  return s.length%2? s[h] : (s[h-1]+s[h])/2;
+}
+function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+const bandColor=v=>getCss('--s'+Math.min(9,Math.max(1,Math.round(v))));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const isPhone=()=>window.matchMedia('(max-width:600px)').matches;
+const chartFont=n=>isPhone()?n+2:n;
+const dayIdx=d=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/DAY);
+const fdate=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+
+/* ----------------------- Détection de campagne -----------------------
+   Le premier essai d'une phase ne marque PAS le début de la préparation :
+   un exercice isolé suivi de deux semaines de rien, c'est du repérage.
+   On découpe l'historique en blocs séparés par une longue coupure, on ne
+   garde que les blocs substantiels, puis on recale le départ sur le
+   premier jour réellement suivi d'un entraînement soutenu.
+   ------------------------------------------------------------------- */
+const GAP_DAYS=28;      // coupure au-delà de laquelle on change de campagne
+const SUSTAIN_WIN=14;   // fenêtre d'observation du "vrai" départ
+const SUSTAIN_DAYS=3;   // jours actifs requis dans cette fenêtre
+const SUSTAIN_ATT=10;   // essais requis dans cette fenêtre
+
+function detectCampaign(rows, ph){
+  const src = ph==='all' ? rows : rows.filter(r=>r.phase===ph);
+  if(!src.length) return null;
+  const byDay=new Map();
+  src.forEach(r=>{
+    const k=dayIdx(r.date);
+    const o=byDay.get(k)||{n:0,date:(()=>{const d=new Date(r.date);d.setHours(0,0,0,0);return d;})()};
+    o.n++; byDay.set(k,o);
+  });
+  const days=[...byDay.keys()].sort((a,b)=>a-b);
+  // 1) découpage en blocs
+  const blocks=[]; let cur=[days[0]];
+  for(let i=1;i<days.length;i++){
+    if(days[i]-days[i-1]>GAP_DAYS){ blocks.push(cur); cur=[]; }
+    cur.push(days[i]);
+  }
+  blocks.push(cur);
+  // 2) blocs substantiels — sinon on relâche, sinon on prend tout
+  const att=b=>b.reduce((s,d)=>s+byDay.get(d).n,0);
+  let keep=blocks.filter(b=>b.length>=5 && att(b)>=30);
+  if(!keep.length) keep=blocks.filter(b=>b.length>=3 && att(b)>=10);
+  if(!keep.length) keep=blocks;
+  const block=keep[keep.length-1];      // la campagne qui mène à l'examen
+  const skipped=blocks.length-1-blocks.indexOf(block); // blocs postérieurs (aucun en principe)
+  // 3) recalage du vrai départ
+  let si=0;
+  for(let i=0;i<block.length;i++){
+    const lim=block[i]+SUSTAIN_WIN;
+    let d=0,a=0;
+    for(let j=i;j<block.length&&block[j]<=lim;j++){ d++; a+=byDay.get(block[j]).n; }
+    if(d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT){ si=i; break; }
+  }
+  const startK=block[si], endK=block[block.length-1];
+  const start=byDay.get(startK).date, end=byDay.get(endK).date;
+  // la campagne est bornée à sa période : ni le repérage d'avant,
+  // ni les essais isolés d'après (pour une référence : l'après-examen)
+  const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=startK&&k<=endK;});
+  const after=src.filter(r=>dayIdx(r.date)>endK).length;
+  return {
+    start, end, campRows,
+    trimmedDays:si,                        // jours de repérage écartés au début
+    priorBlocks:blocks.indexOf(block),     // campagnes antérieures ignorées
+    after,                                 // essais postérieurs écartés
+    activeDays:block.length-si,
+    attempts:campRows.length,
+    weeks:Math.max(1,Math.round((endK-startK)/7)+1)
+  };
+}
+
+/* ----------------------- État ----------------------- */
+const REF_COLORS=['#c792ea','#82aaff','#f78c6c','#c3e88d','#ffcb6b','#89ddff','#ff9cac','#a1e8cc'];
+const ME_COLOR='#5ad1c4';
+let phase='psy0', align='start', stage=null, stageTouched=false;
+let refs=[];            // [{id,name,csv,rows,examDate,on}]
+let me=null;            // {name,rows}
+let myExamDate='2026-09-05';
+const charts={};
+
+/* ----------------------- Chargement ----------------------- */
+function loadMe(){
+  let saved=null;
+  try{ saved=JSON.parse(localStorage.getItem(LS_MAIN)||'null'); }catch(e){}
+  if(saved&&saved.examDate) myExamDate=saved.examDate;
+  if(saved&&saved.csv){
+    const rows=parseCSV(saved.csv);
+    if(rows.length){ me={name:'Moi',rows}; return; }
+  }
+  me=null;
+}
+function loadRefs(){
+  let saved=null;
+  try{ saved=JSON.parse(localStorage.getItem(LS_REFS)||'null'); }catch(e){}
+  refs=(saved||[]).map((r,i)=>({...r,rows:parseCSV(r.csv),on:r.on!==false,
+    color:REF_COLORS[i%REF_COLORS.length]})).filter(r=>r.rows.length);
+}
+function saveRefs(){
+  try{
+    localStorage.setItem(LS_REFS,JSON.stringify(refs.map(r=>({
+      id:r.id,name:r.name,csv:r.csv,examDate:r.examDate||null,on:r.on
+    }))));
+  }catch(e){ setStatus("Stockage plein : supprime un dossier de référence.",'err'); }
+}
+function setStatus(msg,cls){
+  const el=document.getElementById('status');
+  el.textContent=msg||''; el.className='status'+(cls?' '+cls:'');
+}
+const LETTERS='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function nextName(){
+  const used=new Set(refs.map(r=>r.name));
+  for(const L of LETTERS){ const n='Candidat '+L; if(!used.has(n)) return n; }
+  return 'Candidat '+(refs.length+1);
+}
+function addRef(text,srcName){
+  const rows=parseCSV(text);
+  if(!rows.length){ setStatus(`« ${srcName} » : aucune ligne exploitable (format attendu : test,score,stanine,date).`,'err'); return false; }
+  const id='r'+Date.now()+Math.random().toString(36).slice(2,6);
+  refs.push({id,name:nextName(),csv:text,rows,examDate:null,on:true,
+    color:REF_COLORS[refs.length%REF_COLORS.length]});
+  return true;
+}
+function handleFiles(files){
+  const list=[...files].filter(f=>/\.csv$/i.test(f.name)||f.type==='text/csv');
+  if(!list.length){ setStatus('Aucun fichier CSV reconnu.','err'); return; }
+  let done=0,ok=0;
+  list.forEach(f=>{
+    const rd=new FileReader();
+    rd.onload=e=>{
+      if(addRef(e.target.result,f.name)) ok++;
+      if(++done===list.length){
+        saveRefs(); renderAll();
+        if(ok) setStatus(`${ok} dossier${ok>1?'s':''} ajouté${ok>1?'s':''} et mémorisé${ok>1?'s':''}.`,'ok');
+      }
+    };
+    rd.onerror=()=>{ if(++done===list.length){ saveRefs(); renderAll(); } };
+    rd.readAsText(f);
+  });
+}
+
+/* ----------------------- Séries temporelles ----------------------- */
+// Un « participant » = moi ou un candidat de référence, avec sa campagne détectée.
+function participants(){
+  const out=[];
+  if(me){
+    const c=detectCampaign(me.rows,phase);
+    if(c) out.push({key:'me',name:'Moi',color:ME_COLOR,me:true,camp:c,
+      exam:myExamDate?new Date(myExamDate+'T00:00:00'):c.end});
+  }
+  refs.filter(r=>r.on).forEach(r=>{
+    const c=detectCampaign(r.rows,phase);
+    if(c) out.push({key:r.id,name:r.name,color:r.color,me:false,camp:c,
+      exam:r.examDate?new Date(r.examDate+'T00:00:00'):c.end});
+  });
+  return out;
+}
+// Abscisse d'un instant t pour un participant, en semaines
+function xOf(p,t){
+  return align==='start'
+    ? (t-p.camp.start.getTime())/(7*DAY)
+    : (t-p.exam.getTime())/(7*DAY);
+}
+// Instant d'observation d'un stade : FIN de la journée visée, sinon les essais
+// du jour même (faits à 9h, 17h…) tomberaient après le point de mesure.
+const EOD=DAY-1;
+function instantAt(p,st){
+  return (align==='start'?p.camp.start.getTime():p.exam.getTime())+st*7*DAY+EOD;
+}
+// Points hebdomadaires : niveau glissant 30 j, volume de la semaine, cumul
+function buildSeries(p){
+  const rows=p.camp.campRows;
+  const t0=p.camp.start.getTime(), tEnd=p.camp.end.getTime()+EOD;
+  const level=[],vol=[],cum=[];
+  for(let w=0;;w++){
+    const nominal=t0+w*7*DAY;          // sert d'abscisse (S+0, S+1, …)
+    const cut=Math.min(nominal+EOD,tEnd); // sert de point de mesure
+    const win=rows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-30*DAY);
+    const week=rows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-7*DAY);
+    const x=Math.round(xOf(p,nominal)*10)/10;
+    if(win.length) level.push({x,y:Math.round(mean(win.map(r=>r.stanine))*100)/100});
+    vol.push({x,y:week.length});
+    cum.push({x,y:rows.filter(r=>r.date.getTime()<=cut).length});
+    if(nominal+EOD>=tEnd||w>400) break;
+  }
+  return {level,vol,cum};
+}
+// Niveau global d'un participant à un stade donné (moyenne glissante 30 j)
+function levelAt(p,st){
+  const t=instantAt(p,st);
+  const win=p.camp.campRows.filter(r=>r.date.getTime()<=t&&r.date.getTime()>t-30*DAY);
+  return win.length?mean(win.map(r=>r.stanine)):null;
+}
+function volumeAt(p,st){ // essais cumulés à ce stade
+  const t=instantAt(p,st);
+  return p.camp.campRows.filter(r=>r.date.getTime()<=t).length;
+}
+function paceAt(p,st){ // essais sur les 30 derniers jours, ramenés à la semaine
+  const t=instantAt(p,st);
+  const n=p.camp.campRows.filter(r=>r.date.getTime()<=t&&r.date.getTime()>t-30*DAY).length;
+  return n/30*7;
+}
+// Niveau par exercice à un stade : moyenne des K derniers essais avant cet instant
+const LASTK=5;
+function exLevelAt(p,ex,st){
+  const t=instantAt(p,st);
+  const prev=p.camp.campRows.filter(r=>r.test===ex&&r.date.getTime()<=t);
+  if(!prev.length) return null;
+  return mean(prev.slice(-LASTK).map(r=>r.stanine));
+}
+// Bornes du curseur de stade
+function stageRange(ps){
+  if(!ps.length) return [0,1];
+  let lo=Infinity,hi=-Infinity;
+  ps.forEach(p=>{
+    lo=Math.min(lo,xOf(p,p.camp.start.getTime()));
+    hi=Math.max(hi,xOf(p,p.camp.end.getTime()));
+  });
+  return [Math.floor(lo),Math.ceil(hi)];
+}
+// Stade actuel de "Moi" (là où j'en suis aujourd'hui)
+function myStage(ps){
+  const m=ps.find(p=>p.me);
+  if(!m) return null;
+  return Math.round(xOf(m,m.camp.end.getTime()));
+}
+
+/* ----------------------- Rendu : cartes candidats ----------------------- */
+function renderCands(){
+  const box=document.getElementById('cands');
+  const parts=[];
+  if(me){
+    const c=detectCampaign(me.rows,phase);
+    parts.push(cardHtml({name:'Moi',color:ME_COLOR,me:true},c,null));
+  }else{
+    parts.push(`<div class="nodata">Aucun résultat personnel trouvé.<br>Importe d'abord ton export sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.</div>`);
+  }
+  refs.forEach(r=>parts.push(cardHtml(r,detectCampaign(r.rows,phase),r.id)));
+  if(!refs.length) parts.push(`<div class="nodata">Aucun dossier de référence.<br>Glisse les CSV des candidats admis ci-dessus.</div>`);
+  box.innerHTML=parts.join('');
+  box.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const r=refs.find(x=>x.id===cb.dataset.id);
+      if(r){ r.on=cb.checked; saveRefs(); renderAll(); }
+    });
+  });
+  box.querySelectorAll('button[data-act]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const r=refs.find(x=>x.id===b.dataset.id); if(!r) return;
+      if(b.dataset.act==='del'){
+        if(!confirm(`Supprimer « ${r.name} » ?`)) return;
+        refs=refs.filter(x=>x.id!==r.id);
+        refs.forEach((x,i)=>x.color=REF_COLORS[i%REF_COLORS.length]);
+        saveRefs(); renderAll(); setStatus('Dossier supprimé.');
+      }else if(b.dataset.act==='ren'){
+        const n=prompt('Nom du candidat :',r.name);
+        if(n&&n.trim()){ r.name=n.trim(); saveRefs(); renderAll(); }
+      }else if(b.dataset.act==='exam'){
+        const d=prompt("Date d'examen (AAAA-MM-JJ) — laisse vide si inconnue :",r.examDate||'');
+        if(d===null) return;
+        r.examDate=/^\d{4}-\d{2}-\d{2}$/.test(d.trim())?d.trim():null;
+        saveRefs(); renderAll();
+      }
+    });
+  });
+}
+function cardHtml(r,c,id){
+  const on=id?r.on:true;
+  const cb=id?`<input type="checkbox" data-id="${id}" ${on?'checked':''} aria-label="Comparer ${esc(r.name)}">`
+             :`<input type="checkbox" checked disabled aria-label="Moi">`;
+  let det;
+  if(!c){ det=`<span style="color:var(--s3)">aucun entraînement détecté pour cette phase</span>`; }
+  else{
+    const notes=[];
+    if(c.trimmedDays) notes.push(`${c.trimmedDays} j de repérage écartés`);
+    if(c.priorBlocks) notes.push(`${c.priorBlocks} campagne${c.priorBlocks>1?'s':''} antérieure${c.priorBlocks>1?'s':''} ignorée${c.priorBlocks>1?'s':''}`);
+    if(c.after) notes.push(`${c.after} essai${c.after>1?'s':''} isolé${c.after>1?'s':''} après la campagne`);
+    det=`<b>${fdate(c.start)}</b> → <b>${fdate(c.end)}</b><br>`+
+        `${c.weeks} sem. · ${c.attempts} essais · ${c.activeDays} j actifs`+
+        (notes.length?`<br><span style="color:var(--faint)">${notes.join(' · ')}</span>`:'');
+  }
+  const acts=id?`<div class="acts">
+      <button data-act="ren" data-id="${id}">Renommer</button>
+      <button data-act="exam" data-id="${id}">Date d'examen</button>
+      <button data-act="del" data-id="${id}">Supprimer</button>
+    </div>`:'';
+  const exam=id&&r.examDate?`<br>examen : ${fdate(new Date(r.examDate+'T00:00:00'))}`:'';
+  return `<div class="cand${on?'':' off'}">
+    ${cb}<div class="sw" style="background:${r.color}"></div>
+    <div class="body">
+      <div class="nm">${esc(r.name)}${r.me?'<span class="me">MOI</span>':''}</div>
+      <div class="det">${det}${exam}</div>${acts}
+    </div></div>`;
+}
+
+/* ----------------------- Rendu : graphiques ----------------------- */
+function baseOpts(xTitle,yTitle,yMax){
+  return {
+    responsive:true,maintainAspectRatio:false,
+    interaction:{mode:'nearest',intersect:false},
+    plugins:{
+      legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)},
+        boxWidth:14,boxHeight:2,usePointStyle:false}},
+      tooltip:{titleFont:{family:'IBM Plex Mono',size:chartFont(10)},
+        bodyFont:{family:'IBM Plex Mono',size:chartFont(11)},
+        callbacks:{title:it=>xLabel(it[0].parsed.x)}}
+    },
+    scales:{
+      x:{type:'linear',title:{display:true,text:xTitle,color:getCss('--faint'),
+          font:{family:'IBM Plex Mono',size:chartFont(9)}},
+        ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},
+          callback:v=>xLabel(v)},
+        grid:{color:'rgba(255,255,255,.05)'}},
+      y:{title:{display:true,text:yTitle,color:getCss('--faint'),
+          font:{family:'IBM Plex Mono',size:chartFont(9)}},
+        ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)}},
+        grid:{color:'rgba(255,255,255,.05)'},beginAtZero:true,
+        ...(yMax?{min:1,max:9,beginAtZero:false}:{})}
+    }
+  };
+}
+// Abscisse lisible : semaines depuis le début (S+6) ou avant l'examen (S-9, S+0 = jour J)
+const xLabel=v=>{
+  const n=Math.round(v);
+  return align==='start'?`S+${n}`:(n>=0?`S+${n}`:`S−${Math.abs(n)}`);
+};
+// Même stade, exprimé en jours avant l'examen (pour la tuile de synthèse)
+const xLabelDays=v=>{
+  const d=Math.round(v*7);
+  return align==='start'?`${d} j d'entraînement`:(d>=0?`J+${d}`:`J−${Math.abs(d)}`);
+};
+
+function dsFor(p,data,opts={}){
+  return {
+    label:p.name,data,borderColor:p.color,backgroundColor:p.color,
+    borderWidth:p.me?3.2:1.8,pointRadius:0,pointHoverRadius:4,
+    tension:.3,borderDash:p.me?[]:(opts.dash||[]),order:p.me?0:1,...opts.extra
+  };
+}
+function renderCharts(ps){
+  const series=new Map(ps.map(p=>[p.key,buildSeries(p)]));
+  // repère médian du groupe (hors moi), si au moins 2 références
+  const refsP=ps.filter(p=>!p.me);
+  let medDs=null;
+  if(refsP.length>=2){
+    const xs=new Set(); refsP.forEach(p=>series.get(p.key).level.forEach(pt=>xs.add(pt.x)));
+    const pts=[...xs].sort((a,b)=>a-b).map(x=>{
+      const vals=refsP.map(p=>{
+        const s=series.get(p.key).level;
+        let best=null,bd=Infinity;
+        s.forEach(pt=>{const d=Math.abs(pt.x-x); if(d<bd&&d<=0.6){bd=d;best=pt.y;}});
+        return best;
+      }).filter(v=>v!==null);
+      return vals.length>=2?{x,y:median(vals)}:null;
+    }).filter(Boolean);
+    medDs={label:'Médiane du groupe',data:pts,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
+      borderWidth:2,borderDash:[6,4],pointRadius:0,tension:.3,order:2};
+  }
+  mk('chLevel','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).level,{dash:[5,4]})),...(medDs?[medDs]:[])]},
+     baseOpts(align==='start'?'semaines depuis le début':"avant l'examen",'classe stanine',true));
+  mk('chVol','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).vol,{dash:[5,4]}))},
+     baseOpts(align==='start'?'semaines depuis le début':"avant l'examen",'essais / semaine'));
+  mk('chCum','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).cum,{dash:[5,4]}))},
+     baseOpts(align==='start'?'semaines depuis le début':"avant l'examen",'essais cumulés'));
+}
+function mk(id,type,data,options){
+  if(charts[id]) charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),{type,data,options});
+}
+
+/* ----------------------- Rendu : verdict ----------------------- */
+function renderReadout(ps){
+  const box=document.getElementById('readout');
+  const m=ps.find(p=>p.me), rp=ps.filter(p=>!p.me);
+  if(!m||!rp.length){
+    box.innerHTML=`<div class="tile" style="grid-column:1/-1"><div class="t-lab">Verdict</div>
+      <div class="t-sub" style="font-size:11.5px;margin-top:8px">${
+        !m?"Importe tes résultats sur le tableau de bord pour te comparer."
+          :"Ajoute au moins un dossier de référence pour lancer la comparaison."}</div></div>`;
+    return;
+  }
+  const st=stage;
+  const my=levelAt(m,st), grp=median(rp.map(p=>levelAt(p,st)).filter(v=>v!==null));
+  const myV=volumeAt(m,st), grpV=median(rp.map(p=>volumeAt(p,st)));
+  const myP=paceAt(m,st), grpP=median(rp.map(p=>paceAt(p,st)));
+  const d=(my!==null&&grp!==null)?my-grp:null;
+  const dCol=d===null?getCss('--muted'):d>=0.3?getCss('--s7'):d<=-0.3?getCss('--s2'):getCss('--s5');
+  // Avance / retard : à quel stade le groupe avait-il mon niveau actuel ?
+  let shift=null;
+  if(my!==null&&rp.length){
+    const [lo,hi]=stageRange(ps);
+    let bestX=null,bd=Infinity;
+    for(let x=lo;x<=hi;x+=1){
+      const g=median(rp.map(p=>levelAt(p,x)).filter(v=>v!==null));
+      if(g===null) continue;
+      const diff=Math.abs(g-my);
+      if(diff<bd){bd=diff;bestX=x;}
+    }
+    if(bestX!==null&&bd<=0.6) shift=st-bestX;   // >0 : j'ai ce niveau plus tard qu'eux → retard
+  }
+  const sCol=shift===null?getCss('--muted'):shift<=-1?getCss('--s7'):shift>=1?getCss('--s2'):getCss('--s5');
+  const sTxt=shift===null?'—':shift===0?'à leur rythme':
+    (shift<0?`${Math.abs(shift)} sem. d'avance`:`${shift} sem. de retard`);
+  const vRatio=grpV?Math.round(myV/grpV*100):null;
+  box.innerHTML=`
+    <div class="tile"><div class="t-lab">📍 Stade comparé</div>
+      <div class="t-val">${xLabel(st)}</div>
+      <div class="t-sub">${xLabelDays(st)}<br>${rp.length} référence${rp.length>1?'s':''} · phase ${phase.toUpperCase()}</div></div>
+    <div class="tile"><div class="t-lab">🎯 Mon niveau</div>
+      <div class="t-val" style="color:${my===null?getCss('--muted'):bandColor(my)}">${fmt(my)}<small>/9</small></div>
+      <div class="t-sub">groupe : <b style="color:${grp===null?'':bandColor(grp)}">${fmt(grp)}</b>${
+        d===null?'':` · <span style="color:${dCol}">${d>0?'+':''}${fmt(d)}</span>`}</div></div>
+    <div class="tile"><div class="t-lab">⏳ Avance / retard</div>
+      <div class="t-val" style="color:${sCol};font-size:19px">${sTxt}</div>
+      <div class="t-sub">à niveau égal avec le groupe</div></div>
+    <div class="tile"><div class="t-lab">🔁 Volume cumulé</div>
+      <div class="t-val">${myV}<small> essais</small></div>
+      <div class="t-sub">groupe : ${grpV}${vRatio!==null?` · <b style="color:${vRatio>=90?getCss('--s7'):vRatio>=60?getCss('--s5'):getCss('--s2')}">${vRatio}%</b>`:''}
+        <br>rythme : ${Math.round(myP)}/sem contre ${Math.round(grpP)}/sem</div></div>`;
+}
+
+/* ----------------------- Rendu : tableau par exercice ----------------------- */
+function renderTable(ps){
+  const box=document.getElementById('tbl');
+  const m=ps.find(p=>p.me), rp=ps.filter(p=>!p.me);
+  if(!ps.length){ box.innerHTML='<div class="empty">Rien à comparer pour cette phase.</div>'; return; }
+  // exercices présents chez au moins un participant, triés par écart croissant
+  const exs=new Set();
+  ps.forEach(p=>p.camp.campRows.forEach(r=>exs.add(r.test)));
+  const rows=[...exs].map(ex=>{
+    const mine=m?exLevelAt(m,ex,stage):null;
+    const vals=rp.map(p=>exLevelAt(p,ex,stage));
+    const grp=median(vals.filter(v=>v!==null));
+    return {ex,mine,vals,grp,gap:(mine!==null&&grp!==null)?mine-grp:null};
+  }).filter(r=>r.mine!==null||r.vals.some(v=>v!==null));
+  rows.sort((a,b)=>{
+    if(a.gap===null&&b.gap===null) return a.ex.localeCompare(b.ex);
+    if(a.gap===null) return 1; if(b.gap===null) return -1;
+    return a.gap-b.gap;            // les plus en retard d'abord
+  });
+  if(!rows.length){ box.innerHTML='<div class="empty">Aucun exercice comparable à ce stade.</div>'; return; }
+  const cell=v=>v===null?'<td style="color:var(--faint)">–</td>'
+    :`<td class="val" style="color:${bandColor(v)}">${fmt(v)}</td>`;
+  const head=`<tr><th>Exercice</th>${m?'<th>Moi</th>':''}`+
+    rp.map(p=>`<th style="color:${p.color}">${esc(p.name)}</th>`).join('')+
+    (rp.length>1?'<th>Médiane</th>':'')+(m&&rp.length?'<th>Écart</th>':'')+'</tr>';
+  const body=rows.map(r=>{
+    const gapCol=r.gap===null?'var(--faint)':r.gap>=0.3?getCss('--s7'):r.gap<=-0.3?getCss('--s2'):getCss('--s5');
+    return `<tr><td>${esc(r.ex)}</td>${m?cell(r.mine):''}`+
+      r.vals.map(cell).join('')+
+      (rp.length>1?cell(r.grp):'')+
+      (m&&rp.length?`<td class="gap" style="color:${gapCol}">${r.gap===null?'–':(r.gap>0?'+':'')+fmt(r.gap)}</td>`:'')+
+      '</tr>';
+  }).join('');
+  box.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`+
+    `<div class="legend"><span>Écart = mon niveau moins la médiane du groupe · les exercices les plus en retard sont en haut</span></div>`;
+}
+
+/* ----------------------- Orchestration ----------------------- */
+function renderAll(){
+  renderCands();
+  const ps=participants();
+  // curseur de stade
+  const [lo,hi]=stageRange(ps);
+  const sl=document.getElementById('stage');
+  sl.min=lo; sl.max=hi;
+  const auto=myStage(ps);
+  if(!stageTouched||stage===null||stage<lo||stage>hi) stage=(auto!==null?auto:hi);
+  stage=Math.min(hi,Math.max(lo,stage));
+  sl.value=stage;
+  document.getElementById('stageVal').textContent=
+    xLabel(stage)+(auto!==null&&stage===auto?' · où j\'en suis':'');
+  document.getElementById('tblDesc').innerHTML=
+    `Niveau estimé sur chaque exercice à <b>${xLabel(stage)}</b> (moyenne des ${LASTK} derniers essais à cet instant). Déplace le curseur « Stade comparé » pour te situer à un autre moment.`;
+  renderReadout(ps);
+  if(ps.length) renderCharts(ps);
+  else ['chLevel','chVol','chCum'].forEach(id=>{ if(charts[id]){charts[id].destroy(); delete charts[id];} });
+  renderTable(ps);
+}
+
+/* ----------------------- Événements ----------------------- */
+document.getElementById('segPhase').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  phase=b.dataset.v; stageTouched=false;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  renderAll();
+});
+document.getElementById('segAlign').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  align=b.dataset.v; stageTouched=false;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  renderAll();
+});
+document.getElementById('stage').addEventListener('input',e=>{
+  stage=+e.target.value; stageTouched=true;
+  const ps=participants();
+  document.getElementById('stageVal').textContent=xLabel(stage);
+  renderReadout(ps); renderTable(ps);
+  document.getElementById('tblDesc').innerHTML=
+    `Niveau estimé sur chaque exercice à <b>${xLabel(stage)}</b> (moyenne des ${LASTK} derniers essais à cet instant). Déplace le curseur « Stade comparé » pour te situer à un autre moment.`;
+});
+document.getElementById('fileIn').addEventListener('change',e=>{
+  if(e.target.files.length) handleFiles(e.target.files);
+  e.target.value='';
+});
+const drop=document.getElementById('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{
+  e.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{
+  e.preventDefault(); if(ev==='dragleave'&&drop.contains(e.relatedTarget)) return;
+  drop.classList.remove('over');
+}));
+drop.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize()); });
+
+/* ----------------------- Démarrage ----------------------- */
+loadMe(); loadRefs(); renderAll();
+if(!refs.length) setStatus("Aucun dossier de référence pour l'instant — glisse les CSV des candidats admis ci-dessus.");
+</script>
+</body>
+</html>
