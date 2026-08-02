@@ -136,6 +136,17 @@
     transform:translateX(-50%);box-shadow:0 0 0 2px var(--bg);z-index:2}
   .tape .last{position:absolute;top:3px;width:12px;height:12px;border-radius:50%;transform:translateX(-50%);
     border:2px solid var(--bg);box-shadow:0 0 0 1.5px rgba(255,255,255,.55);z-index:3}
+  /* Fraîcheur du dernier essai — canal visuel distinct de l'échelle stanine :
+     pastille contourée, teintes hors palette de niveau. */
+  .rec{display:inline-flex;align-items:center;gap:5px;padding:0 7px 0 6px;border-radius:20px;
+    border:1px solid transparent;font-weight:500;line-height:15px;vertical-align:baseline}
+  .rec::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:0 0 auto}
+  .rec.fresh{color:var(--accent);background:rgba(90,209,196,.13);border-color:rgba(90,209,196,.38)}
+  .rec.ok{color:var(--muted)}
+  .rec.ok::before{background:var(--faint)}
+  .rec.due{color:var(--amber);background:rgba(224,162,58,.13);border-color:rgba(224,162,58,.42)}
+  .rec.late{color:var(--red);background:rgba(226,96,79,.15);border-color:rgba(226,96,79,.5);font-weight:600}
+
   .scaleticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:2px}
 
   .legend{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px}
@@ -405,6 +416,12 @@
         <span><i class="dot" style="background:var(--ink)"></i>dernier essai</span>
         <span style="display:inline-flex;align-items:center;gap:6px"><i style="width:20px;height:11px;background:rgba(11,18,24,.12);border:1.5px solid rgba(11,18,24,.66);box-shadow:0 0 0 1px rgba(233,238,244,.22);border-radius:3px"></i>plage min–max</span>
         <span style="display:inline-flex;align-items:center;gap:6px"><svg width="22" height="11" viewBox="0 0 22 11" aria-hidden="true"><polyline points="1,8 7,5 13,6 21,2" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>courbe = derniers essais</span>
+        <span style="flex-basis:100%;height:0"></span>
+        <span>fraîcheur, comparée à l'intervalle conseillé pour ce niveau :</span>
+        <span class="rec fresh">à jour</span>
+        <span class="rec ok">dans les temps</span>
+        <span class="rec due">à revoir</span>
+        <span class="rec late">en retard</span>
       </div>
     </div>
 
@@ -1008,6 +1025,15 @@ function renderStrips(){
     const ti=trendInfo(e.trend);
     const dj=Math.round((now-e.lastDate)/DAY);
     const ago=dj<=0?"aujourd'hui":dj===1?'hier':`il y a ${dj} j`;
+    /* Fraîcheur : le délai acceptable dépend du niveau. 12 jours sans révision,
+       c'est normal en classe 8, c'est beaucoup en classe 2 — on compare donc au
+       même intervalle conseillé que le coach, pas à un seuil fixe. */
+    const ideal=idealInterval(e.mean), over=dj/ideal;
+    const fr = (dj<=1||over<=0.6)?{c:'fresh',t:'à jour'}
+             : over<=1.4 ?{c:'ok',  t:'dans les temps'}
+             : over<=2.5 ?{c:'due', t:'à revoir'}
+                         :{c:'late',t:'pas travaillé depuis longtemps'};
+    const freshTip=`${fr.t} — classe ${fmt(e.mean)} : à refaire tous les ~${ideal} j, dernier essai ${ago}`;
     return `<div class="strip" data-ex="${esc(e.t)}" role="button" tabindex="0" title="Ouvrir « ${esc(e.t)} » dans le focus">
       <div class="top">
         <div class="nm">${esc(e.t)}<span class="cat">${esc(e.cat)}</span><span class="trend" style="color:${ti.col}" title="${ti.txt}">${ti.sym}</span></div>
@@ -1018,7 +1044,8 @@ function renderStrips(){
         <div class="mean" style="left:${pos(e.mean)}%"></div>
         <div class="last" style="left:${pos(e.last)}%;background:${bandColor(e.last)}"></div>
       </div>
-      <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last} (${ago}) · régularité σ ${fmt(e.sd)}</div>
+      <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last}
+        <span class="rec ${fr.c}" title="${esc(freshTip)}">${ago}</span> · régularité σ ${fmt(e.sd)}</div>
     </div>`;
   }).join('')+`<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)};font-weight:600">${k}</span>`).join('')}</div>`;
 }
