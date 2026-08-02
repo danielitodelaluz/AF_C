@@ -93,6 +93,9 @@
     border:1px solid var(--line);border-radius:7px;padding:6px 11px;cursor:pointer}
   .seg button[aria-pressed=true]{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
   input[type=range]{accent-color:var(--accent);width:210px}
+  select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;
+    padding:7px 10px;font-family:var(--mono);font-size:12px;max-width:320px}
+  select:focus{outline:1px solid var(--accent)}
   .stageval{font-family:var(--mono);font-size:12px;color:var(--ink)}
 
   /* Tuiles verdict */
@@ -279,6 +282,16 @@
     <h2>Temps de travail</h2>
     <p class="desc">Durées <b>estimées</b> : Pilotest n’exporte pas la durée des exercices, on reconstitue les séances en coupant dès que plus de 45 min séparent deux essais (l’écart habituel est de 7 min).</p>
     <div class="tblwrap"><div id="hoursTbl"></div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Volume d’essais par exercice</h2>
+    <p class="desc" id="volExDesc"></p>
+    <div class="ctl" style="margin-bottom:14px">
+      <span class="lab">Exercice</span>
+      <select id="volEx"></select>
+    </div>
+    <div class="chartbox tall"><canvas id="chVolEx"></canvas></div>
   </div>
 
   <div class="grid">
@@ -509,6 +522,7 @@ let phase='psy0', stage=null, stageTouched=false;
 let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le monde
 let scaleFrom=-13;      // début de l'axe : le graphique va de là jusqu'au jour J
 let clockMode='hour'; // hour | day | grid — lecture du panneau « Quand travaillent-ils ? »
+let volExSel='__all__';// exercice détaillé dans « Volume d'essais par exercice »
 let sessionFilter='all';// all | first | last — pour les candidats à plusieurs sessions
 // Un symbole par personne, repris sur les courbes et les réglettes
 const SHAPES=['circle','square','diamond','triangle','down'];
@@ -1042,6 +1056,78 @@ function renderCharts(ps,exSet){
   })},optH);
   renderClock(ps);
 }
+/* Volume d'essais par exercice : combien chacun a travaillé quoi.
+   Vue d'ensemble (tous les exercices) ou détail d'un exercice dans le temps. */
+function nbAttempts(p,ex){ const a=byEx(p).get(ex); return a?a.length:0; }
+function renderVolEx(ps,exSet){
+  const sel=document.getElementById('volEx');
+  const desc=document.getElementById('volExDesc');
+  const exs=[...exSet.set];
+  if(!ps.length||!exs.length){
+    if(charts.chVolEx){ charts.chVolEx.destroy(); delete charts.chVolEx; }
+    sel.innerHTML=''; desc.textContent='Rien à comparer pour cette phase.'; return;
+  }
+  const m=myPart(ps), rp=ps.filter(p=>!p.me);
+  // tri : les exercices où j'ai le plus de retard de volume en premier
+  const gapOf=ex=>{
+    const mine=m?nbAttempts(m,ex):0;
+    const med=rp.length?median(rp.map(p=>nbAttempts(p,ex))):0;
+    return mine-med;
+  };
+  const sorted=exs.slice().sort((a,b)=>gapOf(a)-gapOf(b)||a.localeCompare(b));
+  // liste déroulante (on conserve la sélection si elle existe encore)
+  if(!exs.includes(volExSel)) volExSel='__all__';
+  sel.innerHTML=`<option value="__all__">Tous les exercices</option>`+
+    sorted.map(ex=>`<option value="${esc(ex)}"${ex===volExSel?' selected':''}>${esc(ex)}</option>`).join('');
+  sel.value=volExSel;
+
+  if(volExSel==='__all__'){
+    desc.innerHTML=`Nombre d’essais réalisés sur chaque exercice, une barre par session.
+      Les exercices où <b>tu en as fait le moins par rapport aux autres</b> sont en haut.
+      Choisis un exercice ci-dessous pour voir l’évolution dans le temps.`;
+    const o=baseOpts('essais','',false);
+    o.indexAxis='y';
+    o.scales.x={beginAtZero:true,
+      ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},precision:0},
+      grid:{color:'rgba(255,255,255,.05)'}};
+    o.scales.y={type:'category',
+      ticks:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)},
+        callback:function(v){const l=this.getLabelForValue(v);const mx=isPhone()?15:38;
+          return l.length>mx?l.slice(0,mx-1)+'…':l;}},
+      grid:{display:false}};
+    o.plugins.tooltip.callbacks.title=it=>it[0].label;
+    o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${it.parsed.x} essai${it.parsed.x>1?'s':''}`;
+    const boxEl=document.getElementById('chVolEx').parentElement;
+    if(boxEl) boxEl.style.height=Math.min(Math.max(260,sorted.length*(10*ps.length+18)),1200)+'px';
+    mk('chVolEx','bar',{labels:sorted,datasets:ps.map(p=>({
+      label:p.name,data:sorted.map(ex=>nbAttempts(p,ex)),
+      backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
+      borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1}))},o);
+    return;
+  }
+  // détail d'un exercice : essais cumulés au fil des semaines
+  const tot=ps.map(p=>`${esc(p.name)} : <b>${nbAttempts(p,volExSel)}</b>`).join(' · ');
+  desc.innerHTML=`Essais cumulés sur <b>${esc(volExSel)}</b>, semaine après semaine. Total — ${tot}.`;
+  const boxEl2=document.getElementById('chVolEx').parentElement;
+  if(boxEl2) boxEl2.style.height='';
+  const [vlo,vhi]=viewRange(ps);
+  const o=baseOpts("semaines avant l'examen",'essais cumulés');
+  o.scales.x.min=vlo; o.scales.x.max=vhi;
+  o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${it.parsed.y} essai${it.parsed.y>1?'s':''}`;
+  mk('chVolEx','line',{datasets:ps.map(p=>{
+    const arr=byEx(p).get(volExSel)||[];
+    const t0=p.camp.start.getTime(), tEnd=p.camp.end.getTime()+EOD;
+    const pts=[];
+    for(let w=0;;w++){
+      const nominal=t0+w*7*DAY, cut=Math.min(nominal+EOD,tEnd);
+      pts.push({x:Math.round(xOf(p,nominal)*10)/10,
+                y:arr.filter(r=>r.date.getTime()<=cut).length});
+      if(nominal+EOD>=tEnd||w>400) break;
+    }
+    return dsFor(p,pts);
+  })},o);
+}
+
 /* Quand travaillent-ils ? trois lectures d'une même donnée :
    par heure de la journée, par jour de la semaine, ou les deux croisés. */
 const BIN_LAB=i=>`${String(i*2).padStart(2,'0')}–${String(i*2+2).padStart(2,'0')}h`;
@@ -1292,11 +1378,12 @@ function renderAll(){
   renderReadout(ps,exSet);
   if(ps.length){ renderCharts(ps,exSet); renderHours(ps); }
   else{
-    ['chGlobal','chVol','chHours','chClock'].forEach(id=>{
+    ['chGlobal','chVol','chHours','chClock','chVolEx'].forEach(id=>{
       if(charts[id]){charts[id].destroy(); delete charts[id];} });
     document.getElementById('hoursTbl').innerHTML='';
     document.getElementById('clockGrid').innerHTML='';
   }
+  renderVolEx(ps,exSet);
   renderTable(ps,exSet);
 }
 
@@ -1311,6 +1398,10 @@ function segHandler(id,fn){
 segHandler('segPhase',v=>{ phase=v; stageTouched=false; });
 segHandler('segSess',v=>{ sessionFilter=v; stageTouched=false; });
 segHandler('segClock',v=>{ clockMode=v; });
+document.getElementById('volEx').addEventListener('change',e=>{
+  volExSel=e.target.value;
+  const ps=participants(); renderVolEx(ps,exerciseSet(ps));
+});
 segHandler('segSet',v=>{ commonOnly=v==='common'; });
 document.getElementById('scale').addEventListener('input',e=>{
   scaleFrom=+e.target.value; stageTouched=false; renderAll();
