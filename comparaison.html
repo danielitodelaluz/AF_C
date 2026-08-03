@@ -98,6 +98,21 @@
   select:focus{outline:1px solid var(--accent)}
   .stageval{font-family:var(--mono);font-size:12px;color:var(--ink)}
 
+  /* Légende commune à tous les graphiques — en HTML, donc jamais tronquée
+     par la hauteur du canvas (ce que fait la légende intégrée sur téléphone). */
+  .chartkeys{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 16px;margin-bottom:20px}
+  .chartkeys:empty{display:none}
+  .chartkeys .ck{display:inline-flex;align-items:center;gap:9px;
+    font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+  .chartkeys .ck svg{flex:0 0 auto;display:block}
+  .chartkeys .ck.me{font-weight:600}
+  @media (max-width:600px){
+    .chartkeys{gap:9px 14px;padding:11px 13px}
+    .chartkeys .ck{font-size:13px}
+  }
+
   /* Tuiles verdict */
   .readout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
   .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
@@ -264,6 +279,8 @@
   </div>
 
   <div class="readout" id="readout"></div>
+
+  <div class="chartkeys" id="chartKeys"></div>
 
   <div class="panel">
     <h2>Niveau global — une valeur par personne</h2>
@@ -972,10 +989,10 @@ function baseOpts(xTitle,yTitle,yMax){
     responsive:true,maintainAspectRatio:false,
     interaction:{mode:'nearest',intersect:false},
     plugins:{
-      // repère assez large pour que le motif de trait (plein / tirets /
-      // pointillés) soit réellement discernable, et texte lisible
-      legend:{labels:{color:getCss('--ink'),font:{family:'IBM Plex Mono',size:chartFont(12.5)},
-        boxWidth:36,boxHeight:4,padding:16,usePointStyle:false}},
+      // La légende intégrée est bornée par la hauteur du canvas : sur un
+      // téléphone en portrait, elle tronque des entrées sans prévenir.
+      // On la remplace par le bloc HTML commun, toujours entier.
+      legend:{display:false},
       tooltip:{titleFont:{family:'IBM Plex Mono',size:chartFont(10)},
         bodyFont:{family:'IBM Plex Mono',size:chartFont(11)},
         callbacks:{title:it=>xLabel(it[0].parsed.x)}}
@@ -1016,7 +1033,7 @@ function dsFor(p,data,opts={}){
     borderWidth:p.me?3.4:2,
     pointStyle:CHART_POINT[p.shape]||'circle',
     pointRotation:p.shape==='down'?180:0,
-    pointRadius:p.me?3.4:2.8,pointHoverRadius:6,
+    pointRadius:p.me?5:4,pointHoverRadius:8,pointBorderColor:'rgba(11,18,24,.85)',pointBorderWidth:1.2,
     tension:.3,borderDash:dashOf(p),order:p.me?0:1,...opts.extra
   };
 }
@@ -1070,6 +1087,38 @@ function renderCharts(ps,exSet){
   })},optH);
   renderClock(ps);
 }
+/* Légende commune : un échantillon de trait dessiné en SVG, avec la couleur
+   de la personne, le motif de sa session et son symbole au centre. */
+function swatchSvg(color,shape,dash,thick){
+  const W=48,H=18,cy=H/2,cx=W/2;
+  const line=`<line x1="1" y1="${cy}" x2="${W-1}" y2="${cy}" stroke="${color}"
+    stroke-width="${thick?3.6:2.4}" ${dash&&dash.length?`stroke-dasharray="${dash.join(' ')}"`:''}
+    stroke-linecap="round"/>`;
+  const st=`fill="${color}" stroke="#0f141a" stroke-width="1.4"`;
+  const r=thick?6:5;
+  const sym={
+    circle:`<circle cx="${cx}" cy="${cy}" r="${r}" ${st}/>`,
+    square:`<rect x="${cx-r}" y="${cy-r}" width="${r*2}" height="${r*2}" rx="1.5" ${st}/>`,
+    diamond:`<rect x="${cx-r+0.5}" y="${cy-r+0.5}" width="${r*2-1}" height="${r*2-1}" rx="1"
+       transform="rotate(45 ${cx} ${cy})" ${st}/>`,
+    triangle:`<polygon points="${cx},${cy-r-1} ${cx+r+1},${cy+r} ${cx-r-1},${cy+r}" ${st}/>`,
+    down:`<polygon points="${cx},${cy+r+1} ${cx+r+1},${cy-r} ${cx-r-1},${cy-r}" ${st}/>`
+  }[shape]||'';
+  const ring=thick?`<circle cx="${cx}" cy="${cy}" r="${r+2}" fill="none"
+    stroke="rgba(255,255,255,.85)" stroke-width="1.2"/>`:'';
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${line}${sym}${ring}</svg>`;
+}
+function renderKeys(ps){
+  const box=document.getElementById('chartKeys');
+  if(!ps.length){ box.innerHTML=''; return; }
+  const items=ps.map(p=>`<span class="ck${p.me?' me':''}" title="${esc(p.name)} — ${dashName(p)}">
+      ${swatchSvg(p.color,p.shape,dashOf(p),p.me)}${esc(p.name)}${p.me?' (moi)':''}</span>`);
+  if(ps.filter(p=>!p.me).length>=2)
+    items.push(`<span class="ck" title="Médiane des sessions de référence">
+      ${swatchSvg('#e9eef4','',[6,4],false)}Médiane du groupe</span>`);
+  box.innerHTML=items.join('');
+}
+
 /* Volume d'essais par exercice : combien chacun a travaillé quoi.
    Vue d'ensemble (tous les exercices) ou détail d'un exercice dans le temps. */
 /* Comptage des essais : soit le total de la session, soit ce qui était fait
@@ -1483,6 +1532,7 @@ function renderAll(){
     : '';
   describeStage(exSet);
   renderReadout(ps,exSet);
+  renderKeys(ps);
   if(ps.length){ renderCharts(ps,exSet); renderHours(ps); }
   else{
     ['chGlobal','chVol','chHours','chClock','chVolEx'].forEach(id=>{
