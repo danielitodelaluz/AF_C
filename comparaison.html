@@ -962,8 +962,10 @@ function baseOpts(xTitle,yTitle,yMax){
     responsive:true,maintainAspectRatio:false,
     interaction:{mode:'nearest',intersect:false},
     plugins:{
-      legend:{labels:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)},
-        boxWidth:14,boxHeight:2,usePointStyle:false}},
+      // repère assez large pour que le motif de trait (plein / tirets /
+      // pointillés) soit réellement discernable, et texte lisible
+      legend:{labels:{color:getCss('--ink'),font:{family:'IBM Plex Mono',size:chartFont(12.5)},
+        boxWidth:36,boxHeight:4,padding:16,usePointStyle:false}},
       tooltip:{titleFont:{family:'IBM Plex Mono',size:chartFont(10)},
         bodyFont:{family:'IBM Plex Mono',size:chartFont(11)},
         callbacks:{title:it=>xLabel(it[0].parsed.x)}}
@@ -1020,7 +1022,7 @@ function medianCurve(refsP,series,field){
     }).filter(v=>v!==null);
     return vals.length>=2?{x,y:median(vals)}:null;
   }).filter(Boolean);
-  return {label:'Médiane des sessions',data:pts,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
+  return {label:'Médiane des sessions',endLabel:'Médiane',data:pts,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
     borderWidth:2,borderDash:[6,4],pointRadius:0,tension:.3,order:2};
 }
 function renderCharts(ps,exSet){
@@ -1037,7 +1039,9 @@ function renderCharts(ps,exSet){
     const n=it.raw&&it.raw.n;
     return `${it.dataset.label} : ${fmt(it.parsed.y)}`+(n?` (sur ${n} exercice${n>1?'s':''})`:'');
   };
-  mk('chGlobal','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).glob)),...(medG?[medG]:[])]},optG);
+  optG.layout={padding:{right:isPhone()?58:96}};   // place pour les noms en bout de courbe
+  mk('chGlobal','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).glob)),...(medG?[medG]:[])]},
+     optG,[endLabels]);
   mk('chVol','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).vol))},withZoom(baseOpts(xt,'essais / semaine')));
   // H2 — heures par semaine : histogramme groupé (une barre par personne et par semaine)
   const wks=[];
@@ -1203,9 +1207,51 @@ function renderHours(ps){
   }).join('');
   box.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
-function mk(id,type,data,options){
+/* Étiquettes au bout des courbes : sur le graphique principal, le nom est
+   écrit directement à droite du dernier point. C'est le repère le plus sûr
+   pour savoir quelle courbe appartient à qui, sans revenir à la légende. */
+const endLabels={
+  id:'endLabels',
+  afterDatasetsDraw(chart){
+    const {ctx,chartArea}=chart;
+    const items=[];
+    chart.data.datasets.forEach((ds,i)=>{
+      const meta=chart.getDatasetMeta(i);
+      if(meta.hidden||!meta.data||!meta.data.length) return;
+      const pt=meta.data[meta.data.length-1];
+      if(!pt||pt.x<chartArea.left-2||pt.x>chartArea.right+2) return;
+      items.push({y:pt.y,x:pt.x,label:ds.endLabel||ds.label,color:ds.borderColor,bold:ds.borderWidth>3});
+    });
+    if(!items.length) return;
+    // on écarte verticalement les étiquettes qui se chevauchent
+    items.sort((a,b)=>a.y-b.y);
+    const H=15;
+    for(let i=1;i<items.length;i++)
+      if(items[i].y-items[i-1].y<H) items[i].y=items[i-1].y+H;
+    const over=items[items.length-1].y-(chartArea.bottom-2);
+    if(over>0) items.forEach(it=>it.y-=over);
+    ctx.save();
+    ctx.font=`${items.some(i=>i.bold)?'600 ':''}${chartFont(11.5)}px "IBM Plex Mono",monospace`;
+    ctx.textBaseline='middle';
+    items.forEach(it=>{
+      ctx.font=`${it.bold?'600 ':''}${chartFont(11.5)}px "IBM Plex Mono",monospace`;
+      // on tronque plutôt que de déborder sur les courbes
+      let txt=it.label, w=ctx.measureText(txt).width;
+      const avail=chart.width-3-(it.x+9);
+      while(w>avail&&txt.length>4){ txt=txt.slice(0,-2)+'…'; w=ctx.measureText(txt).width; }
+      const x=it.x+9;
+      // léger fond pour rester lisible par-dessus une courbe
+      ctx.fillStyle='rgba(15,20,26,.72)';
+      ctx.fillRect(x-4,it.y-8,w+8,16);
+      ctx.fillStyle=it.color;
+      ctx.fillText(txt,x,it.y);
+    });
+    ctx.restore();
+  }
+};
+function mk(id,type,data,options,plugins){
   if(charts[id]) charts[id].destroy();
-  charts[id]=new Chart(document.getElementById(id),{type,data,options});
+  charts[id]=new Chart(document.getElementById(id),{type,data,options,plugins:plugins||[]});
 }
 
 /* ----------------------- Rendu : verdict ----------------------- */
