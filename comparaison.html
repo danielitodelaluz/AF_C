@@ -287,9 +287,18 @@
   <div class="panel">
     <h2>Volume d’essais par exercice</h2>
     <p class="desc" id="volExDesc"></p>
-    <div class="ctl" style="margin-bottom:14px">
-      <span class="lab">Exercice</span>
-      <select id="volEx"></select>
+    <div class="controls" style="margin:0 0 14px;padding:12px 14px">
+      <div class="ctl">
+        <span class="lab">Exercice</span>
+        <select id="volEx"></select>
+      </div>
+      <div class="ctl">
+        <span class="lab">Comptage</span>
+        <div class="seg" id="segVolMode">
+          <button data-v="total" aria-pressed="true">Total de la session</button>
+          <button data-v="stage" aria-pressed="false" id="volStageBtn">À la semaine comparée</button>
+        </div>
+      </div>
     </div>
     <div class="chartbox tall"><canvas id="chVolEx"></canvas></div>
   </div>
@@ -523,6 +532,7 @@ let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le m
 let scaleFrom=-13;      // début de l'axe : le graphique va de là jusqu'au jour J
 let clockMode='hour'; // hour | day | grid — lecture du panneau « Quand travaillent-ils ? »
 let volExSel='__all__';// exercice détaillé dans « Volume d'essais par exercice »
+let volMode='total'; // total | stage — jusqu'où compter les essais
 let sessionFilter='all';// all | first | last — pour les candidats à plusieurs sessions
 // Un symbole par personne, repris sur les courbes et les réglettes
 const SHAPES=['circle','square','diamond','triangle','down'];
@@ -1062,7 +1072,38 @@ function renderCharts(ps,exSet){
 }
 /* Volume d'essais par exercice : combien chacun a travaillé quoi.
    Vue d'ensemble (tous les exercices) ou détail d'un exercice dans le temps. */
-function nbAttempts(p,ex){ const a=byEx(p).get(ex); return a?a.length:0; }
+/* Comptage des essais : soit le total de la session, soit ce qui était fait
+   à la semaine comparée (le curseur agit alors sur ce graphique aussi). */
+function nbAttempts(p,ex){
+  const a=byEx(p).get(ex); if(!a) return 0;
+  if(volMode==='total') return a.length;
+  const t=instantAt(p,stage);
+  return a.filter(r=>r.date.getTime()<=t).length;
+}
+function nbTotal(p){
+  const rows=p.camp.campRows;
+  if(volMode==='total') return rows.length;
+  const t=instantAt(p,stage);
+  return rows.filter(r=>r.date.getTime()<=t).length;
+}
+/* Repère vertical de la semaine comparée, sur la vue chronologique */
+const stageLine={
+  id:'stageLine',
+  afterDatasetsDraw(chart){
+    const sc=chart.scales.x; if(!sc) return;
+    const x=sc.getPixelForValue(stage);
+    if(x<chart.chartArea.left||x>chart.chartArea.right) return;
+    const {ctx,chartArea}=chart;
+    ctx.save();
+    ctx.strokeStyle='rgba(233,238,244,.45)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(x,chartArea.top); ctx.lineTo(x,chartArea.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font=`${chartFont(10)}px "IBM Plex Mono",monospace`;
+    ctx.fillStyle='rgba(233,238,244,.75)'; ctx.textAlign='center';
+    ctx.fillText(xLabel(stage),Math.min(Math.max(x,chartArea.left+18),chartArea.right-18),chartArea.top+11);
+    ctx.restore();
+  }
+};
 function renderVolEx(ps,exSet){
   const sel=document.getElementById('volEx');
   const desc=document.getElementById('volExDesc');
@@ -1080,15 +1121,34 @@ function renderVolEx(ps,exSet){
   };
   const sorted=exs.slice().sort((a,b)=>gapOf(a)-gapOf(b)||a.localeCompare(b));
   // liste déroulante (on conserve la sélection si elle existe encore)
-  if(!exs.includes(volExSel)) volExSel='__all__';
+  if(!exs.includes(volExSel)&&volExSel!=='__total__') volExSel='__all__';
+  document.getElementById('volStageBtn').textContent=`À ${xLabel(stage)}`;
   sel.innerHTML=`<option value="__all__">Tous les exercices</option>`+
+    `<option value="__total__"${volExSel==='__total__'?' selected':''}>Total, tous exercices confondus</option>`+
     sorted.map(ex=>`<option value="${esc(ex)}"${ex===volExSel?' selected':''}>${esc(ex)}</option>`).join('');
   sel.value=volExSel;
 
+  if(volExSel==='__total__'){
+    const suffix=volMode==='total'?'sur toute la session':`à ${xLabel(stage)}`;
+    desc.innerHTML=`Nombre total d’essais réalisés par chacun, tous exercices confondus, ${suffix}.`;
+    const o=baseOpts('','essais',false);
+    o.scales.x={type:'category',ticks:{color:getCss('--muted'),
+      font:{family:'IBM Plex Mono',size:chartFont(11)},maxRotation:30},grid:{display:false}};
+    o.plugins.legend.display=false;
+    o.plugins.tooltip.callbacks.label=it=>`${it.parsed.y} essai${it.parsed.y>1?'s':''}`;
+    const boxT=document.getElementById('chVolEx').parentElement;
+    if(boxT) boxT.style.height='';
+    mk('chVolEx','bar',{labels:ps.map(p=>p.name),datasets:[{
+      label:'essais',data:ps.map(nbTotal),
+      backgroundColor:ps.map(p=>p.color+(p.me?'':'cc')),
+      borderColor:ps.map(p=>p.color),borderWidth:ps.map(p=>p.me?2:0),borderRadius:4}]},o);
+    return;
+  }
   if(volExSel==='__all__'){
-    desc.innerHTML=`Nombre d’essais réalisés sur chaque exercice, une barre par session.
+    desc.innerHTML=`Nombre d’essais réalisés sur chaque exercice, une barre par session,
+      ${volMode==='total'?'<b>sur toute la session</b>':`<b>à ${xLabel(stage)}</b>`}.
       Les exercices où <b>tu en as fait le moins par rapport aux autres</b> sont en haut.
-      Choisis un exercice ci-dessous pour voir l’évolution dans le temps.`;
+      Choisis un exercice ci-dessus pour voir l’évolution dans le temps.`;
     const o=baseOpts('essais','',false);
     o.indexAxis='y';
     o.scales.x={beginAtZero:true,
@@ -1111,7 +1171,8 @@ function renderVolEx(ps,exSet){
   }
   // détail d'un exercice : essais cumulés au fil des semaines
   const tot=ps.map(p=>`${esc(p.name)} : <b>${nbAttempts(p,volExSel)}</b>`).join(' · ');
-  desc.innerHTML=`Essais cumulés sur <b>${esc(volExSel)}</b>, semaine après semaine. Total — ${tot}.`;
+  desc.innerHTML=`Essais cumulés sur <b>${esc(volExSel)}</b>, semaine après semaine.
+    ${volMode==='total'?'Total de la session':`Au repère ${xLabel(stage)}`} — ${tot}.`;
   const boxEl2=document.getElementById('chVolEx').parentElement;
   if(boxEl2) boxEl2.style.height='';
   const [vlo,vhi]=viewRange(ps);
@@ -1129,7 +1190,7 @@ function renderVolEx(ps,exSet){
       if(nominal+EOD>=tEnd||w>400) break;
     }
     return dsFor(p,pts);
-  })},o);
+  })},o,[stageLine]);
 }
 
 /* Quand travaillent-ils ? trois lectures d'une même donnée :
@@ -1444,6 +1505,7 @@ function segHandler(id,fn){
 segHandler('segPhase',v=>{ phase=v; stageTouched=false; });
 segHandler('segSess',v=>{ sessionFilter=v; stageTouched=false; });
 segHandler('segClock',v=>{ clockMode=v; });
+segHandler('segVolMode',v=>{ volMode=v; });
 document.getElementById('volEx').addEventListener('change',e=>{
   volExSel=e.target.value;
   const ps=participants(); renderVolEx(ps,exerciseSet(ps));
@@ -1456,7 +1518,7 @@ document.getElementById('stage').addEventListener('input',e=>{
   stage=+e.target.value; stageTouched=true;
   const ps=participants(), exSet=exerciseSet(ps);
   document.getElementById('stageVal').textContent=xLabel(stage);
-  renderReadout(ps,exSet); renderTable(ps,exSet); describeStage(exSet);
+  renderReadout(ps,exSet); renderTable(ps,exSet); describeStage(exSet); renderVolEx(ps,exSet);
 });
 document.getElementById('fileIn').addEventListener('change',e=>{
   if(e.target.files.length) handleFiles(e.target.files);
