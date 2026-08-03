@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Comparaison">
-<title>Comparaison — Pilotest Cadets Air France</title>
+<title>Comparaison des préparations — Pilotest Cadets Air France</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -108,6 +108,10 @@
     font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
   .chartkeys .ck svg{flex:0 0 auto;display:block}
   .chartkeys .ck.me{font-weight:600}
+  .chartkeys .ck{background:none;border:0;padding:2px 0;cursor:pointer;transition:opacity .12s}
+  .chartkeys .ck:hover{opacity:.75}
+  .chartkeys .ck.off{opacity:.38;text-decoration:line-through}
+  .chartkeys .ck:focus-visible{outline:1px solid var(--accent);outline-offset:3px;border-radius:4px}
   @media (max-width:600px){
     .chartkeys{gap:9px 14px;padding:11px 13px}
     .chartkeys .ck{font-size:13px}
@@ -226,15 +230,15 @@
   <a class="back" href="index.html">← Tableau de bord</a>
   <header>
     <p class="eyebrow">Comparaison · Pilotest</p>
-    <h1>Ma trajectoire face à ceux qui ont réussi</h1>
-    <p class="sub">Les calendriers sont recalés : on compare <b>au même stade de préparation</b>, pas à la même date.</p>
+    <h1>Comparaison avec des candidats admis</h1>
+    <p class="sub">Les calendriers sont recalés sur la date d’examen : la comparaison porte sur <b>le même stade de préparation</b>, non sur la même date.</p>
   </header>
 
   <div class="panel">
     <h2>Dossiers de référence</h2>
-    <p class="desc">Importe les exports CSV des candidats admis (plusieurs fichiers à la fois). Ils sont <b>mémorisés sur cet appareil</b> — inutile de les réimporter à chaque visite. Tes résultats à toi sont repris automatiquement du tableau de bord.</p>
+    <p class="desc">Importer les exports CSV des candidats admis (plusieurs fichiers à la fois). Ils sont <b>mémorisés sur cet appareil</b> — inutile de les réimporter à chaque visite. Les résultats personnels sont repris automatiquement du tableau de bord.</p>
     <div class="drop" id="drop">
-      <p>Glisse un ou plusieurs CSV ici</p>
+      <p>Glisser un ou plusieurs CSV ici</p>
       <input type="file" id="fileIn" accept=".csv,text/csv" multiple>
       <div class="status" id="status"></div>
     </div>
@@ -283,8 +287,8 @@
   <div class="chartkeys" id="chartKeys"></div>
 
   <div class="panel">
-    <h2>Niveau global — une valeur par personne</h2>
-    <p class="desc">À chaque semaine avant l’examen : pour chaque exercice PSY0 déjà pratiqué, on prend la moyenne de ses <b>5 derniers essais à cette date</b>, puis on fait la moyenne de ces valeurs — <b>chaque exercice comptant pour un</b>. <b>Ta courbe est en gras</b> ; une couleur par personne, un style de trait par session. Les points calculés sur trop peu d’exercices ne sont pas tracés.</p>
+    <h2>Niveau global — une valeur par session</h2>
+    <p class="desc">À chaque semaine avant l’examen : pour chaque exercice PSY0 déjà pratiqué, on prend la moyenne de ses <b>5 derniers essais à cette date</b>, puis on fait la moyenne de ces valeurs — <b>chaque exercice comptant pour un</b>. <b>La courbe personnelle est en gras</b> ; une couleur par personne, un style de trait par session. Les points calculés sur trop peu d’exercices ne sont pas tracés.</p>
     <div class="chartbox tall"><canvas id="chGlobal"></canvas></div>
   </div>
 
@@ -334,7 +338,7 @@
   </div>
 
   <div class="panel">
-    <h2>Quand travaillent-ils ?</h2>
+    <h2>Répartition horaire du travail</h2>
     <p class="desc" id="clockDesc"></p>
     <div class="seg" id="segClock" style="margin-bottom:14px">
       <button data-v="hour" aria-pressed="true">Par heure</button>
@@ -547,9 +551,10 @@ const ME_COLOR='#5ad1c4';
 let phase='psy0', stage=null, stageTouched=false;
 let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le monde
 let scaleFrom=-13;      // début de l'axe : le graphique va de là jusqu'au jour J
-let clockMode='hour'; // hour | day | grid — lecture du panneau « Quand travaillent-ils ? »
+let clockMode='hour'; // hour | day | grid — lecture du panneau « Répartition horaire »
 let volExSel='__all__';// exercice détaillé dans « Volume d'essais par exercice »
 let volMode='total'; // total | stage — jusqu'où compter les essais
+const hiddenSeries=new Set(); // courbes masquées par clic sur la légende
 let sessionFilter='all';// all | first | last — pour les candidats à plusieurs sessions
 // Un symbole par personne, repris sur les courbes et les réglettes
 const SHAPES=['circle','square','diamond','triangle','down'];
@@ -598,13 +603,13 @@ function promoteToMe(ref){
   try{ saved=JSON.parse(localStorage.getItem(LS_MAIN)||'{}')||{}; }catch(e){}
   saved.csv=ref.csv; saved.name=ref.name;
   try{ localStorage.setItem(LS_MAIN,JSON.stringify(saved)); }catch(e){
-    setStatus('Stockage plein : impossible de mémoriser tes résultats.','err'); return;
+    setStatus('Stockage plein : impossible de mémoriser les résultats personnels.','err'); return;
   }
   try{ localStorage.removeItem(LS_ME); }catch(e){}   // les sessions cochées ne valent plus
   refs=refs.filter(r=>r.id!==ref.id);
   refs.forEach((r,i)=>r.color=REF_COLORS[i%REF_COLORS.length]);
   saveRefs(); loadMe(); stageTouched=false; renderAll();
-  setStatus(`« ${ref.name} » est désormais ton dossier — le tableau de bord l'utilise aussi.`,'ok');
+  setStatus(`« ${ref.name} » sert désormais de dossier personnel — le tableau de bord l'utilise aussi.`,'ok');
 }
 function loadRefs(){
   let saved=null;
@@ -884,9 +889,9 @@ function renderCands(){
   const box=document.getElementById('cands');
   const parts=[];
   if(me) parts.push(cardHtml(me,'me','Moi',ME_COLOR,true));
-  else parts.push(`<div class="nodata">Aucun résultat personnel trouvé.<br>Importe d'abord ton export sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.</div>`);
+  else parts.push(`<div class="nodata">Aucun résultat personnel trouvé.<br>Importer d'abord un export sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.</div>`);
   refs.forEach(r=>parts.push(cardHtml(r,r.id,r.name,r.color,false)));
-  if(!refs.length) parts.push(`<div class="nodata">Aucun dossier de référence.<br>Glisse les CSV des candidats admis ci-dessus.</div>`);
+  if(!refs.length) parts.push(`<div class="nodata">Aucun dossier de référence.<br>Glisser les CSV des candidats admis ci-dessus.</div>`);
   box.innerHTML=parts.join('');
   const own=id=>id==='me'?me:refs.find(x=>x.id===id);
   box.querySelectorAll('input[data-sess]').forEach(cb=>{
@@ -969,8 +974,8 @@ function cardHtml(owner,id,name,color,isMe){
       <span style="color:var(--faint)">(repris du tableau de bord)</span></div>`;
     if(clash) srcNote+=`<div class="det" style="color:var(--s2);margin-top:5px">
       ⚠ Ce fichier est aussi chargé comme référence sous « ${esc(clash.name)} » :
-      ce ne sont probablement pas tes résultats. Ouvre le tableau de bord pour importer
-      ton export, ou clique « C’est mon dossier » sur le bon fichier.</div>`;
+      il ne s’agit probablement pas des résultats personnels. Importer le bon export
+      depuis le tableau de bord, ou utiliser « C’est mon dossier » sur le bon fichier.</div>`;
   }
   const unkNote=unk.size?`<div class="det" style="color:var(--s3);margin-top:7px" title="${esc([...unk].join(', '))}">
       ${unk.size} exercice${unk.size>1?'s':''} non reconnu${unk.size>1?'s':''}, ignoré${unk.size>1?'s':''}</div>`:'';
@@ -1056,6 +1061,7 @@ function renderCharts(ps,exSet){
   const minCover=Math.max(3,Math.round(exSet.set.size*0.5));
   const series=new Map(ps.map(p=>[p.key,buildSeries(p,exSet.set,minCover)]));
   const refsP=ps.filter(p=>!p.me);
+  const vis=visible(ps);                       // séries non masquées par la légende
   const xt="semaines avant l'examen";
   const [vlo,vhi]=viewRange(ps);
   const withZoom=o=>{ o.scales.x.min=vlo; o.scales.x.max=vhi; return o; };
@@ -1067,9 +1073,9 @@ function renderCharts(ps,exSet){
     return `${it.dataset.label} : ${fmt(it.parsed.y)}`+(n?` (sur ${n} exercice${n>1?'s':''})`:'');
   };
   optG.layout={padding:{right:isPhone()?58:96}};   // place pour les noms en bout de courbe
-  mk('chGlobal','line',{datasets:[...ps.map(p=>dsFor(p,series.get(p.key).glob)),...(medG?[medG]:[])]},
-     optG,[endLabels]);
-  mk('chVol','line',{datasets:ps.map(p=>dsFor(p,series.get(p.key).vol))},withZoom(baseOpts(xt,'essais / semaine')));
+  mk('chGlobal','line',{datasets:[...vis.map(p=>dsFor(p,series.get(p.key).glob)),
+     ...(medG&&!isHidden(MED_KEY)?[medG]:[])]},optG,[endLabels]);
+  mk('chVol','line',{datasets:vis.map(p=>dsFor(p,series.get(p.key).vol))},withZoom(baseOpts(xt,'essais / semaine')));
   // H2 — heures par semaine : histogramme groupé (une barre par personne et par semaine)
   const wks=[];
   for(let x=vlo;x<=vhi;x++) wks.push(x);
@@ -1079,7 +1085,7 @@ function renderCharts(ps,exSet){
       maxRotation:0,autoSkip:true},grid:{display:false}};
   optH.plugins.tooltip.callbacks.title=it=>it[0].label;
   optH.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} h`;
-  mk('chHours','bar',{labels:wks.map(xLabel),datasets:ps.map(p=>{
+  mk('chHours','bar',{labels:wks.map(xLabel),datasets:vis.map(p=>{
     const map=new Map(series.get(p.key).hrs.map(pt=>[Math.round(pt.x),pt.y]));
     return {label:p.name,data:wks.map(x=>map.has(x)?map.get(x):null),
       backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
@@ -1108,15 +1114,33 @@ function swatchSvg(color,shape,dash,thick){
     stroke="rgba(255,255,255,.85)" stroke-width="1.2"/>`:'';
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${line}${sym}${ring}</svg>`;
 }
+const MED_KEY='__median__';
+const isHidden=k=>hiddenSeries.has(k);
+const visible=ps=>ps.filter(p=>!isHidden(p.key));
 function renderKeys(ps){
   const box=document.getElementById('chartKeys');
   if(!ps.length){ box.innerHTML=''; return; }
-  const items=ps.map(p=>`<span class="ck${p.me?' me':''}" title="${esc(p.name)} — ${dashName(p)}">
-      ${swatchSvg(p.color,p.shape,dashOf(p),p.me)}${esc(p.name)}${p.me?' (moi)':''}</span>`);
+  const entry=(key,svg,label,cls,tip)=>
+    `<button type="button" class="ck${cls}${isHidden(key)?' off':''}" data-k="${esc(key)}"
+       aria-pressed="${!isHidden(key)}" title="${esc(tip)}">${svg}${esc(label)}</button>`;
+  const items=ps.map(p=>entry(p.key,swatchSvg(p.color,p.shape,dashOf(p),p.me),
+    p.name+(p.me?' (moi)':''),p.me?' me':'',
+    `${p.name} — ${dashName(p)}. Cliquer pour masquer cette courbe sur les graphiques.`));
   if(ps.filter(p=>!p.me).length>=2)
-    items.push(`<span class="ck" title="Médiane des sessions de référence">
-      ${swatchSvg('#e9eef4','',[6,4],false)}Médiane du groupe</span>`);
+    items.push(entry(MED_KEY,swatchSvg('#e9eef4','',[6,4],false),'Médiane du groupe','',
+      'Médiane des sessions de référence. Cliquer pour la masquer.'));
   box.innerHTML=items.join('');
+  box.querySelectorAll('button[data-k]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const k=b.dataset.k;
+      if(hiddenSeries.has(k)) hiddenSeries.delete(k); else hiddenSeries.add(k);
+      const ps2=participants();
+      renderKeys(ps2);
+      const ex=exerciseSet(ps2);
+      if(ps2.length) renderCharts(ps2,ex);
+      renderVolEx(ps2,ex);
+    });
+  });
 }
 
 /* Volume d'essais par exercice : combien chacun a travaillé quoi.
@@ -1187,17 +1211,18 @@ function renderVolEx(ps,exSet){
     o.plugins.tooltip.callbacks.label=it=>`${it.parsed.y} essai${it.parsed.y>1?'s':''}`;
     const boxT=document.getElementById('chVolEx').parentElement;
     if(boxT) boxT.style.height='';
-    mk('chVolEx','bar',{labels:ps.map(p=>p.name),datasets:[{
-      label:'essais',data:ps.map(nbTotal),
-      backgroundColor:ps.map(p=>p.color+(p.me?'':'cc')),
-      borderColor:ps.map(p=>p.color),borderWidth:ps.map(p=>p.me?2:0),borderRadius:4}]},o);
+    const vt=visible(ps);
+    mk('chVolEx','bar',{labels:vt.map(p=>p.name),datasets:[{
+      label:'essais',data:vt.map(nbTotal),
+      backgroundColor:vt.map(p=>p.color+(p.me?'':'cc')),
+      borderColor:vt.map(p=>p.color),borderWidth:vt.map(p=>p.me?2:0),borderRadius:4}]},o);
     return;
   }
   if(volExSel==='__all__'){
     desc.innerHTML=`Nombre d’essais réalisés sur chaque exercice, une barre par session,
       ${volMode==='total'?'<b>sur toute la session</b>':`<b>à ${xLabel(stage)}</b>`}.
-      Les exercices où <b>tu en as fait le moins par rapport aux autres</b> sont en haut.
-      Choisis un exercice ci-dessus pour voir l’évolution dans le temps.`;
+      Les exercices <b>les moins travaillés par rapport au groupe</b> sont en haut.
+      Sélectionner un exercice ci-dessus pour en voir l’évolution dans le temps.`;
     const o=baseOpts('essais','',false);
     o.indexAxis='y';
     o.scales.x={beginAtZero:true,
@@ -1211,8 +1236,8 @@ function renderVolEx(ps,exSet){
     o.plugins.tooltip.callbacks.title=it=>it[0].label;
     o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${it.parsed.x} essai${it.parsed.x>1?'s':''}`;
     const boxEl=document.getElementById('chVolEx').parentElement;
-    if(boxEl) boxEl.style.height=Math.min(Math.max(260,sorted.length*(10*ps.length+18)),1200)+'px';
-    mk('chVolEx','bar',{labels:sorted,datasets:ps.map(p=>({
+    if(boxEl) boxEl.style.height=Math.min(Math.max(260,sorted.length*(10*Math.max(1,visible(ps).length)+18)),1200)+'px';
+    mk('chVolEx','bar',{labels:sorted,datasets:visible(ps).map(p=>({
       label:p.name,data:sorted.map(ex=>nbAttempts(p,ex)),
       backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
       borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1}))},o);
@@ -1228,7 +1253,7 @@ function renderVolEx(ps,exSet){
   const o=baseOpts("semaines avant l'examen",'essais cumulés');
   o.scales.x.min=vlo; o.scales.x.max=vhi;
   o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${it.parsed.y} essai${it.parsed.y>1?'s':''}`;
-  mk('chVolEx','line',{datasets:ps.map(p=>{
+  mk('chVolEx','line',{datasets:visible(ps).map(p=>{
     const arr=byEx(p).get(volExSel)||[];
     const t0=p.camp.start.getTime(), tEnd=p.camp.end.getTime()+EOD;
     const pts=[];
@@ -1242,7 +1267,7 @@ function renderVolEx(ps,exSet){
   })},o,[stageLine]);
 }
 
-/* Quand travaillent-ils ? trois lectures d'une même donnée :
+/* Répartition horaire du travail — trois lectures d'une même donnée :
    par heure de la journée, par jour de la semaine, ou les deux croisés. */
 const BIN_LAB=i=>`${String(i*2).padStart(2,'0')}–${String(i*2+2).padStart(2,'0')}h`;
 function renderClock(ps){
@@ -1256,7 +1281,7 @@ function renderClock(ps){
       grid:{display:false}};
     o.plugins.tooltip.callbacks.title=it=>it[0].label;
     o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} %`;
-    mk('chClock','bar',{labels,datasets:ps.map(p=>{
+    mk('chClock','bar',{labels,datasets:visible(ps).map(p=>{
       const st=hoursStats(p), tot=st.total||1;
       return {label:p.name,data:pick(st).map(n=>Math.round(n/tot*1000)/10),
         backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
@@ -1266,7 +1291,7 @@ function renderClock(ps){
   if(clockMode==='grid'){
     box.style.display='none'; grid.style.display='';
     desc.innerHTML='Chaque case croise un jour et une tranche de 2 h : plus elle est vive, plus la personne y a travaillé. Un profil par session.';
-    grid.innerHTML=ps.map(p=>{
+    grid.innerHTML=visible(ps).map(p=>{
       const st=hoursStats(p);
       const max=Math.max(...st.byDH.flat())||1;
       const rows=st.byDH.map((row,d)=>
@@ -1371,8 +1396,8 @@ function renderReadout(ps,exSet){
   if(!m||!rp.length){
     box.innerHTML=`<div class="tile" style="grid-column:1/-1"><div class="t-lab">Verdict</div>
       <div class="t-sub" style="font-size:11.5px;margin-top:8px">${
-        !m?"Importe tes résultats sur le tableau de bord pour te comparer."
-          :"Ajoute au moins un dossier de référence pour lancer la comparaison."}</div></div>`;
+        !m?"Importer des résultats personnels sur le tableau de bord pour lancer la comparaison."
+          :"Ajouter au moins un dossier de référence pour lancer la comparaison."}</div></div>`;
     return;
   }
   const st=stage, S=exSet.set;
@@ -1384,13 +1409,13 @@ function renderReadout(ps,exSet){
     box.innerHTML=`<div class="tile" style="grid-column:1/-1">
       <div class="t-lab">📍 ${xLabel(st)}</div>
       <div class="t-sub" style="font-size:11.5px;margin-top:8px;color:var(--s3)">
-        Ta préparation ne commence qu’au <b>${fdate(m.camp.start)}</b>
+        La préparation personnelle ne commence qu’au <b>${fdate(m.camp.start)}</b>
         (${xLabel(Math.ceil(xOf(m,m.camp.start.getTime())))}) : rien à comparer à cette semaine.
         <br>Déplace « Semaine comparée » vers la droite.</div></div>`;
     return;
   }
   const stale=instantAt(m,st)>m.camp.end.getTime()+EOD
-    ? `<br><span style="color:var(--faint)">niveau de ta dernière séance (${fdate(m.camp.end)})</span>` : '';
+    ? `<br><span style="color:var(--faint)">niveau de la dernière séance (${fdate(m.camp.end)})</span>` : '';
   const gl=p=>{ const g=globalLevelAt(p,st,S); return g?g.v:null; };
   const mg=globalLevelAt(m,st,S);
   const my=mg?mg.v:null;
@@ -1399,8 +1424,8 @@ function renderReadout(ps,exSet){
   const myP=paceAt(m,st), grpP=median(rp.map(p=>paceAt(p,st)));
   const d=(my!==null&&grp!==null)?my-grp:null;
   const dCol=d===null?getCss('--muted'):d>=0.3?getCss('--s7'):d<=-0.3?getCss('--s2'):getCss('--s5');
-  /* « Ils avaient ton niveau à… » : premier stade où la médiane des sessions
-     de référence ATTEINT ton niveau ET s'y maintient (deux relevés d'affilée),
+  /* « Groupe à ce niveau dès… » : premier stade où la médiane des sessions
+     de référence ATTEINT le niveau personnel ET s'y maintient (deux relevés),
      pour qu'un simple pic de bruit ne déclenche pas un faux retard. */
   let cross=null, shift=null, single=false;
   if(my!==null){
@@ -1419,12 +1444,12 @@ function renderReadout(ps,exSet){
   const sCol=shift===null?getCss('--muted'):shift<=-1?getCss('--s7'):shift>=1?getCss('--s2'):getCss('--s5');
   let sTxt,sSub;
   if(my===null){ sTxt='—'; sSub='pas encore de niveau mesurable'; }
-  else if(cross===null){ sTxt='jamais'; sSub='ils n\'ont pas atteint ton niveau sur la période observée'; }
+  else if(cross===null){ sTxt='jamais'; sSub='niveau non atteint par le groupe sur la période observée'; }
   else{
     sTxt=xLabel(cross);
-    sSub=shift===0?'exactement ton rythme'
-      :(shift<0?`tu y es ${Math.abs(shift)} sem. plus tôt → en avance`
-               :`tu y es ${shift} sem. plus tard → en retard`);
+    sSub=shift===0?'même rythme que le groupe'
+      :(shift<0?`atteint ${Math.abs(shift)} sem. plus tôt → en avance`
+               :`atteint ${shift} sem. plus tard → en retard`);
   }
   const vRatio=grpV?Math.round(myV/grpV*100):null;
   const nSess=rp.length;
@@ -1432,12 +1457,12 @@ function renderReadout(ps,exSet){
     <div class="tile"><div class="t-lab">📍 Stade comparé</div>
       <div class="t-val">${xLabel(st)}</div>
       <div class="t-sub">${xLabelDays(st)}<br>${nSess} session${nSess>1?'s':''} de référence · ${phase.toUpperCase()}</div></div>
-    <div class="tile"><div class="t-lab">🎯 Mon niveau global</div>
+    <div class="tile"><div class="t-lab">🎯 Niveau global</div>
       <div class="t-val" style="color:${my===null?getCss('--muted'):bandColor(my)}">${fmt(my)}<small>/9</small></div>
       <div class="t-sub">groupe : <b style="color:${grp===null?'':bandColor(grp)}">${fmt(grp)}</b>${
         d===null?'':` · <span style="color:${dCol}">${d>0?'+':''}${fmt(d)}</span>`}
         <br>moyenne sur ${mg?mg.n:0} exercice${mg&&mg.n>1?'s':''}${exSet.common?' communs':''}${stale}</div></div>
-    <div class="tile"><div class="t-lab">⏳ Ils avaient ton niveau à</div>
+    <div class="tile"><div class="t-lab">⏳ Groupe à ce niveau dès</div>
       <div class="t-val" style="color:${sCol};font-size:20px">${sTxt}</div>
       <div class="t-sub">${sSub}${single?'<br><span style="color:var(--s3)">une seule session sur une partie de la période</span>':''}</div></div>
     <div class="tile"><div class="t-lab">🔁 Volume cumulé</div>
@@ -1450,7 +1475,7 @@ function gl2(p,x,S){ const g=globalLevelAt(p,x,S); return g?g.v:null; }
 /* ----------------------- Rendu : tableau par exercice ----------------------- */
 /* Comparatif par exercice — réglettes à l'échelle stanine Pilotest.
    Ta position et celle du groupe sur la même barre, reliées par un trait
-   dont la couleur dit qui est devant. Les exercices où tu es en dessous
+   dont la couleur dit qui est devant. Les exercices en retrait
    sont regroupés en tête : c'est là qu'il faut travailler. */
 function renderTable(ps,exSet){
   const box=document.getElementById('strips');
@@ -1494,11 +1519,11 @@ function renderTable(ps,exSet){
   const keys=ps.map(p=>`<span class="k"><i class="mk sh-${p.shape}${p.me?' me':''}" style="--c:${p.color}"></i>${esc(p.name)}${p.me?' (moi)':''}</span>`).join('');
   box.innerHTML=
     `<div class="keys">${keys}${rp.length>1?`<span class="k"><i class="med-k"></i>médiane du groupe</span>`:''}
-      <span class="k"><i class="seg-k" style="background:${getCss('--s7')}"></i>tu es devant</span>
-      <span class="k"><i class="seg-k" style="background:${getCss('--s2')}"></i>tu es derrière</span></div>`+
-    grp('behind','▼ Tu es en dessous',behind)+
-    grp('ahead','▲ Tu es au-dessus',ahead)+
-    grp('na','= À égalité',level)+
+      <span class="k"><i class="seg-k" style="background:${getCss('--s7')}"></i>au-dessus du groupe</span>
+      <span class="k"><i class="seg-k" style="background:${getCss('--s2')}"></i>en dessous du groupe</span></div>`+
+    grp('behind','▼ En retrait sur le groupe',behind)+
+    grp('ahead','▲ En avance sur le groupe',ahead)+
+    grp('na','= Au niveau du groupe',level)+
     grp('na','Pas comparable à ce stade',na)+
     `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`;
 }
@@ -1508,7 +1533,7 @@ function describeStage(exSet){
   document.getElementById('tblDesc').innerHTML=
     `Position de chacun sur l'échelle stanine à <b>${xLabel(stage)}</b> (niveau = moyenne des ${LASTK} derniers essais à cette date)`+
     (exSet&&exSet.common?` — <b>exercices communs uniquement</b> (${exSet.set.size} sur ${exSet.total})`:'')+
-    `. Déplace « Semaine comparée » pour te situer à un autre moment.`;
+    `. Déplacer « Semaine comparée » pour se situer à un autre moment.`;
 }
 function renderAll(){
   renderCands();
@@ -1587,7 +1612,7 @@ window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize
 
 /* ----------------------- Démarrage ----------------------- */
 loadMe(); loadRefs(); renderAll();
-if(!refs.length) setStatus("Aucun dossier de référence pour l'instant — glisse les CSV des candidats admis ci-dessus.");
+if(!refs.length) setStatus("Aucun dossier de référence pour l'instant — glisser les CSV des candidats admis ci-dessus.");
 </script>
 </body>
 </html>
