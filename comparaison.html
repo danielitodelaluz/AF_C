@@ -108,6 +108,8 @@
     font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
   .chartkeys .ck svg{flex:0 0 auto;display:block}
   .chartkeys .ck.me{font-weight:600}
+  .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+    border:1px solid;border-radius:4px;padding:1px 5px;margin-left:2px;white-space:nowrap}
   .chartkeys .ck{background:none;border:0;padding:2px 0;cursor:pointer;transition:opacity .12s}
   .chartkeys .ck:hover{opacity:.75}
   .chartkeys .ck.off{opacity:.38;text-decoration:line-through}
@@ -231,7 +233,7 @@
   <header>
     <p class="eyebrow">Comparaison · Pilotest</p>
     <h1>Comparaison avec des candidats admis</h1>
-    <p class="sub">Les calendriers sont recalés sur la date d’examen : la comparaison porte sur <b>le même stade de préparation</b>, non sur la même date.</p>
+    <p class="sub">Chaque session de référence est recalée sur <b>sa propre fin d’entraînement</b>, qui marque son jour J : la comparaison porte sur le même stade de préparation, quelle que soit l’année. La dernière session d’un candidat admis est celle qui a abouti — les précédentes sont des tentatives.</p>
   </header>
 
   <div class="panel">
@@ -524,10 +526,14 @@ function detectCampaigns(rows, ph){
     };
   });
 }
-/* Date d'examen fictive commune : le 8 septembre. On ignore l'année — les
-   préparations PSY0 se déroulent à peu près à la même saison — en retenant
-   le 8 septembre le plus proche de la fin de la session. Une date précise
-   reste renseignable session par session pour corriger un cas particulier. */
+/* Recalage sur le jour J.
+   Pour une référence, la fin de sa session EST son examen : elle s'arrête de
+   travailler quand elle passe l'épreuve. Chaque session est donc alignée sur
+   sa propre date de fin, ce qui permet de comparer des entraînements menés à
+   des moments différents de l'année.
+   Pour la préparation en cours, l'examen est une date à venir : on prend
+   celle du tableau de bord, à défaut le 8 septembre le plus proche.
+   Une date précise reste renseignable session par session ; elle prime. */
 const EXAM_DAY=8, EXAM_MONTH=8;   // 8 septembre (mois 0-indexé)
 function examAnchor(end){
   const y=end.getFullYear();
@@ -701,8 +707,12 @@ function participants(){
       out.push({
         key:(isMe?'me':owner.id)+'#'+c.index,
         owner, camp:c, me:isMe, color, shape,
-        name:multi?`${name} ${c.label}`:name,
-        exam:pref.exam?new Date(pref.exam+'T00:00:00'):examAnchor(c.end)
+        name:(multi?`${name} ${c.label}`:name)+
+             (isMe?'':(c.index===camps.length-1?' ✓':' ✗')),
+        exam:pref.exam?new Date(pref.exam+'T00:00:00')
+             :(isMe?(myExamDate?new Date(myExamDate+'T00:00:00'):examAnchor(c.end))
+                   :c.end),                     // référence : fin d'entraînement = jour J
+        outcome:isMe?'ongoing':(c.index===camps.length-1?'success':'attempt')
       });
     });
   };
@@ -719,6 +729,15 @@ function exerciseSet(ps){
   if(!commonOnly||sets.length<2) return {set:all,common:false,total:all.size};
   const inter=new Set([...all].filter(x=>sets.every(s=>s.has(x))));
   return {set:inter,common:true,total:all.size};
+}
+/* Étalon de comparaison : les sessions RÉUSSIES des références. Mélanger
+   réussites et échecs dans une même médiane brouillerait justement ce qu'on
+   cherche à voir. À défaut de réussite affichée, on retombe sur ce qui est là. */
+function benchmark(ps){
+  const rp=ps.filter(p=>!p.me);
+  const ok=rp.filter(p=>p.outcome==='success');
+  return ok.length?{list:ok,label:'réussites',only:true}
+                  :{list:rp,label:'sessions',only:false};
 }
 // Ma session de référence pour le verdict : la plus récente activée
 function myPart(ps){
@@ -941,18 +960,16 @@ function cardHtml(owner,id,name,color,isMe){
       const notes=[];
       if(c.trimmedDays) notes.push(`${c.trimmedDays} j de repérage écartés`);
       if(c.dropped) notes.push(`${c.dropped} période${c.dropped>1?'s':''} trop courte${c.dropped>1?'s':''} ignorée${c.dropped>1?'s':''}`);
-      /* Alerte si la session ne cadre pas avec l'examen fictif du 8 septembre.
-         Une préparation en cours s'arrête forcément avant l'examen : on ne
-         signale donc que ce qui déborde après, ou ce qui est très en amont
-         (session manifestement destinée à un autre examen). */
-      let warn='';
-      if(!pref.exam&&!isMe){
-        const off=Math.round((c.end-examAnchor(c.end))/(7*DAY));
-        if(off>2||off<-20) warn=`<br><span style="color:var(--s3)">hors saison : se termine ${off>0?off+' sem. après':Math.abs(off)+' sem. avant'} le 8 septembre — renseigne sa vraie date d'examen pour la recaler</span>`;
-      }
+      /* Issue de la session : chez une référence admise, la dernière session
+         est celle qui a abouti, les précédentes sont des tentatives. */
+      const oc=OUTCOME[isMe?'ongoing':(c.index===camps.length-1?'success':'attempt')];
+      const warn=`<br><span style="color:var(--faint)">${isMe
+        ?`examen visé : ${pref.exam?fdate(new Date(pref.exam+'T00:00:00')):(myExamDate?fdate(new Date(myExamDate+'T00:00:00')):'—')}`
+        :`fin d'entraînement alignée sur le jour J`}</span>`;
       return `<div class="sess${pref.on?'':' off'}">
         <label><input type="checkbox" data-id="${id}" data-sess="${c.index}" ${pref.on?'checked':''}>
-          <b>${camps.length>1?`Session ${c.index+1} · ${c.label}`:'Préparation'}</b></label>
+          <b>${camps.length>1?`Session ${c.index+1} · ${c.label}`:'Préparation'}</b>
+          <span class="tag" style="color:var(${oc.col});border-color:var(${oc.col})">${oc.lab}</span></label>
         <div class="det">${fdate(c.start)} → ${fdate(c.end)}<br>
           ${c.weeks} sem. · ${c.attempts} essais · ${c.activeDays} j actifs
           ${pref.exam?`<br>examen : ${fdate(new Date(pref.exam+'T00:00:00'))}`:''}
@@ -1027,11 +1044,21 @@ const xLabelDays=v=>{
   return d===0?"le jour de l'examen":(d>0?`J+${d}`:`J−${Math.abs(d)}`);
 };
 
-/* Une couleur par personne, un style de trait par session :
-   session 1 = trait plein, 2 = tirets, 3 = pointillés, 4 = mixte. */
+/* Une couleur par personne, un style de trait porteur de sens :
+   la session réussie (la dernière) est en trait plein, les tentatives
+   précédentes en tirets puis pointillés, de la plus récente à la plus
+   ancienne. La préparation en cours est en trait plein. */
 const DASHES=[[],[7,4],[2,3],[9,3,2,3]];
-const dashOf=p=>DASHES[(p.camp.index||0)%DASHES.length];
-const dashName=p=>['trait plein','tirets','pointillés','trait-point'][(p.camp.index||0)%DASHES.length];
+function dashIdx(p){
+  if(p.outcome!=='attempt') return 0;
+  const back=(p.camp.total-1)-p.camp.index;      // 1 = tentative juste avant la réussie
+  return Math.min(back,DASHES.length-1);
+}
+const dashOf=p=>DASHES[dashIdx(p)];
+const dashName=p=>['trait plein','tirets','pointillés','trait-point'][dashIdx(p)];
+const OUTCOME={success:{lab:'réussite',sym:'✓',col:'--s7'},
+               attempt:{lab:'tentative',sym:'✗',col:'--s2'},
+               ongoing:{lab:'en cours',sym:'•',col:'--accent'}};
 function dsFor(p,data,opts={}){
   return {
     label:p.name,data,borderColor:p.color,backgroundColor:p.color,
@@ -1042,7 +1069,7 @@ function dsFor(p,data,opts={}){
     tension:.3,borderDash:dashOf(p),order:p.me?0:1,...opts.extra
   };
 }
-function medianCurve(refsP,series,field){
+function medianCurve(refsP,series,field,label){
   if(refsP.length<2) return null;
   const xs=new Set(); refsP.forEach(p=>series.get(p.key)[field].forEach(pt=>xs.add(pt.x)));
   const pts=[...xs].sort((a,b)=>a-b).map(x=>{
@@ -1054,7 +1081,7 @@ function medianCurve(refsP,series,field){
     }).filter(v=>v!==null);
     return vals.length>=2?{x,y:median(vals)}:null;
   }).filter(Boolean);
-  return {label:'Médiane des sessions',endLabel:'Médiane',data:pts,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
+  return {label:'Médiane des '+(label||'sessions'),endLabel:'Médiane',data:pts,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
     borderWidth:2,borderDash:[6,4],pointRadius:0,tension:.3,order:2};
 }
 function renderCharts(ps,exSet){
@@ -1065,7 +1092,8 @@ function renderCharts(ps,exSet){
   const xt="semaines avant l'examen";
   const [vlo,vhi]=viewRange(ps);
   const withZoom=o=>{ o.scales.x.min=vlo; o.scales.x.max=vhi; return o; };
-  const medG=medianCurve(refsP,series,'glob');
+  const bm=benchmark(ps);
+  const medG=medianCurve(bm.list.filter(p=>!isHidden(p.key)),series,'glob',bm.label);
   // 1) niveau global non pondéré — la mesure de référence
   const optG=withZoom(baseOpts(xt,'classe stanine (moyenne par exercice)',true));
   optG.plugins.tooltip.callbacks.label=it=>{
@@ -1120,12 +1148,16 @@ const visible=ps=>ps.filter(p=>!isHidden(p.key));
 function renderKeys(ps){
   const box=document.getElementById('chartKeys');
   if(!ps.length){ box.innerHTML=''; return; }
-  const entry=(key,svg,label,cls,tip)=>
+  const entry=(key,svg,label,cls,tip,badge)=>
     `<button type="button" class="ck${cls}${isHidden(key)?' off':''}" data-k="${esc(key)}"
-       aria-pressed="${!isHidden(key)}" title="${esc(tip)}">${svg}${esc(label)}</button>`;
-  const items=ps.map(p=>entry(p.key,swatchSvg(p.color,p.shape,dashOf(p),p.me),
-    p.name+(p.me?' (moi)':''),p.me?' me':'',
-    `${p.name} — ${dashName(p)}. Cliquer pour masquer cette courbe sur les graphiques.`));
+       aria-pressed="${!isHidden(key)}" title="${esc(tip)}">${svg}${esc(label)}${badge||''}</button>`;
+  const items=ps.map(p=>{
+    const o=OUTCOME[p.outcome];
+    const badge=`<span class="tag" style="color:var(${o.col});border-color:var(${o.col})">${o.lab}</span>`;
+    return entry(p.key,swatchSvg(p.color,p.shape,dashOf(p),p.me),
+      p.name.replace(/ [✓✗]$/,'')+(p.me?' (moi)':''),p.me?' me':'',
+      `${p.name} — ${o.lab}, ${dashName(p)}. Cliquer pour masquer cette courbe sur les graphiques.`,badge);
+  });
   if(ps.filter(p=>!p.me).length>=2)
     items.push(entry(MED_KEY,swatchSvg('#e9eef4','',[6,4],false),'Médiane du groupe','',
       'Médiane des sessions de référence. Cliquer pour la masquer.'));
@@ -1401,6 +1433,7 @@ function renderReadout(ps,exSet){
     return;
   }
   const st=stage, S=exSet.set;
+  const bm=benchmark(ps), bench=bm.list;
   /* Avant le début de ma préparation il n'y a rien à mesurer : on l'explique
      plutôt que d'afficher des zéros inexplicables. En revanche, après ma
      dernière séance, mon niveau reste celui de mes derniers essais — la
@@ -1411,7 +1444,7 @@ function renderReadout(ps,exSet){
       <div class="t-sub" style="font-size:11.5px;margin-top:8px;color:var(--s3)">
         La préparation personnelle ne commence qu’au <b>${fdate(m.camp.start)}</b>
         (${xLabel(Math.ceil(xOf(m,m.camp.start.getTime())))}) : rien à comparer à cette semaine.
-        <br>Déplace « Semaine comparée » vers la droite.</div></div>`;
+        <br>Déplacer « Semaine comparée » vers la droite.</div></div>`;
     return;
   }
   const stale=instantAt(m,st)>m.camp.end.getTime()+EOD
@@ -1419,9 +1452,9 @@ function renderReadout(ps,exSet){
   const gl=p=>{ const g=globalLevelAt(p,st,S); return g?g.v:null; };
   const mg=globalLevelAt(m,st,S);
   const my=mg?mg.v:null;
-  const grp=median(rp.map(gl).filter(v=>v!==null));
-  const myV=volumeAt(m,st), grpV=median(rp.map(p=>volumeAt(p,st)));
-  const myP=paceAt(m,st), grpP=median(rp.map(p=>paceAt(p,st)));
+  const grp=median(bench.map(gl).filter(v=>v!==null));
+  const myV=volumeAt(m,st), grpV=median(bench.map(p=>volumeAt(p,st)));
+  const myP=paceAt(m,st), grpP=median(bench.map(p=>paceAt(p,st)));
   const d=(my!==null&&grp!==null)?my-grp:null;
   const dCol=d===null?getCss('--muted'):d>=0.3?getCss('--s7'):d<=-0.3?getCss('--s2'):getCss('--s5');
   /* « Groupe à ce niveau dès… » : premier stade où la médiane des sessions
@@ -1432,7 +1465,7 @@ function renderReadout(ps,exSet){
     const [lo,hi]=stageRange(ps);
     let prevOk=false;
     for(let x=lo;x<=hi;x+=1){
-      const vals=rp.map(p=>gl2(p,x,S)).filter(v=>v!==null);
+      const vals=bench.map(p=>gl2(p,x,S)).filter(v=>v!==null);
       if(!vals.length){ prevOk=false; continue; }
       if(vals.length===1) single=true;
       const ok=median(vals)>=my-0.15;
@@ -1456,10 +1489,10 @@ function renderReadout(ps,exSet){
   box.innerHTML=`
     <div class="tile"><div class="t-lab">📍 Stade comparé</div>
       <div class="t-val">${xLabel(st)}</div>
-      <div class="t-sub">${xLabelDays(st)}<br>${nSess} session${nSess>1?'s':''} de référence · ${phase.toUpperCase()}</div></div>
+      <div class="t-sub">${xLabelDays(st)}<br>${bench.length} ${bm.only?'réussite':'session'}${bench.length>1?'s':''} en référence · ${phase.toUpperCase()}</div></div>
     <div class="tile"><div class="t-lab">🎯 Niveau global</div>
       <div class="t-val" style="color:${my===null?getCss('--muted'):bandColor(my)}">${fmt(my)}<small>/9</small></div>
-      <div class="t-sub">groupe : <b style="color:${grp===null?'':bandColor(grp)}">${fmt(grp)}</b>${
+      <div class="t-sub">${bm.only?'réussites':'groupe'} : <b style="color:${grp===null?'':bandColor(grp)}">${fmt(grp)}</b>${
         d===null?'':` · <span style="color:${dCol}">${d>0?'+':''}${fmt(d)}</span>`}
         <br>moyenne sur ${mg?mg.n:0} exercice${mg&&mg.n>1?'s':''}${exSet.common?' communs':''}${stale}</div></div>
     <div class="tile"><div class="t-lab">⏳ Groupe à ce niveau dès</div>
@@ -1467,7 +1500,7 @@ function renderReadout(ps,exSet){
       <div class="t-sub">${sSub}${single?'<br><span style="color:var(--s3)">une seule session sur une partie de la période</span>':''}</div></div>
     <div class="tile"><div class="t-lab">🔁 Volume cumulé</div>
       <div class="t-val">${myV}<small> essais</small></div>
-      <div class="t-sub">groupe : ${grpV}${vRatio!==null?` · <b style="color:${vRatio>=90?getCss('--s7'):vRatio>=60?getCss('--s5'):getCss('--s2')}">${vRatio}%</b>`:''}
+      <div class="t-sub">${bm.only?'réussites':'groupe'} : ${grpV}${vRatio!==null?` · <b style="color:${vRatio>=90?getCss('--s7'):vRatio>=60?getCss('--s5'):getCss('--s2')}">${vRatio}%</b>`:''}
         <br>rythme : ${Math.round(myP)}/sem contre ${Math.round(grpP)}/sem</div></div>`;
 }
 function gl2(p,x,S){ const g=globalLevelAt(p,x,S); return g?g.v:null; }
@@ -1481,11 +1514,12 @@ function renderTable(ps,exSet){
   const box=document.getElementById('strips');
   const m=myPart(ps), rp=ps.filter(p=>!p.me);
   if(!ps.length){ box.innerHTML='<div class="empty">Rien à comparer pour cette phase.</div>'; return; }
+  const bm=benchmark(ps);                    // la médiane porte sur les réussites
   const pos=v=>((Math.max(1,Math.min(9,v))-1)/8)*100;
   const rows=[...exSet.set].map(ex=>{
     const mine=m?exLevelAt(m,ex,stage):null;
     const vals=rp.map(p=>({p,v:exLevelAt(p,ex,stage)})).filter(o=>o.v!==null);
-    const grp=median(vals.map(o=>o.v));
+    const grp=median(vals.filter(o=>bm.list.includes(o.p)).map(o=>o.v));
     return {ex,mine,vals,grp,gap:(mine!==null&&grp!==null)?mine-grp:null};
   });
   const behind=rows.filter(r=>r.gap!==null&&r.gap<-0.15).sort((a,b)=>a.gap-b.gap);
@@ -1518,7 +1552,7 @@ function renderTable(ps,exSet){
   // légende : un symbole et une couleur par personne
   const keys=ps.map(p=>`<span class="k"><i class="mk sh-${p.shape}${p.me?' me':''}" style="--c:${p.color}"></i>${esc(p.name)}${p.me?' (moi)':''}</span>`).join('');
   box.innerHTML=
-    `<div class="keys">${keys}${rp.length>1?`<span class="k"><i class="med-k"></i>médiane du groupe</span>`:''}
+    `<div class="keys">${keys}${rp.length>1?`<span class="k"><i class="med-k"></i>médiane des ${bm.label}</span>`:''}
       <span class="k"><i class="seg-k" style="background:${getCss('--s7')}"></i>au-dessus du groupe</span>
       <span class="k"><i class="seg-k" style="background:${getCss('--s2')}"></i>en dessous du groupe</span></div>`+
     grp('behind','▼ En retrait sur le groupe',behind)+
