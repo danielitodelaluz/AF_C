@@ -1644,6 +1644,42 @@ const drop=document.getElementById('drop');
 drop.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize()); });
 
+/* ----------------------- Infobulles au toucher -----------------------
+   Sur écran tactile, aucun « mouseout » ne survient : l'infobulle d'un
+   graphique reste donc affichée indéfiniment. On la referme au second
+   toucher sur le même graphique, ou dès qu'on touche ailleurs.
+   -------------------------------------------------------------------- */
+(function(){
+  const shownOn=new Set();
+  const tipCount=c=>{
+    try{ return c.tooltip&&c.tooltip.getActiveElements?c.tooltip.getActiveElements().length:0; }
+    catch(e){ return 0; }
+  };
+  const hide=c=>{
+    try{
+      c.setActiveElements([]);
+      if(c.tooltip&&c.tooltip.setActiveElements) c.tooltip.setActiveElements([],{x:0,y:0});
+      c.update('none');
+    }catch(e){}
+  };
+  function onTouch(ev){
+    const target=ev.target;
+    // Chart.js traite le toucher de son côté : on lit l'état juste après
+    setTimeout(()=>{
+      Object.entries(charts).forEach(([id,c])=>{
+        if(!c||!c.canvas) return;
+        const touched=c.canvas===target;
+        const open=tipCount(c)>0;
+        if(!touched){ if(open) hide(c); shownOn.delete(id); return; }
+        if(shownOn.has(id)){ hide(c); shownOn.delete(id); }   // second toucher → on referme
+        else if(open) shownOn.add(id);
+      });
+    },0);
+  }
+  document.addEventListener('touchend',onTouch,{passive:true});
+  document.addEventListener('touchcancel',onTouch,{passive:true});
+})();
+
 /* ----------------------- Démarrage ----------------------- */
 loadMe(); loadRefs(); renderAll();
 if(!refs.length) setStatus("Aucun dossier de référence pour l'instant — glisser les CSV des candidats admis ci-dessus.");
