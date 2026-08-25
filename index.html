@@ -82,6 +82,24 @@
   .import-sub.ok{color:var(--green)} .import-sub.err{color:var(--red)}
 
   /* Panels grid */
+  /* Exclusion d'exercices */
+  .excl{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:0}
+  .excl>summary{cursor:pointer;padding:9px 12px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    list-style:none;user-select:none}
+  .excl>summary::-webkit-details-marker{display:none}
+  .excl>summary::before{content:"▸ ";color:var(--faint)}
+  .excl[open]>summary::before{content:"▾ "}
+  .excl>summary:hover{color:var(--ink)}
+  .excl-help{margin:0 12px 10px;font-size:11.5px;color:var(--faint);line-height:1.5}
+  .excl-list{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 12px}
+  .excl-chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel);
+    border:1px solid var(--line);border-radius:20px;padding:4px 11px;cursor:pointer;
+    font-family:var(--mono);font-size:11px;color:var(--ink)}
+  .excl-chip:hover{border-color:var(--accent)}
+  .excl-chip input{accent-color:var(--accent);width:13px;height:13px;margin:0}
+  .excl-chip.off{color:var(--faint);text-decoration:line-through;border-style:dashed}
+  @media (max-width:600px){ .excl-chip{font-size:13px;padding:6px 12px} }
+
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
   .panel.full{grid-column:1 / -1}
@@ -374,6 +392,16 @@
         <input type="range" id="winRange" min="0" max="20" step="1" value="0">
         <span class="winval" id="winVal">Tous</span>
       </div>
+    </div>
+    <div class="ctl" style="flex-basis:100%">
+      <label>Exercices exclus des calculs</label>
+      <details class="excl" id="exclBox">
+        <summary id="exclSummary">Aucun exercice exclu</summary>
+        <p class="excl-help">Un exercice décoché est retiré de tous les calculs et de tous les
+          graphiques — utile lorsqu'une épreuve a changé et que les anciens résultats
+          ne sont plus représentatifs. Le réglage vaut aussi pour la page Comparaison.</p>
+        <div class="excl-list" id="exclList"></div>
+      </details>
     </div>
     <div class="ctl">
       <label>Catégorie</label>
@@ -764,6 +792,18 @@ function parseCSV(text){
 
 /* ----------------------- State ----------------------- */
 const LS_KEY = "pilotest_dashboard_v2";
+const LS_EXCL = "pilotest_excluded_v1";   // partagé avec la page Comparaison
+/* Exercices retirés des calculs : une épreuve modifiée rend les anciens
+   résultats non représentatifs. L'exclusion vaut pour tous les graphiques
+   et pour les deux pages. */
+let excluded = new Set();
+function loadExcluded(){
+  try{ const a=JSON.parse(localStorage.getItem(LS_EXCL)||'[]'); if(Array.isArray(a)) excluded=new Set(a); }
+  catch(e){ excluded=new Set(); }
+}
+function saveExcluded(){
+  try{ localStorage.setItem(LS_EXCL,JSON.stringify([...excluded])); }catch(e){}
+}
 let RAW = parseCSV(DEFAULT_CSV);
 let phase = "all";
 let catFilter = "all";
@@ -819,6 +859,7 @@ function periodBounds(){
 function periodActive(){ const {from,to}=periodBounds(); return !!(from||to); }
 function phaseRows(){
   let r = phase==="all"?RAW:RAW.filter(r=>r.phase===phase);
+  if(excluded.size) r=r.filter(x=>!excluded.has(x.test));
   const {from,to}=periodBounds();
   if(from||to) r=r.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));
   return r;
@@ -830,6 +871,7 @@ function viewRows(){ const r=phaseRows(); return catFilter==="all"?r:r.filter(x=
 function exerciseUniverse(){
   return Object.keys(CONFIG).filter(name=>{
     const c=CONFIG[name];
+    if(excluded.has(name)) return false;
     if(phase!=="all" && c.phase!==phase) return false;
     if(catFilter!=="all" && c.cat!==catFilter) return false;
     return true;
@@ -1683,6 +1725,31 @@ window.addEventListener('resize',()=>{
 });
 
 // reflète l'état (phase / fenêtre / tri / catégorie) dans les contrôles
+/* Liste des exercices exclus : tout ce que connaît la table de correspondance,
+   plus ce qui apparaît réellement dans l'export (exercices non répertoriés). */
+function renderExcluded(){
+  const box=document.getElementById('exclList');
+  const sum=document.getElementById('exclSummary');
+  if(!box) return;
+  const names=new Set(Object.keys(CONFIG));
+  RAW.forEach(r=>names.add(r.test));
+  const list=[...names].sort((a,b)=>a.localeCompare(b,'fr'));
+  box.innerHTML=list.map(n=>{
+    const off=excluded.has(n);
+    return `<label class="excl-chip${off?' off':''}">
+      <input type="checkbox" data-ex="${esc(n)}" ${off?'':'checked'}>${esc(n)}</label>`;
+  }).join('');
+  const n=excluded.size;
+  sum.textContent = n===0 ? 'Aucun exercice exclu — tout est pris en compte'
+    : `${n} exercice${n>1?'s':''} exclu${n>1?'s':''} : ${[...excluded].sort((a,b)=>a.localeCompare(b,'fr')).join(', ')}`;
+  box.querySelectorAll('input[data-ex]').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const name=cb.dataset.ex;
+      if(cb.checked) excluded.delete(name); else excluded.add(name);
+      saveExcluded(); renderExcluded(); renderAll();
+    });
+  });
+}
 function applyControlsToUI(){
   [...document.querySelectorAll('#phaseSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.phase===phase));
   [...document.querySelectorAll('#unitSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.unit===unit));
@@ -1691,6 +1758,7 @@ function applyControlsToUI(){
   document.getElementById('examDateIn').value=examDate||'';
   wr.value=win; wv.textContent = win===0?'Tous':('n = '+win);
   document.getElementById('sortSelect').value=sortMode;
+  renderExcluded();
 }
 
 /* ----------------------- Infobulles au toucher -----------------------
@@ -1728,6 +1796,8 @@ function applyControlsToUI(){
   document.addEventListener('touchend',onTouch,{passive:true});
   document.addEventListener('touchcancel',onTouch,{passive:true});
 })();
+
+loadExcluded();
 
 /* ---- Restauration de la session précédente (localStorage) ---- */
 const saved=loadState();

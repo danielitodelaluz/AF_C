@@ -83,6 +83,10 @@
   .nodata{font-family:var(--mono);font-size:12px;color:var(--muted);padding:14px;text-align:center;
     border:1px dashed var(--line);border-radius:10px}
 
+  .exclnote{background:rgba(224,162,58,.10);border:1px solid rgba(224,162,58,.38);border-radius:10px;
+    padding:9px 14px;margin-bottom:20px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .exclnote b{color:var(--ink)}
+
   /* Contrôles */
   .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:20px}
@@ -246,6 +250,8 @@
     </div>
     <div class="cands" id="cands"></div>
   </div>
+
+  <div class="exclnote" id="exclNote" hidden></div>
 
   <div class="controls">
     <div class="ctl">
@@ -411,6 +417,14 @@ const DAY=86400000;
 const LS_MAIN="pilotest_dashboard_v2";
 const LS_REFS="pilotest_refs_v1";
 const LS_ME="pilotest_cmp_me_v1";
+const LS_EXCL="pilotest_excluded_v1";   // liste partagée avec le tableau de bord
+/* Exercices retirés des calculs (épreuve modifiée, par exemple) : la liste est
+   définie sur le tableau de bord et s'applique ici de la même façon. */
+let excluded=new Set();
+function loadExcluded(){
+  try{ const a=JSON.parse(localStorage.getItem(LS_EXCL)||'[]'); if(Array.isArray(a)) excluded=new Set(a); }
+  catch(e){ excluded=new Set(); }
+}
 const MONTHS={janvier:0,"février":1,fevrier:1,mars:2,avril:3,mai:4,juin:5,juillet:6,"août":7,aout:7,
   septembre:8,octobre:9,novembre:10,"décembre":11,decembre:11};
 function parseFrDate(s){
@@ -471,11 +485,11 @@ const SUBST_DAYS=5, SUBST_ATT=30;  // seuil d'une session « substantielle »
 // Exercices absents de la table de correspondance : on ne les rattache à
 // aucune phase (les classer d'office en PSY0 fausserait les moyennes).
 function phaseRows(rows,ph){
-  return ph==='all' ? rows.filter(r=>CONFIG[r.test])
-                    : rows.filter(r=>CONFIG[r.test]&&r.phase===ph);
+  const ok=r=>CONFIG[r.test]&&!excluded.has(r.test);
+  return ph==='all' ? rows.filter(ok) : rows.filter(r=>ok(r)&&r.phase===ph);
 }
 function unknownTests(rows){
-  const s=new Set(); rows.forEach(r=>{ if(!CONFIG[r.test]) s.add(r.test); }); return s;
+  const s=new Set(); rows.forEach(r=>{ if(!CONFIG[r.test]&&!excluded.has(r.test)) s.add(r.test); }); return s;
 }
 function detectCampaigns(rows, ph){
   const src=phaseRows(rows,ph);
@@ -1681,7 +1695,16 @@ window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize
 })();
 
 /* ----------------------- Démarrage ----------------------- */
-loadMe(); loadRefs(); renderAll();
+loadExcluded(); loadMe(); loadRefs(); renderAll();
+if(excluded.size){
+  const n=excluded.size;
+  const el=document.getElementById('exclNote');
+  if(el){ el.hidden=false;
+    el.innerHTML=`${n} exercice${n>1?'s':''} exclu${n>1?'s':''} des calculs : `+
+      `<b>${[...excluded].sort((a,b)=>a.localeCompare(b,'fr')).map(esc).join(', ')}</b> — `+
+      `réglage modifiable sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.`;
+  }
+}
 if(!refs.length) setStatus("Aucun dossier de référence pour l'instant — glisser les CSV des candidats admis ci-dessus.");
 </script>
 </body>
