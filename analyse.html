@@ -94,11 +94,23 @@
     box-shadow:0 0 0 1.5px rgba(255,255,255,.7);z-index:3}
   .tape .first{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
     transform:translate(-50%,-50%);border:1.5px solid rgba(11,18,24,.7);opacity:.75;z-index:2}
+  .tape .ov{position:absolute;top:50%;width:13px;height:13px;border-radius:2px;
+    transform:translate(-50%,-50%) rotate(45deg);border:2px solid var(--bg);
+    box-shadow:0 0 0 1.5px rgba(255,255,255,.6);z-index:3}
   .scaleticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
     margin:8px 0 0;padding-left:192px}
   .scaleticks span{font-weight:600}
   .legend{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px}
   .legend span{display:inline-flex;align-items:center;gap:6px}
+
+  /* Superposition */
+  .ovkeys{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:11px 16px;margin-bottom:20px;font-family:var(--mono);font-size:12px}
+  .ovkeys .k{display:inline-flex;align-items:center;gap:8px;color:var(--ink)}
+  .ovkeys i{display:inline-block;width:26px;height:4px;border-radius:2px}
+  .ovkeys .dot{width:11px;height:11px;border-radius:50%;border:1.5px solid rgba(11,18,24,.75)}
+  .ovkeys .dia{width:11px;height:11px;border-radius:2px;transform:rotate(45deg);border:1.5px solid rgba(11,18,24,.75)}
 
   /* Focus */
   .focus{scroll-margin-top:14px}
@@ -179,6 +191,10 @@
       <div class="seg" id="segSess"></div>
     </div>
     <div class="ctl">
+      <span class="lab">Superposer</span>
+      <select id="ovSel" aria-label="Dossier superposé"></select>
+    </div>
+    <div class="ctl">
       <span class="lab">Fenêtre — n derniers essais</span>
       <input type="range" id="winRange" min="0" max="20" step="1" value="0">
       <span class="winval" id="winVal">Tous</span>
@@ -186,6 +202,7 @@
   </div>
 
   <div class="readout" id="readout"></div>
+  <div class="ovkeys" id="ovKeys" hidden></div>
 
   <div class="panel">
     <h2>Niveau par exercice</h2>
@@ -434,6 +451,9 @@ function mergedCamp(camps){
 let dossiers=[];        // [{id,name,rows,me}]
 let whoId='me', phase='psy0', sessIdx=null, win=0;
 let focusEx=null, unit='stanine';   // exercice détaillé dans le panneau Focus
+let overlayKey='';                 // « dossierId#idx » ou « dossierId#all » — superposition
+const OV_COLOR='#c792ea';          // couleur de la série superposée
+const MAIN_COLOR=()=>getCss('--accent');
 const charts={};
 
 function loadDossiers(){
@@ -451,6 +471,28 @@ function loadDossiers(){
   });
 }
 const current=()=>dossiers.find(d=>d.id===whoId)||dossiers[0]||null;
+/* Superposition : chaque entrée de la liste désigne un couple dossier/session,
+   ce qui permet aussi de superposer deux sessions d'un même candidat. */
+function overlayChoices(){
+  const out=[];
+  dossiers.forEach(d=>{
+    const camps=detectCampaigns(d.rows,phase);
+    camps.forEach(c=>out.push({key:d.id+'#'+c.index,
+      label:`${d.name} — ${camps.length>1?c.label+(c.index===c.total-1?' ✓':' ✗'):'préparation'}`}));
+    if(camps.length>1) out.push({key:d.id+'#all',label:`${d.name} — ${camps.length} sessions réunies`});
+  });
+  return out;
+}
+function overlayCamp(){
+  if(!overlayKey) return null;
+  const [id,part]=overlayKey.split('#');
+  const d=dossiers.find(x=>x.id===id); if(!d) return null;
+  const camps=detectCampaigns(d.rows,phase); if(!camps.length) return null;
+  const camp=part==='all'?(camps.length>1?mergedCamp(camps):camps[0]):camps[+part];
+  if(!camp) return null;
+  const choice=overlayChoices().find(c=>c.key===overlayKey);
+  return {camp,name:choice?choice.label:d.name,dossier:d};
+}
 // campagne actuellement analysée : une session précise, ou toutes réunies
 function pickCamp(d){
   const camps=detectCampaigns(d.rows,phase);
@@ -535,6 +577,17 @@ function renderTiles(camp,d){
   const box=document.getElementById('readout');
   const g=globalLevelAtT(camp,camp.end.getTime()+EOD);
   const hs=hoursStats(camp);
+  /* Rappel des mêmes mesures pour le dossier superposé, intégré au gabarit :
+     une seule construction HTML, donc rien à recoller après coup. */
+  const ov=overlayCamp();
+  let ovLine=()=>'';
+  if(ov){
+    const og=globalLevelAtT(ov.camp,ov.camp.end.getTime()+EOD), oh=hoursStats(ov.camp);
+    const vals=[`${ov.camp.weeks} sem.`, og?`${fmt(og.v)}/9`:'–',
+      `${ov.camp.attempts} essais`, `${oh.hours.toFixed(0)} h · ${oh.perWeek.toFixed(1)} h/sem`];
+    ovLine=i=>`<div class="t-sub" style="color:${OV_COLOR};margin-top:6px;padding-top:6px;
+      border-top:1px solid var(--line)" title="${esc(ov.name)}">◆ ${vals[i]}</div>`;
+  }
   const outcome=camp.merged?{lab:`${camp.total} sessions`,col:'--muted'}
     :(d.me?{lab:'en cours',col:'--accent'}
       :(camp.index===camp.total-1?{lab:'réussite',col:'--s7'}:{lab:'tentative',col:'--s2'}));
@@ -543,21 +596,31 @@ function renderTiles(camp,d){
     <div class="tile"><div class="t-lab">📅 ${camp.merged?'Sessions réunies':'Période'}</div>
       <div class="t-val" style="font-size:17px">${camp.weeks} sem.${camp.merged?' <small>cumulées</small>':''}</div>
       <div class="t-sub">${fdate(camp.start)} → ${fdate(camp.end)}
-        <span class="tag" style="color:var(${outcome.col});border-color:var(${outcome.col})">${outcome.lab}</span></div></div>
+        <span class="tag" style="color:var(${outcome.col});border-color:var(${outcome.col})">${outcome.lab}</span></div>${ovLine(0)}</div>
     <div class="tile"><div class="t-lab">🎯 Niveau final</div>
       <div class="t-val" style="color:${g?bandColor(g.v):getCss('--muted')}">${g?fmt(g.v):'–'}<small>/9</small></div>
-      <div class="t-sub">moyenne sur ${g?g.n:0} exercice${g&&g.n>1?'s':''}</div></div>
+      <div class="t-sub">moyenne sur ${g?g.n:0} exercice${g&&g.n>1?'s':''}</div>${ovLine(1)}</div>
     <div class="tile"><div class="t-lab">🔁 Volume</div>
       <div class="t-val">${camp.attempts}<small> essais</small></div>
-      <div class="t-sub">${nEx} exercices · ${camp.activeDays} jours actifs</div></div>
+      <div class="t-sub">${nEx} exercices · ${camp.activeDays} jours actifs</div>${ovLine(2)}</div>
     <div class="tile"><div class="t-lab">⏱ Temps de travail</div>
       <div class="t-val">${hs.hours.toFixed(0)}<small> h</small></div>
-      <div class="t-sub">${hs.perWeek.toFixed(1)} h/sem · séance médiane ${Math.round(hs.medMin)} min</div></div>`;
+      <div class="t-sub">${hs.perWeek.toFixed(1)} h/sem · séance médiane ${Math.round(hs.medMin)} min</div>${ovLine(3)}</div>`;
 }
 
 function renderStrips(camp){
   const box=document.getElementById('strips');
   const pos=v=>((Math.max(1,Math.min(9,v))-1)/8)*100;
+  const ov=overlayCamp();
+  const ovName=ov?ov.name:'';
+  let ovMap=null;
+  if(ov){
+    ovMap=new Map();
+    byEx(ov.camp).forEach((arr,ex)=>{
+      const w=windowed(arr).map(r=>r.stanine);
+      if(w.length) ovMap.set(ex,mean(w));
+    });
+  }
   const rows=[];
   byEx(camp).forEach((arr,ex)=>{
     const w=windowed(arr).map(r=>r.stanine);
@@ -576,6 +639,8 @@ function renderStrips(camp){
     const lo=Math.min(pos(r.min),pos(r.max)), wdt=Math.abs(pos(r.max)-pos(r.min));
     const prog=r.lvl-r.first;
     const pcol=prog>=0.5?getCss('--s7'):prog<=-0.5?getCss('--s2'):getCss('--faint');
+    const ovv=ovMap?ovMap.get(r.ex):null;
+    const gap=ovv!==null&&ovv!==undefined?r.lvl-ovv:null;
     return `<div class="row${r.ex===focusEx?' sel':''}" data-ex="${esc(r.ex)}"
       role="button" tabindex="0" title="Voir le détail de « ${esc(r.ex)} »">
       <div class="ex">${esc(r.ex)}</div>
@@ -585,10 +650,15 @@ function renderStrips(camp){
              title="Niveau de départ : ${fmt(r.first)}"></div>
         <div class="mk" style="left:${pos(r.lvl)}%;background:${bandColor(r.lvl)}"
              title="Niveau retenu : ${fmt(r.lvl)}"></div>
+        ${ovv!==null&&ovv!==undefined?`<div class="ov" style="left:${pos(ovv)}%;background:${OV_COLOR}"
+             title="${esc(ovName)} : ${fmt(ovv)}"></div>`:''}
       </div>
       <div class="dl"><b style="color:${bandColor(r.lvl)}">${fmt(r.lvl)}</b>
         <span style="color:${pcol}">${prog>0?'+':''}${fmt(prog)}</span><br>
-        <span style="font-size:10px">${r.n} essai${r.n>1?'s':''}</span></div></div>`;
+        ${gap!==null
+          ? `<span style="font-size:10px;color:${gap>=0.3?getCss('--s7'):gap<=-0.3?getCss('--s2'):getCss('--faint')}">
+              ◆ ${gap>0?'+':''}${fmt(gap)}</span>`
+          : `<span style="font-size:10px">${r.n} essai${r.n>1?'s':''}</span>`}</div></div>`;
   }).join('')+
   `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`+
   `<div class="legend">
@@ -612,10 +682,12 @@ function renderStrips(camp){
    des classes obtenues, et les chiffres clés de la session. */
 function renderFocus(camp){
   const sel=document.getElementById('focusSel');
+  const ov=overlayCamp();          // déclaré avant tout usage dans la fonction
   const exs=[...byEx(camp).keys()].sort((a,b)=>a.localeCompare(b,'fr'));
   if(!exs.length){
     sel.innerHTML='<option>—</option>';
     document.getElementById('focusStats').innerHTML='';
+    document.getElementById('ovKeys').hidden=true;
     document.getElementById('progDesc').textContent='';
     document.getElementById('histDesc').textContent='';
     ['chProgEx','chHist'].forEach(k=>{ if(charts[k]){charts[k].destroy(); delete charts[k];} });
@@ -646,9 +718,12 @@ function renderFocus(camp){
   // progression essai par essai
   const useScore=unit==='score'&&scores.length;
   const pts=series.map((r,i)=>({x:i+1,y:useScore?r.score:r.stanine,d:r.date}));
+  const ovHas=ov&&byEx(ov.camp).has(focusEx);
   document.getElementById('progDesc').innerHTML=
     `<b>${esc(focusEx)}</b> — progression essai par essai${win>0?` (${series.length} derniers)`:''}, `+
-    `en ${useScore?'score brut':'classe stanine'}.`;
+    `en ${useScore?'score brut':'classe stanine'}.`+
+    (ov?(ovHas?` <span style="color:${OV_COLOR}">◆ superposé à ${esc(ov.name)}</span>`
+              :` <span style="color:var(--s3)">— exercice absent du dossier superposé</span>`):'');
   const o=baseOpts("n° d'essai",useScore?'score (%)':'classe stanine',!useScore);
   o.scales.x.type='linear';
   o.scales.x.ticks.precision=0;
@@ -656,11 +731,31 @@ function renderFocus(camp){
   o.plugins.tooltip.callbacks={
     title:it=>`Essai ${it[0].parsed.x} · ${fdate(pts[it[0].dataIndex].d)}`,
     label:it=>useScore?`${it.parsed.y} %`:`classe ${it.parsed.y}`};
-  mk('chProgEx','line',{datasets:[{data:pts,
-    borderColor:getCss('--accent'),backgroundColor:getCss('--accent'),
+  const dsP=[{label:'analysé',data:pts,
+    borderColor:MAIN_COLOR(),backgroundColor:MAIN_COLOR(),
     borderWidth:2.5,tension:.25,pointRadius:4,pointHoverRadius:7,
-    pointBackgroundColor:useScore?getCss('--accent'):st.map(bandColor),
-    pointBorderColor:'rgba(11,18,24,.85)',pointBorderWidth:1.2}]},o);
+    pointBackgroundColor:useScore?MAIN_COLOR():st.map(bandColor),
+    pointBorderColor:'rgba(11,18,24,.85)',pointBorderWidth:1.2}];
+  let ovSeries=null;
+  if(ov){
+    const oarr=byEx(ov.camp).get(focusEx);
+    if(oarr&&oarr.length){
+      ovSeries=windowed(oarr);
+      dsP.push({label:ov.name,
+        data:ovSeries.map((r,i)=>({x:i+1,y:useScore?r.score:r.stanine,d:r.date})),
+        borderColor:OV_COLOR,backgroundColor:OV_COLOR,borderWidth:2,borderDash:[6,4],
+        tension:.25,pointRadius:4,pointStyle:'rectRot',pointHoverRadius:7,
+        pointBorderColor:'rgba(11,18,24,.85)',pointBorderWidth:1.2});
+      o.plugins.tooltip.callbacks.title=it=>{
+        const src=it[0].datasetIndex===0?pts:ovSeries.map((r,i)=>({d:r.date}));
+        const p=src[it[0].dataIndex];
+        return `Essai ${it[0].parsed.x}${p&&p.d?' · '+fdate(p.d):''}`;
+      };
+      o.plugins.tooltip.callbacks.label=it=>
+        `${it.datasetIndex===0?'analysé':ov.name} : ${useScore?it.parsed.y+' %':'classe '+it.parsed.y}`;
+    }
+  }
+  mk('chProgEx','line',{datasets:dsP},o);
 
   // répartition des classes
   const counts=Array(9).fill(0);
@@ -673,8 +768,17 @@ function renderFocus(camp){
   o2.scales.y.ticks.precision=0;
   o2.plugins.tooltip.callbacks={title:c=>'Classe '+c[0].label,
     label:c=>`${c.raw} essai${c.raw>1?'s':''}`};
-  mk('chHist','bar',{labels:[1,2,3,4,5,6,7,8,9],
-    datasets:[{data:counts,backgroundColor:[1,2,3,4,5,6,7,8,9].map(bandColor),borderRadius:3}]},o2);
+  const dsH=[{label:'analysé',data:counts,
+    backgroundColor:[1,2,3,4,5,6,7,8,9].map(bandColor),borderRadius:3}];
+  if(ovSeries){
+    const oc=Array(9).fill(0);
+    ovSeries.forEach(r=>oc[Math.min(9,Math.max(1,r.stanine))-1]++);
+    dsH.push({label:ov.name,data:oc,backgroundColor:OV_COLOR+'cc',
+      borderColor:OV_COLOR,borderWidth:1,borderRadius:3});
+    o2.plugins.tooltip.callbacks.label=c=>
+      `${c.datasetIndex===0?'analysé':ov.name} : ${c.raw} essai${c.raw>1?'s':''}`;
+  }
+  mk('chHist','bar',{labels:[1,2,3,4,5,6,7,8,9],datasets:dsH},o2);
 }
 
 function renderVolume(camp){
@@ -698,10 +802,23 @@ function renderVolume(camp){
     const e=entries[c.dataIndex];
     return `${e.n} essai${e.n>1?'s':''} · niveau ${fmt(e.lvl)}`;
   }};
-  mk('chVol','bar',{labels:entries.map(e=>e.ex),datasets:[{
-    data:entries.map(e=>e.n),
+  const ov=overlayCamp();
+  const ds=[{label:'analysé',data:entries.map(e=>e.n),
     backgroundColor:entries.map(e=>e.lvl===null?getCss('--faint'):bandColor(e.lvl)),
-    borderRadius:3}]},o);
+    borderRadius:3}];
+  if(ov){
+    const om=byEx(ov.camp);
+    ds.push({label:ov.name,data:entries.map(e=>(om.get(e.ex)||[]).length),
+      backgroundColor:OV_COLOR+'cc',borderColor:OV_COLOR,borderWidth:1,borderRadius:3});
+    o.plugins.tooltip.callbacks={label:c=>{
+      const e=entries[c.dataIndex];
+      return c.datasetIndex===0
+        ? `${e.n} essai${e.n>1?'s':''} · niveau ${fmt(e.lvl)}`
+        : `${ov.name} : ${c.raw} essai${c.raw>1?'s':''}`;
+    }};
+    if(box) box.style.height=Math.min(Math.max(260,entries.length*34),1100)+'px';
+  }
+  mk('chVol','bar',{labels:entries.map(e=>e.ex),datasets:ds},o);
 }
 
 function renderProgress(camp){
@@ -722,15 +839,45 @@ function renderProgress(camp){
   o.scales.x.type='linear'; o.scales.x.ticks.callback=lab;
   o.plugins.tooltip.callbacks={title:it=>lab(it[0].parsed.x),
     label:it=>`niveau ${fmt(it.parsed.y)}`+(it.raw&&it.raw.n?` (sur ${it.raw.n} exercices)`:'')};
-  mk('chProg','line',{datasets:[{data:glob,borderColor:getCss('--accent'),
-    backgroundColor:getCss('--accent'),borderWidth:3,pointRadius:4,pointHoverRadius:7,tension:.3}]},o);
+  const ov=overlayCamp();
+  const series=(c)=>{
+    const t0=c.start.getTime(), te=c.end.getTime()+EOD, g=[],v=[];
+    for(let w=0;;w++){
+      const nom=t0+w*7*DAY, cut=Math.min(nom+EOD,te);
+      const gg=globalLevelAtT(c,cut);
+      const wk=c.campRows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-7*DAY).length;
+      const x=Math.round((cut-te)/(7*DAY)*10)/10;
+      if(gg) g.push({x,y:Math.round(gg.v*100)/100,n:gg.n});
+      v.push({x,y:wk});
+      if(nom+EOD>=te||w>400) break;
+    }
+    return {g,v};
+  };
+  const dsG=[{label:'analysé',data:glob,borderColor:MAIN_COLOR(),backgroundColor:MAIN_COLOR(),
+    borderWidth:3,pointRadius:4,pointHoverRadius:7,tension:.3}];
+  let ovS=null;
+  if(ov){
+    ovS=series(ov.camp);
+    dsG.push({label:ov.name,data:ovS.g,borderColor:OV_COLOR,backgroundColor:OV_COLOR,
+      borderWidth:2.5,borderDash:[6,4],pointRadius:4,pointStyle:'rectRot',pointHoverRadius:7,tension:.3});
+    o.plugins.tooltip.callbacks.label=it=>
+      `${it.datasetIndex===0?'analysé':ov.name} : ${fmt(it.parsed.y)}`;
+  }
+  mk('chProg','line',{datasets:dsG},o);
 
   const o2=baseOpts(xt,'essais / semaine',false);
   o2.scales.x={type:'category',ticks:{color:getCss('--faint'),
     font:{family:'IBM Plex Mono',size:chartFont(9)},maxRotation:0,autoSkip:true},grid:{display:false}};
   o2.plugins.tooltip.callbacks={label:it=>`${it.parsed.y} essai${it.parsed.y>1?'s':''}`};
-  mk('chWeek','bar',{labels:vol.map(p=>lab(p.x)),datasets:[{data:vol.map(p=>p.y),
-    backgroundColor:getCss('--accent')+'cc',borderRadius:3}]},o2);
+  const labs=[...new Set([...vol.map(p=>p.x),...(ovS?ovS.v.map(p=>p.x):[])])].sort((a,b)=>a-b);
+  const pick=(arr,x)=>{const p=arr.find(q=>Math.abs(q.x-x)<0.05); return p?p.y:null;};
+  const dsW=[{label:'analysé',data:labs.map(x=>pick(vol,x)),
+    backgroundColor:MAIN_COLOR()+'cc',borderRadius:3}];
+  if(ovS) dsW.push({label:ov.name,data:labs.map(x=>pick(ovS.v,x)),
+    backgroundColor:OV_COLOR+'cc',borderColor:OV_COLOR,borderWidth:1,borderRadius:3});
+  if(ov) o2.plugins.tooltip.callbacks.label=it=>
+    `${it.datasetIndex===0?'analysé':ov.name} : ${it.parsed.y} essai${it.parsed.y>1?'s':''}`;
+  mk('chWeek','bar',{labels:labs.map(lab),datasets:dsW},o2);
 }
 
 function renderClock(camp){
@@ -741,9 +888,19 @@ function renderClock(camp){
   o.scales.x={type:'category',ticks:{color:getCss('--faint'),
     font:{family:'IBM Plex Mono',size:chartFont(9)},maxRotation:60},grid:{display:false}};
   o.plugins.tooltip.callbacks={label:it=>`${fmt(it.parsed.y)} % des essais`};
+  const ov=overlayCamp();
+  const ds=[{label:'analysé',data:bins.map(n=>Math.round(n/tot*1000)/10),
+    backgroundColor:MAIN_COLOR()+'cc',borderRadius:3}];
+  if(ov){
+    const os=hoursStats(ov.camp), ot=ov.camp.campRows.length||1, ob=Array(12).fill(0);
+    os.byH.forEach((n,hh)=>ob[Math.floor(hh/2)]+=n);
+    ds.push({label:ov.name,data:ob.map(n=>Math.round(n/ot*1000)/10),
+      backgroundColor:OV_COLOR+'cc',borderColor:OV_COLOR,borderWidth:1,borderRadius:3});
+    o.plugins.tooltip.callbacks.label=it=>
+      `${it.datasetIndex===0?'analysé':ov.name} : ${fmt(it.parsed.y)} %`;
+  }
   mk('chClock','bar',{labels:bins.map((_,i)=>`${String(i*2).padStart(2,'0')}–${String(i*2+2).padStart(2,'0')}h`),
-    datasets:[{data:bins.map(n=>Math.round(n/tot*1000)/10),
-      backgroundColor:getCss('--accent')+'cc',borderRadius:3}]},o);
+    datasets:ds},o);
 }
 
 function renderHeatmap(camp){
@@ -785,13 +942,16 @@ function renderHeatmap(camp){
 
 function renderHours(camp,d){
   const s=hoursStats(camp);
+  const line=(name,st,col)=>`<tr><td>${col?`<span style="color:${col}">◆</span> `:''}${esc(name)}</td>
+    <td>${st.hours.toFixed(1)} h</td><td><b>${st.perWeek.toFixed(1)} h</b></td>
+    <td>${st.perDay.toFixed(1)} h</td><td>${st.sessions}</td>
+    <td>${Math.round(st.medMin)} min</td><td>${st.peak}h</td></tr>`;
+  const ov=overlayCamp();
   document.getElementById('hoursTbl').innerHTML=`<table><thead>
     <tr><th>Dossier</th><th>Total</th><th>Par semaine</th><th>Par jour actif</th>
     <th>Séances</th><th>Séance médiane</th><th>Pic</th></tr></thead><tbody>
-    <tr><td>${esc(d.name)} · ${esc(camp.merged?camp.total+' sessions réunies':camp.label)}</td>
-    <td>${s.hours.toFixed(1)} h</td><td><b>${s.perWeek.toFixed(1)} h</b></td>
-    <td>${s.perDay.toFixed(1)} h</td><td>${s.sessions}</td>
-    <td>${Math.round(s.medMin)} min</td><td>${s.peak}h</td></tr></tbody></table>`;
+    ${line(`${d.name} · ${camp.merged?camp.total+' sessions réunies':camp.label}`,s,null)}
+    ${ov?line(ov.name,hoursStats(ov.camp),OV_COLOR):''}</tbody></table>`;
 }
 
 /* ----------------------- Orchestration ----------------------- */
@@ -820,6 +980,7 @@ function render(){
     document.getElementById('strips').innerHTML='';
     document.getElementById('segSess').innerHTML='';
     document.getElementById('focusStats').innerHTML='';
+    document.getElementById('ovKeys').hidden=true;
     Object.keys(charts).forEach(k=>{charts[k].destroy();delete charts[k];});
     ['heatmap','hmStats','hoursTbl'].forEach(id=>document.getElementById(id).innerHTML='');
     return;
@@ -828,6 +989,7 @@ function render(){
   if(sessIdx!=='all'&&(sessIdx===null||sessIdx>=camps.length)) sessIdx=camps.length?camps.length-1:0;
   if(sessIdx==='all'&&camps.length<2) sessIdx=camps.length?camps.length-1:0;
   renderSessionSeg(camps);
+  renderOverlaySelect();
   if(!camps.length){
     box.innerHTML=`<div class="tile" style="grid-column:1/-1"><div class="t-lab">${esc(d.name)}</div>
       <div class="t-sub" style="font-size:11.5px;margin-top:8px;color:var(--s3)">
@@ -846,6 +1008,27 @@ function render(){
   renderClock(camp);
   renderHeatmap(camp);
   renderHours(camp,d);
+}
+function renderOverlaySelect(){
+  const sel=document.getElementById('ovSel');
+  const d=current();
+  // on ne propose pas de superposer une session à elle-même
+  const selfKey=d?`${d.id}#${sessIdx==='all'?'all':sessIdx}`:'';
+  const opts=overlayChoices().filter(c=>c.key!==selfKey);
+  if(!opts.some(c=>c.key===overlayKey)) overlayKey='';
+  sel.innerHTML=`<option value="">— aucune superposition</option>`+
+    opts.map(c=>`<option value="${esc(c.key)}"${c.key===overlayKey?' selected':''}>${esc(c.label)}</option>`).join('');
+  sel.value=overlayKey;
+  const keys=document.getElementById('ovKeys');
+  const ov=overlayCamp();
+  if(!ov){ keys.hidden=true; keys.innerHTML=''; return; }
+  keys.hidden=false;
+  keys.innerHTML=`
+    <span class="k"><i style="background:${MAIN_COLOR()}"></i>
+      <i class="dot" style="background:${MAIN_COLOR()}"></i>Dossier analysé</span>
+    <span class="k"><i style="background:${OV_COLOR}"></i>
+      <i class="dia" style="background:${OV_COLOR}"></i>${esc(ov.name)}</span>
+    <span style="color:var(--faint)">La régularité reste celle du dossier analysé.</span>`;
 }
 function renderWho(){
   const sel=document.getElementById('whoSel');
@@ -868,6 +1051,9 @@ document.getElementById('segPhase').addEventListener('click',e=>{
   phase=b.dataset.v; sessIdx=null; focusEx=null;
   [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
   renderWho(); render();
+});
+document.getElementById('ovSel').addEventListener('change',e=>{
+  overlayKey=e.target.value; render();
 });
 document.getElementById('focusSel').addEventListener('change',e=>{
   focusEx=e.target.value;
