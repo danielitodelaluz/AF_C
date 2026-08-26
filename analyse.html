@@ -100,6 +100,19 @@
   .legend{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px}
   .legend span{display:inline-flex;align-items:center;gap:6px}
 
+  /* Focus */
+  .focus{scroll-margin-top:14px}
+  .focus-head{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:flex-start}
+  .focus-ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .focus-stats{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 16px}
+  .fs{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;
+    font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .fs b{color:var(--ink);font-size:13px}
+  .row{cursor:pointer;border-radius:8px;transition:background .12s}
+  .row:hover{background:var(--panel2)}
+  .row.sel{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+  .row:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+
   /* Régularité */
   .hm-stats{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-bottom:12px}
   .hm-stats b{color:var(--ink)}
@@ -178,6 +191,33 @@
     <h2>Niveau par exercice</h2>
     <p class="desc" id="stripsDesc"></p>
     <div id="strips"></div>
+  </div>
+
+  <div class="panel focus" id="sec-focus">
+    <div class="focus-head">
+      <div>
+        <h2>Focus sur un exercice</h2>
+        <p class="desc">Cliquer un exercice ci-dessus, ou le choisir ici. « Score % » montre la progression fine lorsque la classe ne bouge pas.</p>
+      </div>
+      <div class="focus-ctl">
+        <select id="focusSel" aria-label="Choix de l'exercice"></select>
+        <div class="seg" id="segUnit">
+          <button data-v="stanine" aria-pressed="true">Classe</button>
+          <button data-v="score" aria-pressed="false">Score %</button>
+        </div>
+      </div>
+    </div>
+    <div class="focus-stats" id="focusStats"></div>
+    <div class="grid">
+      <div>
+        <p class="desc" id="progDesc"></p>
+        <div class="chartbox"><canvas id="chProgEx"></canvas></div>
+      </div>
+      <div>
+        <p class="desc" id="histDesc"></p>
+        <div class="chartbox"><canvas id="chHist"></canvas></div>
+      </div>
+    </div>
   </div>
 
   <div class="grid">
@@ -376,6 +416,7 @@ function detectCampaigns(rows,ph){
 /* ----------------------- État ----------------------- */
 let dossiers=[];        // [{id,name,rows,me}]
 let whoId='me', phase='psy0', sessIdx=null, win=0;
+let focusEx=null, unit='stanine';   // exercice détaillé dans le panneau Focus
 const charts={};
 
 function loadDossiers(){
@@ -510,8 +551,9 @@ function renderStrips(camp){
     const lo=Math.min(pos(r.min),pos(r.max)), wdt=Math.abs(pos(r.max)-pos(r.min));
     const prog=r.lvl-r.first;
     const pcol=prog>=0.5?getCss('--s7'):prog<=-0.5?getCss('--s2'):getCss('--faint');
-    return `<div class="row">
-      <div class="ex" title="${esc(r.ex)}">${esc(r.ex)}</div>
+    return `<div class="row${r.ex===focusEx?' sel':''}" data-ex="${esc(r.ex)}"
+      role="button" tabindex="0" title="Voir le détail de « ${esc(r.ex)} »">
+      <div class="ex">${esc(r.ex)}</div>
       <div class="tape">
         <div class="range" style="left:${lo}%;width:${Math.max(wdt,1.5)}%"></div>
         <div class="first" style="left:${pos(r.first)}%;background:${bandColor(r.first)}"
@@ -527,7 +569,87 @@ function renderStrips(camp){
   `<div class="legend">
      <span>chiffre = niveau retenu · à côté, l'écart avec le niveau de départ</span>
      <span>capsule = amplitude min–max sur la fenêtre</span>
+     <span>cliquer une ligne pour en voir le détail</span>
    </div>`;
+  // un clic (ou Entrée) ouvre l'exercice dans le panneau Focus
+  box.querySelectorAll('.row[data-ex]').forEach(el=>{
+    const open=()=>{
+      focusEx=el.dataset.ex;
+      renderStrips(camp); renderFocus(camp);
+      document.getElementById('sec-focus').scrollIntoView({behavior:'smooth',block:'start'});
+    };
+    el.addEventListener('click',open);
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
+  });
+}
+
+/* Focus : le détail d'un exercice — progression essai par essai, répartition
+   des classes obtenues, et les chiffres clés de la session. */
+function renderFocus(camp){
+  const sel=document.getElementById('focusSel');
+  const exs=[...byEx(camp).keys()].sort((a,b)=>a.localeCompare(b,'fr'));
+  if(!exs.length){
+    sel.innerHTML='<option>—</option>';
+    document.getElementById('focusStats').innerHTML='';
+    document.getElementById('progDesc').textContent='';
+    document.getElementById('histDesc').textContent='';
+    ['chProgEx','chHist'].forEach(k=>{ if(charts[k]){charts[k].destroy(); delete charts[k];} });
+    return;
+  }
+  if(!focusEx||!exs.includes(focusEx)) focusEx=exs[0];
+  sel.innerHTML=exs.map(e=>`<option value="${esc(e)}"${e===focusEx?' selected':''}>${esc(e)}</option>`).join('');
+  sel.value=focusEx;
+
+  const all=byEx(camp).get(focusEx);
+  const series=windowed(all);
+  const st=series.map(r=>r.stanine);
+  const first=mean(all.slice(0,Math.min(LASTK,all.length)).map(r=>r.stanine));
+  const lvl=mean(st), prog=lvl-first;
+  const days=new Set(series.map(r=>dayIdx(r.date))).size;
+  const pcol=prog>=0.5?getCss('--s7'):prog<=-0.5?getCss('--s2'):getCss('--faint');
+  const scores=series.map(r=>r.score).filter(v=>v!==null);
+  document.getElementById('focusStats').innerHTML=`
+    <span class="fs">Niveau <b style="color:${bandColor(lvl)}">${fmt(lvl)}</b>/9</span>
+    <span class="fs">Départ <b>${fmt(first)}</b> → <b style="color:${pcol}">${prog>0?'+':''}${fmt(prog)}</b></span>
+    <span class="fs">Essais <b>${all.length}</b>${win>0&&series.length<all.length?` (${series.length} retenus)`:''}</span>
+    <span class="fs">Amplitude <b>${Math.min(...st)}</b> – <b>${Math.max(...st)}</b></span>
+    <span class="fs">Meilleur <b style="color:${bandColor(Math.max(...st))}">${Math.max(...st)}</b></span>
+    <span class="fs">Répartis sur <b>${days}</b> jour${days>1?'s':''}</span>
+    ${scores.length?`<span class="fs">Score moyen <b>${Math.round(mean(scores))} %</b></span>`:''}
+    <span class="fs">Dernier essai <b>${fdate(series[series.length-1].date)}</b></span>`;
+
+  // progression essai par essai
+  const useScore=unit==='score'&&scores.length;
+  const pts=series.map((r,i)=>({x:i+1,y:useScore?r.score:r.stanine,d:r.date}));
+  document.getElementById('progDesc').innerHTML=
+    `<b>${esc(focusEx)}</b> — progression essai par essai${win>0?` (${series.length} derniers)`:''}, `+
+    `en ${useScore?'score brut':'classe stanine'}.`;
+  const o=baseOpts("n° d'essai",useScore?'score (%)':'classe stanine',!useScore);
+  o.scales.x.type='linear';
+  o.scales.x.ticks.precision=0;
+  if(useScore){ o.scales.y.min=0; o.scales.y.max=100; }
+  o.plugins.tooltip.callbacks={
+    title:it=>`Essai ${it[0].parsed.x} · ${fdate(pts[it[0].dataIndex].d)}`,
+    label:it=>useScore?`${it.parsed.y} %`:`classe ${it.parsed.y}`};
+  mk('chProgEx','line',{datasets:[{data:pts,
+    borderColor:getCss('--accent'),backgroundColor:getCss('--accent'),
+    borderWidth:2.5,tension:.25,pointRadius:4,pointHoverRadius:7,
+    pointBackgroundColor:useScore?getCss('--accent'):st.map(bandColor),
+    pointBorderColor:'rgba(11,18,24,.85)',pointBorderWidth:1.2}]},o);
+
+  // répartition des classes
+  const counts=Array(9).fill(0);
+  st.forEach(v=>counts[Math.min(9,Math.max(1,v))-1]++);
+  document.getElementById('histDesc').innerHTML=
+    `<b>${esc(focusEx)}</b> — répartition des essais par classe.`;
+  const o2=baseOpts('classe (stanine)','essais',false);
+  o2.scales.x={type:'category',ticks:{color:getCss('--faint'),
+    font:{family:'IBM Plex Mono',size:chartFont(10)}},grid:{display:false}};
+  o2.scales.y.ticks.precision=0;
+  o2.plugins.tooltip.callbacks={title:c=>'Classe '+c[0].label,
+    label:c=>`${c.raw} essai${c.raw>1?'s':''}`};
+  mk('chHist','bar',{labels:[1,2,3,4,5,6,7,8,9],
+    datasets:[{data:counts,backgroundColor:[1,2,3,4,5,6,7,8,9].map(bandColor),borderRadius:3}]},o2);
 }
 
 function renderVolume(camp){
@@ -663,6 +785,7 @@ function render(){
       sur la <a href="comparaison.html" style="color:var(--accent)">page Comparaison</a>.</div></div>`;
     document.getElementById('strips').innerHTML='';
     document.getElementById('segSess').innerHTML='';
+    document.getElementById('focusStats').innerHTML='';
     Object.keys(charts).forEach(k=>{charts[k].destroy();delete charts[k];});
     ['heatmap','hmStats','hoursTbl'].forEach(id=>document.getElementById(id).innerHTML='');
     return;
@@ -682,6 +805,7 @@ function render(){
   const camp=camps[sessIdx];
   renderTiles(camp,d);
   renderStrips(camp);
+  renderFocus(camp);
   renderVolume(camp);
   renderProgress(camp);
   renderClock(camp);
@@ -702,20 +826,34 @@ function renderWho(){
 
 /* ----------------------- Événements ----------------------- */
 document.getElementById('whoSel').addEventListener('change',e=>{
-  whoId=e.target.value; sessIdx=null; render();
+  whoId=e.target.value; sessIdx=null; focusEx=null; render();
 });
 document.getElementById('segPhase').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
-  phase=b.dataset.v; sessIdx=null;
+  phase=b.dataset.v; sessIdx=null; focusEx=null;
   [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
   renderWho(); render();
+});
+document.getElementById('focusSel').addEventListener('change',e=>{
+  focusEx=e.target.value;
+  const d=current(); if(!d) return;
+  const camps=detectCampaigns(d.rows,phase);
+  if(camps[sessIdx]){ renderStrips(camps[sessIdx]); renderFocus(camps[sessIdx]); }
+});
+document.getElementById('segUnit').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  unit=b.dataset.v;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  const d=current(); if(!d) return;
+  const camps=detectCampaigns(d.rows,phase);
+  if(camps[sessIdx]) renderFocus(camps[sessIdx]);
 });
 const wr=document.getElementById('winRange'), wv=document.getElementById('winVal');
 wr.addEventListener('input',()=>{
   win=+wr.value; wv.textContent=win===0?'Tous':('n = '+win);
   const d=current(); if(!d) return;
   const camps=detectCampaigns(d.rows,phase);
-  if(camps[sessIdx]){ renderStrips(camps[sessIdx]); renderVolume(camps[sessIdx]); }
+  if(camps[sessIdx]){ renderStrips(camps[sessIdx]); renderVolume(camps[sessIdx]); renderFocus(camps[sessIdx]); }
 });
 window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize()); });
 
