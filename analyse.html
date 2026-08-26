@@ -235,7 +235,7 @@
 
   <div class="panel">
     <h2>Régularité d'entraînement</h2>
-    <p class="desc">Essais par jour sur la durée de la session.</p>
+    <p class="desc" id="hmDesc">Essais par jour sur la durée de la session.</p>
     <div class="hm-stats" id="hmStats"></div>
     <div class="hm-scroll" id="heatmap"></div>
   </div>
@@ -413,6 +413,23 @@ function detectCampaigns(rows,ph){
   });
 }
 
+/* Vue « toutes les sessions » : une campagne virtuelle réunissant les essais
+   de toutes les périodes. Les semaines cumulées excluent les creux entre
+   sessions, sinon le rythme hebdomadaire serait mécaniquement sous-estimé. */
+function mergedCamp(camps){
+  const rows=camps.flatMap(c=>c.campRows).slice().sort((a,b)=>a.date-b.date);
+  return {
+    index:-1, total:camps.length, merged:true,
+    start:camps[0].start, end:camps[camps.length-1].end,
+    campRows:rows,
+    activeDays:camps.reduce((s,c)=>s+c.activeDays,0),
+    attempts:rows.length,
+    weeks:camps.reduce((s,c)=>s+c.weeks,0),
+    label:`${camps.length} sessions`,
+    parts:camps
+  };
+}
+
 /* ----------------------- État ----------------------- */
 let dossiers=[];        // [{id,name,rows,me}]
 let whoId='me', phase='psy0', sessIdx=null, win=0;
@@ -434,6 +451,12 @@ function loadDossiers(){
   });
 }
 const current=()=>dossiers.find(d=>d.id===whoId)||dossiers[0]||null;
+// campagne actuellement analysée : une session précise, ou toutes réunies
+function pickCamp(d){
+  const camps=detectCampaigns(d.rows,phase);
+  if(!camps.length) return null;
+  return sessIdx==='all'&&camps.length>1?mergedCamp(camps):camps[Math.min(sessIdx||0,camps.length-1)];
+}
 
 /* ----------------------- Mesures ----------------------- */
 const LASTK=5;
@@ -476,7 +499,7 @@ function hoursStats(camp){
   const bl=workBlocks(camp);
   const totMin=bl.reduce((s,b)=>s+b.min,0);
   const days=new Set(camp.campRows.map(r=>dayIdx(r.date))).size;
-  const spanW=Math.max(1,(camp.end-camp.start)/(7*DAY)+1);
+  const spanW=Math.max(1,camp.weeks);   // semaines travaillées, creux exclus
   const durs=bl.map(b=>b.min).sort((a,b)=>a-b);
   const byH=Array(24).fill(0);
   camp.campRows.forEach(r=>byH[r.date.getHours()]++);
@@ -512,12 +535,13 @@ function renderTiles(camp,d){
   const box=document.getElementById('readout');
   const g=globalLevelAtT(camp,camp.end.getTime()+EOD);
   const hs=hoursStats(camp);
-  const outcome=d.me?{lab:'en cours',col:'--accent'}
-    :(camp.index===camp.total-1?{lab:'réussite',col:'--s7'}:{lab:'tentative',col:'--s2'});
+  const outcome=camp.merged?{lab:`${camp.total} sessions`,col:'--muted'}
+    :(d.me?{lab:'en cours',col:'--accent'}
+      :(camp.index===camp.total-1?{lab:'réussite',col:'--s7'}:{lab:'tentative',col:'--s2'}));
   const nEx=byEx(camp).size;
   box.innerHTML=`
-    <div class="tile"><div class="t-lab">📅 Période</div>
-      <div class="t-val" style="font-size:17px">${camp.weeks} sem.</div>
+    <div class="tile"><div class="t-lab">📅 ${camp.merged?'Sessions réunies':'Période'}</div>
+      <div class="t-val" style="font-size:17px">${camp.weeks} sem.${camp.merged?' <small>cumulées</small>':''}</div>
       <div class="t-sub">${fdate(camp.start)} → ${fdate(camp.end)}
         <span class="tag" style="color:var(${outcome.col});border-color:var(${outcome.col})">${outcome.lab}</span></div></div>
     <div class="tile"><div class="t-lab">🎯 Niveau final</div>
@@ -545,7 +569,8 @@ function renderStrips(camp){
   if(!rows.length){ box.innerHTML='<div class="empty">Aucun exercice pour cette phase.</div>'; return; }
   rows.sort((a,b)=>a.lvl-b.lvl||a.ex.localeCompare(b.ex,'fr'));
   document.getElementById('stripsDesc').innerHTML=
-    `Niveau sur ${win>0?`les <b>${win} derniers essais</b>`:'<b>tous les essais</b>'} de la session, à l'échelle stanine. `+
+    `Niveau sur ${win>0?`les <b>${win} derniers essais</b>`:'<b>tous les essais</b>'} `+
+    `${camp.merged?'de toutes les sessions réunies':'de la session'}, à l'échelle stanine. `+
     `Le petit point rappelle le niveau de départ, la capsule l'amplitude min–max. Les exercices les plus faibles sont en haut.`;
   box.innerHTML=rows.map(r=>{
     const lo=Math.min(pos(r.min),pos(r.max)), wdt=Math.abs(pos(r.max)-pos(r.min));
@@ -692,14 +717,15 @@ function renderProgress(camp){
     if(nominal+EOD>=tEnd||w>400) break;
   }
   const lab=v=>{const n=Math.round(v);return n===0?'fin':`S−${Math.abs(n)}`;};
-  const o=baseOpts("semaines avant la fin de la session",'classe stanine',true);
+  const xt=camp.merged?"semaines avant le dernier essai":"semaines avant la fin de la session";
+  const o=baseOpts(xt,'classe stanine',true);
   o.scales.x.type='linear'; o.scales.x.ticks.callback=lab;
   o.plugins.tooltip.callbacks={title:it=>lab(it[0].parsed.x),
     label:it=>`niveau ${fmt(it.parsed.y)}`+(it.raw&&it.raw.n?` (sur ${it.raw.n} exercices)`:'')};
   mk('chProg','line',{datasets:[{data:glob,borderColor:getCss('--accent'),
     backgroundColor:getCss('--accent'),borderWidth:3,pointRadius:4,pointHoverRadius:7,tension:.3}]},o);
 
-  const o2=baseOpts("semaines avant la fin de la session",'essais / semaine',false);
+  const o2=baseOpts(xt,'essais / semaine',false);
   o2.scales.x={type:'category',ticks:{color:getCss('--faint'),
     font:{family:'IBM Plex Mono',size:chartFont(9)},maxRotation:0,autoSkip:true},grid:{display:false}};
   o2.plugins.tooltip.callbacks={label:it=>`${it.parsed.y} essai${it.parsed.y>1?'s':''}`};
@@ -740,6 +766,9 @@ function renderHeatmap(camp){
     }
     cols.push(`<div class="hm-col">${col.join('')}</div>`);
   }
+  document.getElementById('hmDesc').textContent=camp.merged
+    ? "Essais par jour sur l'ensemble des sessions — les creux entre périodes restent visibles."
+    : "Essais par jour sur la durée de la session.";
   box.innerHTML=`<div class="hm-body">
     <div class="hm-days">${['L','M','M','J','V','S','D'].map(d=>`<span>${d}</span>`).join('')}</div>
     <div class="hm-grid">${cols.join('')}</div></div>`;
@@ -747,8 +776,11 @@ function renderHeatmap(camp){
   let best=0,run=0;
   for(let k=startK;k<=endK;k++){ if(byDay.get(k)){ run++; best=Math.max(best,run); } else run=0; }
   const perDay=camp.attempts/Math.max(1,camp.activeDays);
-  statsEl.innerHTML=`<b>${camp.activeDays}</b> jours actifs sur ${endK-startK+1} · `+
-    `plus longue série : <b>${best} j</b> · <b>${perDay.toFixed(1)}</b> essais par jour actif`;
+  statsEl.innerHTML=(camp.merged
+      ? `<b>${camp.activeDays}</b> jours actifs répartis sur ${camp.total} sessions · `
+      : `<b>${camp.activeDays}</b> jours actifs sur ${endK-startK+1} · `)+
+    `plus longue série : <b>${best} j</b> · <b>${perDay.toFixed(1)}</b> essais par jour actif`+
+    (camp.merged?` <span style="color:var(--faint)">— les colonnes vides séparent les sessions</span>`:'');
 }
 
 function renderHours(camp,d){
@@ -756,7 +788,7 @@ function renderHours(camp,d){
   document.getElementById('hoursTbl').innerHTML=`<table><thead>
     <tr><th>Dossier</th><th>Total</th><th>Par semaine</th><th>Par jour actif</th>
     <th>Séances</th><th>Séance médiane</th><th>Pic</th></tr></thead><tbody>
-    <tr><td>${esc(d.name)} · ${esc(camp.label)}</td>
+    <tr><td>${esc(d.name)} · ${esc(camp.merged?camp.total+' sessions réunies':camp.label)}</td>
     <td>${s.hours.toFixed(1)} h</td><td><b>${s.perWeek.toFixed(1)} h</b></td>
     <td>${s.perDay.toFixed(1)} h</td><td>${s.sessions}</td>
     <td>${Math.round(s.medMin)} min</td><td>${s.peak}h</td></tr></tbody></table>`;
@@ -770,9 +802,11 @@ function renderSessionSeg(camps){
     const last=c.index===c.total-1;
     return `<button data-i="${c.index}" aria-pressed="${c.index===sessIdx}">${
       camps.length>1?`${c.label}${last?' ✓':' ✗'}`:'Préparation'}</button>`;
-  }).join('');
+  }).join('')+(camps.length>1
+    ? `<button data-i="all" aria-pressed="${sessIdx==='all'}" title="Réunir les essais de toutes les sessions">Toutes</button>`
+    : '');
   seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
-    sessIdx=+b.dataset.i; render();
+    sessIdx=b.dataset.i==='all'?'all':+b.dataset.i; render();
   }));
 }
 function render(){
@@ -791,7 +825,8 @@ function render(){
     return;
   }
   const camps=detectCampaigns(d.rows,phase);
-  if(sessIdx===null||sessIdx>=camps.length) sessIdx=camps.length?camps.length-1:0;
+  if(sessIdx!=='all'&&(sessIdx===null||sessIdx>=camps.length)) sessIdx=camps.length?camps.length-1:0;
+  if(sessIdx==='all'&&camps.length<2) sessIdx=camps.length?camps.length-1:0;
   renderSessionSeg(camps);
   if(!camps.length){
     box.innerHTML=`<div class="tile" style="grid-column:1/-1"><div class="t-lab">${esc(d.name)}</div>
@@ -802,7 +837,7 @@ function render(){
     ['heatmap','hmStats','hoursTbl'].forEach(id=>document.getElementById(id).innerHTML='');
     return;
   }
-  const camp=camps[sessIdx];
+  const camp=sessIdx==='all'?mergedCamp(camps):camps[sessIdx];
   renderTiles(camp,d);
   renderStrips(camp);
   renderFocus(camp);
@@ -837,23 +872,23 @@ document.getElementById('segPhase').addEventListener('click',e=>{
 document.getElementById('focusSel').addEventListener('change',e=>{
   focusEx=e.target.value;
   const d=current(); if(!d) return;
-  const camps=detectCampaigns(d.rows,phase);
-  if(camps[sessIdx]){ renderStrips(camps[sessIdx]); renderFocus(camps[sessIdx]); }
+  const c=pickCamp(d);
+  if(c){ renderStrips(c); renderFocus(c); }
 });
 document.getElementById('segUnit').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
   unit=b.dataset.v;
   [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
   const d=current(); if(!d) return;
-  const camps=detectCampaigns(d.rows,phase);
-  if(camps[sessIdx]) renderFocus(camps[sessIdx]);
+  const c=pickCamp(d);
+  if(c) renderFocus(c);
 });
 const wr=document.getElementById('winRange'), wv=document.getElementById('winVal');
 wr.addEventListener('input',()=>{
   win=+wr.value; wv.textContent=win===0?'Tous':('n = '+win);
   const d=current(); if(!d) return;
-  const camps=detectCampaigns(d.rows,phase);
-  if(camps[sessIdx]){ renderStrips(camps[sessIdx]); renderVolume(camps[sessIdx]); renderFocus(camps[sessIdx]); }
+  const c=pickCamp(d);
+  if(c){ renderStrips(c); renderVolume(c); renderFocus(c); }
 });
 window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize()); });
 
