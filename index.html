@@ -82,6 +82,23 @@
   .import-sub.ok{color:var(--green)} .import-sub.err{color:var(--red)}
 
   /* Panels grid */
+  /* Frise des séances (Focus) */
+  .frise-wrap{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+  .frise-wrap h3{font-size:13px;margin:0 0 4px;font-weight:600}
+  .frise{position:relative;height:52px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;overflow:hidden}
+  .frise::after{content:"";position:absolute;left:0;right:0;bottom:14px;height:1px;background:var(--line)}
+  .fri-d{position:absolute;bottom:14px;width:5px;border-radius:2px 2px 0 0;transform:translateX(-50%);
+    cursor:default}
+  .fri-gap{position:absolute;bottom:15px;height:1px;background:repeating-linear-gradient(90deg,
+    var(--faint) 0 3px,transparent 3px 7px)}
+  .fri-gap b{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);
+    font-family:var(--mono);font-size:9px;color:var(--faint);background:var(--panel2);
+    padding:0 4px;font-weight:500;white-space:nowrap}
+  .fri-axis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;
+    color:var(--faint);margin-top:5px}
+  .fri-empty{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:center;padding:16px}
+
   /* Exclusion d'exercices */
   .excl{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:0}
   .excl>summary{cursor:pointer;padding:9px 12px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
@@ -343,6 +360,7 @@
   <nav class="secnav" aria-label="Navigation rapide">
     <a href="#sec-top">Synthèse</a>
     <a href="#sec-essais">Essais</a>
+    <a href="#sec-freq">Fréquence</a>
     <a href="#sec-niveau">Niveau</a>
     <a href="#sec-focus">Focus</a>
     <a href="#sec-prog">Progression</a>
@@ -440,6 +458,16 @@
       </div>
     </div>
 
+    <div class="panel" id="sec-freq">
+      <h2>Fréquence de travail</h2>
+      <p class="desc" id="freqDesc"></p>
+      <div class="seg" id="segFreq" style="margin-bottom:12px">
+        <button data-v="interval" aria-pressed="true">Intervalle médian</button>
+        <button data-v="rate" aria-pressed="false">Séances / mois</button>
+      </div>
+      <div class="chartbox" id="freqBox"><canvas id="freq"></canvas></div>
+    </div>
+
     <div class="panel" id="sec-niveau">
       <h2>Niveau par exercice</h2>
       <p class="desc">Fond = échelle stanine Pilotest (1 rouge → 9 bleu ; objectif concours ≥ 7). Trait = moyenne · point = dernier essai · capsule = plage min–max. Clique un exercice pour l'ouvrir dans le focus.</p>
@@ -483,6 +511,12 @@
           <p class="desc" id="histDesc">Répartition des essais par classe — régularité vs volatilité.</p>
           <div class="chartbox tall"><canvas id="hist"></canvas></div>
         </div>
+      </div>
+      <div class="frise-wrap">
+        <h3>Rythme de travail</h3>
+        <p class="desc" id="friDesc"></p>
+        <div class="frise" id="frise"></div>
+        <div class="fri-axis" id="friAxis"></div>
       </div>
     </div>
 
@@ -810,7 +844,8 @@ let phase = "all";
 let catFilter = "all";
 let win = 0; // 0 = tous
 let sortMode = "mean";
-let volStat = "mean";        // moyenne | médiane — statistique colorant « Nombre d'essais »
+let volStat = "mean";
+let freqMode = "interval";   // interval | rate — lecture du panneau « Fréquence de travail »        // moyenne | médiane — statistique colorant « Nombre d'essais »
 let unit = "stanine";           // stanine | score (graphique de progression du focus)
 let sessionSize = "normal";     // court | normal | long (budget d'essais du coach)
 const DEFAULT_EXAM_DATE = "2026-09-05"; // PSY0 les 4 et 5 septembre 2026 — ajustable via le champ date
@@ -827,7 +862,7 @@ function saveState(){
     const exSel = document.getElementById('exSelect');
     localStorage.setItem(LS_KEY, JSON.stringify({
       csv: currentCSVText, name: currentSrcName,
-      phase, catFilter, win, sortMode, unit, sessionSize, examDate, periodKey, customFrom, customTo, volStat,
+      phase, catFilter, win, sortMode, unit, sessionSize, examDate, periodKey, customFrom, customTo, volStat, freqMode,
       sel: exSel?exSel.value:null
     }));
   }catch(e){/* quota / mode privé : on ignore */}
@@ -838,6 +873,10 @@ function loadState(){
 
 // couleur = classe stanine exacte (échelle Pilotest 1→9), unique référentiel de niveau
 const bandColor = v => getCss('--s'+Math.min(9,Math.max(1,Math.round(v))));
+/* Variante à l'arrondi par défaut : une moyenne de 5,8 reste en classe 5,
+   la classe 6 n'étant pas atteinte. Utilisée là où la couleur résume un
+   niveau moyen sur un ensemble d'essais. */
+const bandColorFloor = v => getCss('--s'+Math.min(9,Math.max(1,Math.floor(v))));
 function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 const fmt = x => (Math.round(x*10)/10).toFixed(1);
 // échappe les données (noms d'exercices importés) avant toute insertion en HTML
@@ -1030,7 +1069,7 @@ function renderVolume(){
     const all=(map.get(t)||[]).map(x=>x.stanine);
     const st=windowed(map.get(t)||[]).map(x=>x.stanine);
     const lvl=st.length?stat(st):null;
-    return {t,n:all.length,lvl,col:lvl===null?getCss('--faint'):bandColor(lvl)};
+    return {t,n:all.length,lvl,col:lvl===null?getCss('--faint'):bandColorFloor(lvl)};
   }).sort((a,b)=>b.n-a.n || a.t.localeCompare(b.t,'fr'));
   // hauteur adaptative : des barres lisibles même avec beaucoup d'exercices
   const rowH=isPhone()?15:19;
@@ -1057,6 +1096,139 @@ function renderVolume(){
           callback:function(v){const l=this.getLabelForValue(v);const mx=isPhone()?15:64;
             return l.length>mx?l.slice(0,mx-1)+'…':l;}},grid:{display:false}}}}
   });
+}
+
+/* ---- Fréquence de travail ----------------------------------------------
+   Deux lectures d'une même donnée : l'intervalle médian entre deux séances
+   d'un exercice, ou le nombre de séances par mois. Une « séance » = un jour
+   où l'exercice a été travaillé, quel que soit le nombre d'essais ce jour-là. */
+function exerciseDays(arr){
+  return [...new Set(arr.map(r=>dayKey(r.date)))].sort()
+    .map(k=>{const [y,m,d]=k.split('-').map(Number); return new Date(y,m-1,d);});
+}
+/* Le rythme est rapporté à la PÉRIODE OBSERVÉE, pas à la durée propre de
+   l'exercice : sinon un exercice fait deux fois en trois jours puis abandonné
+   afficherait « 19 séances par mois », et les exercices ne seraient plus
+   comparables entre eux. */
+function freqStats(arr,periodDays){
+  const days=exerciseDays(arr);
+  const gaps=days.slice(1).map((d,i)=>Math.round((d-days[i])/DAY));
+  return {days,gaps,
+    med:gaps.length?median(gaps):null,
+    max:gaps.length?Math.max(...gaps):null,
+    span:days.length>1?Math.round((days[days.length-1]-days[0])/DAY)+1:1,
+    rate:periodDays?days.length/(periodDays/30.44):null};
+}
+// durée de la période affichée, en jours — dénominateur commun du rythme
+function viewSpanDays(rows){
+  if(!rows.length) return null;
+  const ts=rows.map(r=>r.date.getTime());
+  return Math.max(1,Math.round((Math.max(...ts)-Math.min(...ts))/DAY)+1);
+}
+function renderFreq(){
+  const rows=viewRows(), map=byExercise(rows);
+  const periodDays=viewSpanDays(rows);
+  const entries=[];
+  map.forEach((arr,ex)=>{
+    const f=freqStats(windowed(arr),periodDays);
+    entries.push({ex,f,n:arr.length,
+      lvl:mean(windowed(arr).map(r=>r.stanine))});
+  });
+  const usable=entries.filter(e=>e.f.med!==null);
+  const single=entries.length-usable.length;
+  const byRate=freqMode==='rate';
+  // du plus régulier au plus délaissé
+  usable.sort((a,b)=>byRate?b.f.rate-a.f.rate:a.f.med-b.f.med);
+  document.getElementById('freqDesc').innerHTML=byRate
+    ? `Nombre de <b>séances par mois</b> sur chaque exercice, rapporté à la période affichée `+
+      `(${periodDays?Math.round(periodDays/30.44*10)/10:'—'} mois) — une séance = un jour travaillé. `+
+      `Du plus suivi au plus délaissé.${single?` ${single} exercice${single>1?'s':''} travaillé${single>1?'s':''} un seul jour, non classé${single>1?'s':''}.`:''}`
+    : `<b>Intervalle médian</b> entre deux séances sur un même exercice. `+
+      `Barre courte = exercice revu souvent, barre longue = délaissé.${single?` ${single} exercice${single>1?'s':''} travaillé${single>1?'s':''} un seul jour, non classé${single>1?'s':''}.`:''}`;
+  const box=document.getElementById('freqBox');
+  if(box) box.style.height=Math.min(Math.max(240,usable.length*(isPhone()?15:19)),1100)+'px';
+  charts.freq?.destroy();
+  if(!usable.length){ return; }
+  charts.freq=new Chart(document.getElementById('freq'),{
+    type:'bar',
+    data:{labels:usable.map(e=>e.ex),
+      datasets:[{data:usable.map(e=>byRate?Math.round(e.f.rate*10)/10:e.f.med),
+        backgroundColor:usable.map(e=>bandColorFloor(e.lvl)),borderRadius:3,
+        barThickness:'flex',minBarLength:3}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{
+        const e=usable[c.dataIndex];
+        return [`${e.f.days.length} séance${e.f.days.length>1?'s':''} · ${e.n} essai${e.n>1?'s':''}`,
+          `intervalle médian ${e.f.med} j · le plus long ${e.f.max} j`,
+          `${Math.round(e.f.rate*10)/10} séance${e.f.rate>=2?'s':''} par mois sur la période`,
+          `niveau ${fmt(e.lvl)}`];
+      }}}},
+      scales:{x:{beginAtZero:true,
+          title:{display:true,text:byRate?'séances par mois':'jours entre deux séances',
+            color:getCss('--faint'),font:{size:chartFont(10)}},
+          ticks:{color:getCss('--faint'),font:{size:chartFont(10)}},
+          grid:{color:'rgba(255,255,255,.05)'}},
+        y:{ticks:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)},
+            callback:function(v){const l=this.getLabelForValue(v);const mx=isPhone()?15:64;
+              return l.length>mx?l.slice(0,mx-1)+'…':l;}},grid:{display:false}}}}
+  });
+}
+
+/* ---- Frise des séances (Focus) -----------------------------------------
+   Une marque par jour travaillé, placée à sa vraie date : les trous entre
+   deux séances se lisent directement à l'espacement. */
+function renderFrise(){
+  const sel=document.getElementById('exSelect').value;
+  const rows=phaseRows();
+  let series,label;
+  if(sel.startsWith('cat:')){const c=sel.slice(4);label=c;series=rows.filter(r=>r.cat===c);}
+  else{label=sel;series=rows.filter(r=>r.test===sel);}
+  series=windowed(series.slice().sort((a,b)=>a.date-b.date));
+  const box=document.getElementById('frise'), axis=document.getElementById('friAxis');
+  const desc=document.getElementById('friDesc');
+  if(!series.length){
+    box.innerHTML='<div class="fri-empty">Aucun essai sur cette sélection.</div>';
+    axis.innerHTML=''; desc.textContent=''; return;
+  }
+  // regroupement par jour
+  const byDay=new Map();
+  series.forEach(r=>{
+    const k=dayKey(r.date);
+    const o=byDay.get(k)||{n:0,sum:0,date:(()=>{const d=new Date(r.date);d.setHours(0,0,0,0);return d;})()};
+    o.n++; o.sum+=r.stanine; byDay.set(k,o);
+  });
+  const days=[...byDay.values()].sort((a,b)=>a.date-b.date);
+  const t0=days[0].date.getTime(), t1=days[days.length-1].date.getTime();
+  const span=Math.max(t1-t0,DAY);
+  const pos=t=>((t-t0)/span)*100;
+  const maxN=Math.max(...days.map(d=>d.n));
+  const gaps=days.slice(1).map((d,i)=>Math.round((d.date-days[i].date)/DAY));
+  const med=gaps.length?median(gaps):null;
+  const mx=gaps.length?Math.max(...gaps):null;
+  desc.innerHTML=`<b>${esc(label)}</b> — ${days.length} séance${days.length>1?'s':''} `+
+    `étalées sur ${Math.round(span/DAY)+1} jours`+
+    (med!==null?` · intervalle médian <b>${med} j</b> · plus long trou <b>${mx} j</b>`:'')+
+    (win>0?` <span style="color:var(--faint)">(${series.length} derniers essais)</span>`:'');
+  // trous marquants : au-delà du double de l'intervalle médian
+  const marks=[];
+  if(med!==null){
+    gaps.forEach((g,i)=>{
+      if(g>=Math.max(7,med*2)){
+        const a=pos(days[i].date.getTime()), b=pos(days[i+1].date.getTime());
+        if(b-a>4) marks.push(`<div class="fri-gap" style="left:${a}%;width:${b-a}%"><b>${g} j</b></div>`);
+      }
+    });
+  }
+  box.innerHTML=marks.join('')+days.map(d=>{
+    const lvl=d.sum/d.n;
+    const hgt=14+Math.round((d.n/maxN)*22);
+    return `<div class="fri-d" style="left:${pos(d.date.getTime())}%;height:${hgt}px;background:${bandColor(lvl)}"
+      title="${d.date.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})} — ${d.n} essai${d.n>1?'s':''} · moyenne ${fmt(lvl)}"></div>`;
+  }).join('');
+  const f=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
+  axis.innerHTML=`<span>${f(days[0].date)}</span>`+
+    (days.length>2?`<span>hauteur = essais du jour · couleur = classe moyenne</span>`:'')+
+    `<span>${f(days[days.length-1].date)}</span>`;
 }
 
 function renderStrips(){
@@ -1567,8 +1739,8 @@ function renderPriorities(){
 }
 
 function renderAll(){
-  renderReadout(); renderRadar(); renderVolume(); renderTrend(); renderHeatmap();
-  renderPriorities(); renderStrips(); renderProg(); renderHist();
+  renderReadout(); renderRadar(); renderVolume(); renderFreq(); renderTrend(); renderHeatmap();
+  renderPriorities(); renderStrips(); renderProg(); renderHist(); renderFrise();
 }
 
 /* ----------------------- Wiring ----------------------- */
@@ -1604,12 +1776,18 @@ wr.addEventListener('input',()=>{
   win=+wr.value; wv.textContent = win===0?'Tous':('n = '+win);
   renderAll(); saveState();
 });
-document.getElementById('exSelect').addEventListener('change',()=>{renderProg();renderHist();saveState();});
+document.getElementById('exSelect').addEventListener('change',()=>{renderProg();renderHist();renderFrise();saveState();});
 document.getElementById('unitSeg').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
   unit=b.dataset.unit;
   [...e.currentTarget.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed',x===b));
   renderProg(); saveState();
+});
+document.getElementById('segFreq').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  freqMode=b.dataset.v;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  renderFreq(); saveState();
 });
 document.getElementById('segVolStat').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
@@ -1641,7 +1819,7 @@ document.getElementById('resetBtn').addEventListener('click',()=>{
   currentCSVText=null; currentSrcName="Données d'exemple";
   RAW=parseCSV(DEFAULT_CSV);
   phase="all"; catFilter="all"; win=0; sortMode="mean"; unit="stanine";
-  sessionSize="normal"; examDate=DEFAULT_EXAM_DATE; volStat="mean";
+  sessionSize="normal"; examDate=DEFAULT_EXAM_DATE; volStat="mean"; freqMode="interval";
   periodKey="all"; customFrom=null; customTo=null;
   applyControlsToUI();
   buildPeriodSeg();
@@ -1756,6 +1934,7 @@ function applyControlsToUI(){
   [...document.querySelectorAll('#unitSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.unit===unit));
   [...document.querySelectorAll('#sizeSeg button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.size===sessionSize));
   [...document.querySelectorAll('#segVolStat button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===volStat));
+  [...document.querySelectorAll('#segFreq button')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===freqMode));
   document.getElementById('examDateIn').value=examDate||'';
   wr.value=win; wv.textContent = win===0?'Tous':('n = '+win);
   document.getElementById('sortSelect').value=sortMode;
@@ -1816,6 +1995,7 @@ if(saved){
   if(saved.sessionSize) sessionSize=saved.sessionSize;
   if('examDate' in saved) examDate=saved.examDate; // null explicite = date effacée volontairement
   if(saved.volStat) volStat=saved.volStat;
+  if(saved.freqMode) freqMode=saved.freqMode;
   if(saved.periodKey) periodKey=saved.periodKey;
   customFrom=saved.customFrom||null; customTo=saved.customTo||null;
   restoredSel=saved.sel||null;
