@@ -1500,7 +1500,7 @@ function renderHeatmap(){
 function selectFocus(value){
   const sel=document.getElementById('exSelect');
   if([...sel.options].some(o=>o.value===value)){
-    sel.value=value; renderProg(); renderHist(); saveState();
+    sel.value=value; renderProg(); renderHist(); renderFrise(); saveState();
     document.querySelector('.panel.focus').scrollIntoView({behavior:'smooth',block:'start'});
   }
 }
