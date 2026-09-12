@@ -108,7 +108,11 @@
   .excl[open]>summary::before{content:"▾ "}
   .excl>summary:hover{color:var(--ink)}
   .excl-help{margin:0 12px 10px;font-size:11.5px;color:var(--faint);line-height:1.5}
-  .excl-list{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 12px}
+  .excl-list{padding:0 12px 12px}
+  .excl-grp{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--faint);margin:10px 0 6px}
+  .excl-grp:first-child{margin-top:0}
+  .excl-row{display:flex;flex-wrap:wrap;gap:6px}
   .excl-chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel);
     border:1px solid var(--line);border-radius:20px;padding:4px 11px;cursor:pointer;
     font-family:var(--mono);font-size:11px;color:var(--ink)}
@@ -395,6 +399,7 @@
         <button data-phase="all" aria-pressed="true">Tout</button>
         <button data-phase="psy0" aria-pressed="false">PSY0</button>
         <button data-phase="psy1" aria-pressed="false">PSY1</button>
+        <button data-phase="retire" aria-pressed="false" title="Exercices retirés du programme ou d'une autre sélection">Anciens</button>
       </div>
     </div>
     <div class="ctl" style="flex-basis:100%">
@@ -418,7 +423,9 @@
         <summary id="exclSummary">Aucun exercice exclu</summary>
         <p class="excl-help">Un exercice décoché est retiré de tous les calculs et de tous les
           graphiques — utile lorsqu'une épreuve a changé et que les anciens résultats
-          ne sont plus représentatifs. Le réglage vaut aussi pour la page Comparaison.</p>
+          ne sont plus représentatifs. Le réglage vaut aussi pour les pages Comparaison
+          et Analyse. Les exercices « Anciens » sont déjà hors de la vue « Tout » : ils
+          restent jouables et consultables via le filtre de phase qui leur est propre.</p>
         <div class="excl-list" id="exclList"></div>
       </details>
     </div>
@@ -580,51 +587,81 @@
    listé ci-dessous).
    ================================================================= */
 const PSY_PHASE_MAP = {
+  /* ---- PSY0 ---- */
   "Un mot sur deux":"psy0","Pair ou impair":"psy0","M2 Back numérique":"psy0",
   "Psychomoteur psy0 AF cadet":"psy0","Formes et couleurs":"psy0","Airways":"psy0",
   "Empilements":"psy0","Objets 3D":"psy0","Billes":"psy0","Formes glissées - II":"psy0",
   "Cubes 2D/3D - psy0 Air France":"psy0","Grilles de calculs":"psy0","Boîtes à mots":"psy0",
-  "Mots en étoile":"psy0","Angles":"psy1","Séries logiques":"psy0",
+  "Mots en étoile":"psy0","Séries logiques":"psy0",
   "Anglais présélection cadets Air France":"psy0",
-  "Formes glissées":"psy0",                       // variante rencontrée dans d'autres exports
+  "Formes glissées":"psy0",                    // variante rencontrée dans d'autres exports
 
-  "Mathématiques":"psy1","Voitures (séquentiel)":"psy1","Voitures (basique)":"psy1",
-  "Test des compteurs":"psy1","Calcul mental 1":"psy1","Calcul mental 4":"psy1",
-  "Calcul mental 2":"psy1","Attention 3":"psy1","Calcul mental 3":"psy1",
-  "Memory 3 Back":"psy1","Memory 4 Back":"psy1","Memory 5 Back":"psy1",
-  "Attention 1":"psy1","Attention 2":"psy1",
-  "Patrons de cubes - psy1 - Cadets AF":"psy1",
-  "Patrons de cubes - psy1 ENAC - pilotes pros":"psy1",
-  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"psy1","Tangram":"psy1",
-  "Psychomoteur ENAC":"psy1","EFG":"psy1","Matrices de Raven":"psy1","Lecture de textes":"psy1"
+  /* ---- PSY1 — sélection en vigueur (19 exercices) ---- */
+  "Attention 1":"psy1","Attention 2":"psy1","Attention 3":"psy1",
+  "Calcul mental 1":"psy1","Calcul mental 2":"psy1","Calcul mental 3":"psy1","Calcul mental 4":"psy1",
+  "Chaises (point de vue)":"psy1","Mathématiques":"psy1",
+  "Mémoire de travail I":"psy1","Mémoire de travail II":"psy1",
+  "Test des compteurs":"psy1","EFG":"psy1","Lecture de textes":"psy1","Matrices de Raven":"psy1",
+  "Tangram à compléter":"psy1","Angles à saisir":"psy1",
+  "Patrons de cubes - psy1 - Cadets AF":"psy1","Psychomoteur ENAC":"psy1",
+
+  /* ---- Anciens : retirés du programme, ou relevant d'une autre sélection.
+         Restent jouables et consultables, mais n'entrent dans aucun calcul
+         PSY0/PSY1 ni dans la vue « Tout ». ---- */
+  "Angles":"retire","Tangram":"retire",
+  "Voitures (basique)":"retire","Voitures (séquentiel)":"retire",
+  "Memory 3 Back":"retire","Memory 4 Back":"retire","Memory 5 Back":"retire",
+  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"retire",
+  "Patrons de cubes - psy1 ENAC - pilotes pros":"retire"   // sélection ENAC pilotes pros
 };
 
+/* Un exercice peut relever de plusieurs aptitudes — c'est le classement de
+   Pilotest, et « Attention 3 » compte bien à la fois en Numérique et en
+   Attention. La première catégorie citée sert d'étiquette courte. */
 const CATEGORY_MAP = {
+  /* ---- PSY0 ---- */
   "Un mot sur deux":"Verbale","Pair ou impair":"Numérique","M2 Back numérique":"Mémorisation",
   "Psychomoteur psy0 AF cadet":"Psychomoteur","Formes et couleurs":"Attention",
   "Airways":"Intellectuelle","Empilements":"Spatiale","Objets 3D":"Spatiale",
   "Billes":"Intellectuelle","Formes glissées - II":"Intellectuelle",
   "Formes glissées":"Intellectuelle",
   "Cubes 2D/3D - psy0 Air France":"Spatiale","Grilles de calculs":"Numérique",
-  "Boîtes à mots":"Verbale","Mots en étoile":"Verbale","Angles":"Spatiale",
+  "Boîtes à mots":"Verbale","Mots en étoile":"Verbale",
   "Séries logiques":"Intellectuelle","Anglais présélection cadets Air France":"Anglais",
 
-  "Mathématiques":"Numérique","Voitures (séquentiel)":"Spatiale","Voitures (basique)":"Spatiale",
-  "Test des compteurs":"Numérique","Calcul mental 1":"Numérique","Calcul mental 2":"Numérique",
+  /* ---- PSY1 — catégories relevées sur la sélection en vigueur ---- */
+  "Attention 1":"Attention",
+  "Attention 2":"Attention",
+  "Attention 3":["Numérique","Attention"],
+  "Calcul mental 1":"Numérique","Calcul mental 2":"Numérique",
   "Calcul mental 3":"Numérique","Calcul mental 4":"Numérique",
-  "Attention 1":"Attention","Attention 2":"Attention","Attention 3":"Attention",
-  "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
+  "Chaises (point de vue)":["Numérique","Spatiale"],
+  "Mathématiques":["Numérique","Intellectuelle"],
+  "Mémoire de travail I":["Attention","Mémorisation"],
+  "Mémoire de travail II":["Numérique","Mémorisation"],
+  "Test des compteurs":["Numérique","Attention"],
+  "EFG":"Intellectuelle",
+  "Lecture de textes":["Intellectuelle","Verbale"],
+  "Matrices de Raven":"Intellectuelle",
+  "Tangram à compléter":["Intellectuelle","Spatiale"],
+  "Angles à saisir":["Attention","Spatiale"],
   "Patrons de cubes - psy1 - Cadets AF":"Spatiale",
-  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale",
-  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"Spatiale","Tangram":"Spatiale",
-  "Psychomoteur ENAC":"Psychomoteur","EFG":"Intellectuelle",
-  "Matrices de Raven":"Intellectuelle","Lecture de textes":"Verbale"
+  "Psychomoteur ENAC":"Psychomoteur",
+
+  /* ---- Anciens ---- */
+  "Angles":"Spatiale","Tangram":"Spatiale",
+  "Voitures (basique)":"Spatiale","Voitures (séquentiel)":"Spatiale",
+  "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
+  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"Spatiale",
+  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"
 };
 
-// Fusion des deux tables → config interne {cat, phase}
+// Fusion des deux tables → config interne {cat, cats, phase}
 const CONFIG = {};
 new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(name=>{
-  CONFIG[name] = { cat: CATEGORY_MAP[name] || "Autre", phase: PSY_PHASE_MAP[name] || "psy0" };
+  const raw = CATEGORY_MAP[name] || "Autre";
+  const cats = Array.isArray(raw) ? raw : [raw];
+  CONFIG[name] = { cat: cats[0], cats, phase: PSY_PHASE_MAP[name] || "psy0" };
 });
 
 /* ---- Données par défaut : ton export actuel (remplaçable via le bouton) ---- */
@@ -819,8 +856,9 @@ function parseCSV(text){
     const stanine=parseInt(p[p.length-2],10);
     const date=parseFrDate(p[p.length-1]);
     if(!test||isNaN(stanine)||!date) continue;
-    const cfg=CONFIG[test]||{cat:"Autre",phase:"psy0"};
-    out.push({test,score:isNaN(score)?null:score,stanine,date,cat:cfg.cat,phase:cfg.phase});
+    const cfg=CONFIG[test]||{cat:"Autre",cats:["Autre"],phase:"psy0"};
+    out.push({test,score:isNaN(score)?null:score,stanine,date,
+              cat:cfg.cat,cats:cfg.cats,phase:cfg.phase});
   }
   return out.sort((a,b)=>a.date-b.date);
 }
@@ -898,22 +936,24 @@ function periodBounds(){
 }
 function periodActive(){ const {from,to}=periodBounds(); return !!(from||to); }
 function phaseRows(){
-  let r = phase==="all"?RAW:RAW.filter(r=>r.phase===phase);
+  // « Tout » = PSY0 + PSY1 en vigueur : les exercices retirés du programme
+  // restent consultables mais seulement via leur propre filtre.
+  let r = phase==="all"?RAW.filter(r=>r.phase!=="retire"):RAW.filter(r=>r.phase===phase);
   if(excluded.size) r=r.filter(x=>!excluded.has(x.test));
   const {from,to}=periodBounds();
   if(from||to) r=r.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));
   return r;
 }
 // vue = phase + période + catégorie
-function viewRows(){ const r=phaseRows(); return catFilter==="all"?r:r.filter(x=>x.cat===catFilter); }
+function viewRows(){ const r=phaseRows(); return catFilter==="all"?r:r.filter(x=>x.cats.includes(catFilter)); }
 // liste de TOUS les exercices connus correspondant à la phase + catégorie choisies
 // (sert à afficher aussi ceux à 0 essai, sans mélanger psy0 et psy1)
 function exerciseUniverse(){
   return Object.keys(CONFIG).filter(name=>{
     const c=CONFIG[name];
     if(excluded.has(name)) return false;
-    if(phase!=="all" && c.phase!==phase) return false;
-    if(catFilter!=="all" && c.cat!==catFilter) return false;
+    if(phase==="all"? c.phase==="retire" : c.phase!==phase) return false;
+    if(catFilter!=="all" && !c.cats.includes(catFilter)) return false;
     return true;
   });
 }
@@ -1029,7 +1069,7 @@ function renderRadar(){
   const rows=phaseRows(); const map=byExercise(rows);
   const cats={};
   for(const arr of map.values()){
-    for(const r of windowed(arr)){ (cats[r.cat]=cats[r.cat]||[]).push(r.stanine); }
+    for(const r of windowed(arr)){ for(const c of r.cats) (cats[c]=cats[c]||[]).push(r.stanine); }
   }
   const labels=Object.keys(cats).sort();
   const data=labels.map(c=>+fmt(mean(cats[c])));
@@ -1181,7 +1221,7 @@ function renderFrise(){
   const sel=document.getElementById('exSelect').value;
   const rows=phaseRows();
   let series,label;
-  if(sel.startsWith('cat:')){const c=sel.slice(4);label=c;series=rows.filter(r=>r.cat===c);}
+  if(sel.startsWith('cat:')){const c=sel.slice(4);label=c;series=rows.filter(r=>r.cats.includes(c));}
   else{label=sel;series=rows.filter(r=>r.test===sel);}
   series=windowed(series.slice().sort((a,b)=>a.date-b.date));
   const box=document.getElementById('frise'), axis=document.getElementById('friAxis');
@@ -1288,7 +1328,7 @@ function renderProg(){
   let series, label;
   if(sel.startsWith('cat:')){
     const c=sel.slice(4); label='Catégorie : '+c;
-    series=rows.filter(r=>r.cat===c);
+    series=rows.filter(r=>r.cats.includes(c));
   }else{
     label='Exercice : '+sel; series=rows.filter(r=>r.test===sel);
   }
@@ -1339,7 +1379,7 @@ function renderHist(){
   const sel=document.getElementById('exSelect').value;
   const rows=phaseRows();
   let series,label;
-  if(sel.startsWith('cat:')){const c=sel.slice(4);label=c;series=rows.filter(r=>r.cat===c);}
+  if(sel.startsWith('cat:')){const c=sel.slice(4);label=c;series=rows.filter(r=>r.cats.includes(c));}
   else{label=sel;series=rows.filter(r=>r.test===sel);}
   series=windowed(series.slice().sort((a,b)=>a.date-b.date));
   const counts=Array(9).fill(0);
@@ -1362,7 +1402,7 @@ function fillExerciseSelect(){
   const sel=document.getElementById('exSelect');
   const prev=sel.value;
   const rows=viewRows();
-  const cats=[...new Set(rows.map(r=>r.cat))].sort();
+  const cats=[...new Set(rows.flatMap(r=>r.cats))].sort();
   const tests=[...new Set(rows.map(r=>r.test))].sort();
   sel.innerHTML =
     '<optgroup label="Catégories">'+cats.map(c=>`<option value="cat:${esc(c)}">▸ ${esc(c)}</option>`).join('')+'</optgroup>'+
@@ -1372,7 +1412,7 @@ function fillExerciseSelect(){
 
 function fillCatSelect(){
   const sel=document.getElementById('catSelect');
-  const cats=[...new Set(phaseRows().map(r=>r.cat))].sort();
+  const cats=[...new Set(phaseRows().flatMap(r=>r.cats))].sort();
   if(catFilter!=="all" && !cats.includes(catFilter)) catFilter="all";
   sel.innerHTML='<option value="all">Toutes les catégories</option>'+
     cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
@@ -1912,11 +1952,20 @@ function renderExcluded(){
   if(!box) return;
   const names=new Set(Object.keys(CONFIG));
   RAW.forEach(r=>names.add(r.test));
-  const list=[...names].sort((a,b)=>a.localeCompare(b,'fr'));
-  box.innerHTML=list.map(n=>{
+  // rangées par phase : le programme en vigueur d'abord, les anciens à part
+  const GRP=[['psy0','PSY0'],['psy1','PSY1 — sélection en vigueur'],
+             ['retire','Anciens — hors programme'],['?','Non reconnus']];
+  const of=n=>CONFIG[n]?CONFIG[n].phase:'?';
+  const chip=n=>{
     const off=excluded.has(n);
     return `<label class="excl-chip${off?' off':''}">
       <input type="checkbox" data-ex="${esc(n)}" ${off?'':'checked'}>${esc(n)}</label>`;
+  };
+  box.innerHTML=GRP.map(([ph,lab])=>{
+    const l=[...names].filter(n=>of(n)===ph).sort((a,b)=>a.localeCompare(b,'fr'));
+    if(!l.length) return '';
+    return `<div class="excl-grp">${lab} · ${l.length}</div>
+      <div class="excl-row">${l.map(chip).join('')}</div>`;
   }).join('');
   const n=excluded.size;
   sum.textContent = n===0 ? 'Aucun exercice exclu — tout est pris en compte'
