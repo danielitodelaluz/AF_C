@@ -303,12 +303,17 @@ const PSY_PHASE_MAP = {
   "Patrons de cubes - psy1 - Cadets AF":"psy1","Psychomoteur ENAC":"psy1",
 
   /* ---- Anciens : retirés du programme, ou relevant d'une autre sélection.
-         Restent jouables et consultables, mais n'entrent dans aucun calcul
-         PSY0/PSY1 ni dans la vue « Tout ». ---- */
-  "Angles":"retire","Tangram":"retire",
+         Restent jouables et consultables via leur propre filtre de phase,
+         mais n'entrent dans aucun calcul PSY0/PSY1 ni dans la vue « Tout ».
+
+         Les huit premiers sont ceux que Pilotest range sous « Ces tests ne
+         sont plus posés » (8). Le neuvième n'a jamais fait partie de cette
+         sélection : il appartient à celle des pilotes pros ENAC. ---- */
+  "Angles":"retire",
+  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"retire",
+  "Tangram":"retire",
   "Voitures (basique)":"retire","Voitures (séquentiel)":"retire",
   "Memory 3 Back":"retire","Memory 4 Back":"retire","Memory 5 Back":"retire",
-  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"retire",
   "Patrons de cubes - psy1 ENAC - pilotes pros":"retire"   // sélection ENAC pilotes pros
 };
 
@@ -326,24 +331,44 @@ const CATEGORY_MAP = {
   "Boîtes à mots":"Verbale","Mots en étoile":"Verbale",
   "Séries logiques":"Intellectuelle","Anglais présélection cadets Air France":"Anglais",
 
-  /* ---- PSY1 — catégories relevées sur la sélection en vigueur ---- */
-  "Attention 1":"Attention",
-  "Attention 2":"Attention",
-  "Attention 3":["Numérique","Attention"],
+  /* ---- PSY1 — sélection en vigueur.
+     Relevé tel quel sur la page Pilotest, dans son ordre d'affichage. Les
+     effectifs annoncés par le site servent de contrôle : Numérique 9,
+     Intellectuelle 5, Attention 6, Psychomoteur 1, Spatiale 4, Verbale 1,
+     Mémorisation 2 — soit 19 exercices distincts. Toute modification de ce
+     bloc doit continuer à tomber juste sur ces sept totaux. ---- */
+
+  /* Numérique (9) — les cinq suivants n'appartiennent qu'à cette aptitude */
   "Calcul mental 1":"Numérique","Calcul mental 2":"Numérique",
   "Calcul mental 3":"Numérique","Calcul mental 4":"Numérique",
+  /* … complété par Attention 3, Chaises, Mathématiques, Mémoire de travail II
+     et Test des compteurs, cités plus bas avec leur seconde aptitude. */
+
+  /* Intellectuelle (5) */
+  "EFG":"Intellectuelle",
+  "Matrices de Raven":"Intellectuelle",
+
+  /* Attention (6) */
+  "Attention 1":"Attention",
+  "Attention 2":"Attention",
+
+  /* Psychomoteur (1) */
+  "Psychomoteur ENAC":"Psychomoteur",
+
+  /* Spatiale (4) */
+  "Patrons de cubes - psy1 - Cadets AF":"Spatiale",
+
+  /* Exercices à double aptitude — l'ordre suit celui de la page Pilotest,
+     et la première citée sert d'étiquette courte sur les réglettes. */
+  "Attention 3":["Numérique","Attention"],
   "Chaises (point de vue)":["Numérique","Spatiale"],
   "Mathématiques":["Numérique","Intellectuelle"],
-  "Mémoire de travail I":["Attention","Mémorisation"],
   "Mémoire de travail II":["Numérique","Mémorisation"],
   "Test des compteurs":["Numérique","Attention"],
-  "EFG":"Intellectuelle",
   "Lecture de textes":["Intellectuelle","Verbale"],
-  "Matrices de Raven":"Intellectuelle",
   "Tangram à compléter":["Intellectuelle","Spatiale"],
   "Angles à saisir":["Attention","Spatiale"],
-  "Patrons de cubes - psy1 - Cadets AF":"Spatiale",
-  "Psychomoteur ENAC":"Psychomoteur",
+  "Mémoire de travail I":["Attention","Mémorisation"],
 
   /* ---- Anciens ---- */
   "Angles":"Spatiale","Tangram":"Spatiale",
