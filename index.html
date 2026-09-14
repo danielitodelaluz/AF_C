@@ -153,6 +153,19 @@
   .strip .spark{display:block}
   .strip .rd{font-family:var(--mono);font-size:13px;font-weight:600;min-width:30px;text-align:right}
   .strip .meta{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  /* Exercices de la sélection encore vierges : visibles, mais sans prétendre
+     à un niveau. C'est la liste de ce qu'il reste à découvrir. */
+  .strip-todo{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);margin:16px 0 2px;padding-top:12px;border-top:1px dashed var(--line);
+    cursor:pointer;list-style:none;user-select:none}
+  .strip-todo::-webkit-details-marker{display:none}
+  .strip-todo::before{content:"▾ "}
+  details.todo:not([open]) .strip-todo::before{content:"▸ "}
+  .strip-todo:hover{color:var(--muted)}
+  .strip.never{cursor:default;opacity:.72}
+  .strip.never:hover{background:transparent}
+  .strip.never .tape{background:var(--panel2);opacity:.5}
+  .strip.never .rd{color:var(--faint);font-weight:500}
   /* échelle stanine Pilotest (bandes 1→9) en fond de barre */
   .tape{position:relative;height:18px;border-radius:9px;margin-top:4px;
     background:linear-gradient(90deg,
@@ -477,7 +490,9 @@
 
     <div class="panel" id="sec-niveau">
       <h2>Niveau par exercice</h2>
-      <p class="desc">Fond = échelle stanine Pilotest (1 rouge → 9 bleu ; objectif concours ≥ 7). Trait = moyenne · point = dernier essai · capsule = plage min–max. Clique un exercice pour l'ouvrir dans le focus.</p>
+      <p class="desc">Fond = échelle stanine Pilotest (1 rouge → 9 bleu ; objectif concours ≥ 7). Trait = moyenne · point = dernier essai · capsule = plage min–max. Clique un exercice pour l'ouvrir dans le focus.
+        Les exercices de la sélection encore sans essai sont listés à la fin, pour voir
+        d'un coup d'œil ce qu'il reste à découvrir.</p>
       <div id="strips"></div>
       <div class="legend">
         <span><i class="bar3" style="background:var(--ink)"></i>moyenne (fenêtre)</span>
@@ -1274,7 +1289,11 @@ function renderFrise(){
 function renderStrips(){
   const rows=viewRows(); const map=byExercise(rows);
   const box=document.getElementById('strips');
-  if(!map.size){ box.innerHTML='<div class="empty">Aucune donnée pour ce filtre.</div>'; return; }
+  /* Un exercice de la sélection sans aucun essai doit quand même se voir :
+     après un changement de programme, c'est précisément ce qui reste à
+     découvrir. On les liste à la fin, sans niveau ni tendance. */
+  const todo=exerciseUniverse().filter(t=>!map.has(t)).sort((a,b)=>a.localeCompare(b,'fr'));
+  if(!map.size&&!todo.length){ box.innerHTML='<div class="empty">Aucune donnée pour ce filtre.</div>'; return; }
   const entries=[...map.entries()].map(([t,arr])=>{
     const w=windowed(arr).map(x=>x.stanine);
     return {t,cat:arr[0].cat,n:w.length,mean:mean(w),sd:stdev(w),series:w,
@@ -1319,7 +1338,26 @@ function renderStrips(){
       <div class="meta">${e.n} essai${e.n>1?'s':''} · min ${e.min} · max ${e.max} · dernier ${e.last}
         <span class="rec ${fr.c}" title="${esc(freshTip)}">${ago}</span> · régularité σ ${fmt(e.sd)}</div>
     </div>`;
-  }).join('')+`<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)};font-weight:600">${k}</span>`).join('')}</div>`;
+  }).join('')+todoHtml(todo)
+   +`<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)};font-weight:600">${k}</span>`).join('')}</div>`;
+}
+// Réglettes des exercices encore vierges — pas cliquables, il n'y a rien à ouvrir
+function todoHtml(todo){
+  if(!todo.length) return '';
+  const per=periodActive()?' sur la période observée':'';
+  return `<details class="todo" open>
+    <summary class="strip-todo">${todo.length} exercice${todo.length>1?'s':''} de cette sélection sans essai${per}</summary>`
+    +todo.map(t=>{
+      const c=CONFIG[t]||{cats:['Autre']};
+      return `<div class="strip never">
+        <div class="top">
+          <div class="nm">${esc(t)}<span class="cat">${esc(c.cats.join(' · '))}</span></div>
+          <div class="rdwrap"><div class="rd">–</div></div>
+        </div>
+        <div class="tape"></div>
+        <div class="meta">jamais pratiqué${per} — à découvrir</div>
+      </div>`;
+    }).join('')+`</details>`;
 }
 
 function renderProg(){
