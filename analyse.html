@@ -299,7 +299,7 @@ const PSY_PHASE_MAP = {
   "Chaises (point de vue)":"psy1","Mathématiques":"psy1",
   "Mémoire de travail I":"psy1","Mémoire de travail II":"psy1",
   "Test des compteurs":"psy1","EFG":"psy1","Lecture de textes":"psy1","Matrices de Raven":"psy1",
-  "Tangram à compléter":"psy1","Angles à saisir":"psy1",
+  "Tangram à compléter":"psy1","Angles":"psy1",
   "Patrons de cubes - psy1 - Cadets AF":"psy1","Psychomoteur ENAC":"psy1",
 
   /* ---- Anciens : retirés du programme, ou relevant d'une autre sélection.
@@ -308,8 +308,12 @@ const PSY_PHASE_MAP = {
 
          Les huit premiers sont ceux que Pilotest range sous « Ces tests ne
          sont plus posés » (8). Le neuvième n'a jamais fait partie de cette
-         sélection : il appartient à celle des pilotes pros ENAC. ---- */
-  "Angles":"retire",
+         sélection : il appartient à celle des pilotes pros ENAC.
+
+         « Angles à saisir » a été remplacé par « Angles » dans la sélection.
+         Ce sont deux tests distincts : les historiques ne sont pas fusionnés,
+         « Angles à saisir » bascule simplement ici. ---- */
+  "Angles à saisir":"retire",
   "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"retire",
   "Tangram":"retire",
   "Voitures (basique)":"retire","Voitures (séquentiel)":"retire",
@@ -367,11 +371,11 @@ const CATEGORY_MAP = {
   "Test des compteurs":["Numérique","Attention"],
   "Lecture de textes":["Intellectuelle","Verbale"],
   "Tangram à compléter":["Intellectuelle","Spatiale"],
-  "Angles à saisir":["Attention","Spatiale"],
+  "Angles":["Attention","Spatiale"],
   "Mémoire de travail I":["Attention","Mémorisation"],
 
   /* ---- Anciens ---- */
-  "Angles":"Spatiale","Tangram":"Spatiale",
+  "Angles à saisir":["Attention","Spatiale"],"Tangram":"Spatiale",
   "Voitures (basique)":"Spatiale","Voitures (séquentiel)":"Spatiale",
   "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
   "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"Spatiale",
