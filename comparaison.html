@@ -259,7 +259,7 @@
       <span class="lab">Phase</span>
       <div class="seg" id="segPhase">
         <button data-v="psy0" aria-pressed="true">PSY0</button>
-        <button data-v="psy1" aria-pressed="false">PSY1</button>
+        <button data-v="psy1" aria-pressed="false" title="PSY1 courant — les anciens exercices sont écartés de la comparaison">PSY1 courant</button>
         <button data-v="all" aria-pressed="false">Tout</button>
       </div>
     </div>
@@ -375,33 +375,31 @@ const PSY_PHASE_MAP = {
   "Anglais présélection cadets Air France":"psy0",
   "Formes glissées":"psy0",                    // variante rencontrée dans d'autres exports
 
-  /* ---- PSY1 — sélection en vigueur (19 exercices) ---- */
-  "Attention 1":"psy1","Attention 2":"psy1","Attention 3":"psy1",
+  /* ---- PSY1 courant — les exercices encore proposés par Pilotest (16) ---- */
+  "Angles":"psy1",
+  "Attention 1":"psy1",
   "Calcul mental 1":"psy1","Calcul mental 2":"psy1","Calcul mental 3":"psy1","Calcul mental 4":"psy1",
-  "Chaises (point de vue)":"psy1","Mathématiques":"psy1",
+  "EFG":"psy1","Lecture de textes":"psy1","Mathématiques":"psy1","Matrices de Raven":"psy1",
   "Mémoire de travail I":"psy1","Mémoire de travail II":"psy1",
-  "Test des compteurs":"psy1","EFG":"psy1","Lecture de textes":"psy1","Matrices de Raven":"psy1",
-  "Tangram à compléter":"psy1","Angles à saisir":"psy1",
   "Patrons de cubes - psy1 - Cadets AF":"psy1","Psychomoteur ENAC":"psy1",
+  "Tangram à compléter":"psy1","Test des compteurs":"psy1"
 
-  /* ---- Anciens : retirés du programme, ou relevant d'une autre sélection.
-         Restent jouables et consultables via leur propre filtre de phase,
-         mais n'entrent dans aucun calcul PSY0/PSY1 ni dans la vue « Tout ».
-
-         Les huit premiers sont ceux que Pilotest range sous « Ces tests ne
-         sont plus posés » (8). Le neuvième n'a jamais fait partie de cette
-         sélection : il appartient à celle des pilotes pros ENAC. ---- */
-  "Angles":"retire",
-  "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"retire",
-  "Tangram":"retire",
-  "Voitures (basique)":"retire","Voitures (séquentiel)":"retire",
-  "Memory 3 Back":"retire","Memory 4 Back":"retire","Memory 5 Back":"retire",
-  "Patrons de cubes - psy1 ENAC - pilotes pros":"retire"   // sélection ENAC pilotes pros
+  /* ---- PSY1 anciens : TOUT le reste, sans liste à tenir.
+     Un exercice absent des deux blocs ci-dessus est un ancien PSY1 (voir
+     PSY1_OLD plus bas) : ceux que Pilotest range sous « Ces tests ne sont
+     plus posés », ceux qu'il a retirés sans le dire, et ceux qui relèvent
+     d'une autre sélection. Ils restent jouables et consultables via le
+     filtre « PSY1 anciens », mais n'entrent ni dans la vue « Tout » ni
+     dans aucun calcul PSY0 / PSY1 courant. ---- */
 };
 
 /* Un exercice peut relever de plusieurs aptitudes — c'est le classement de
-   Pilotest, et « Attention 3 » compte bien à la fois en Numérique et en
-   Attention. La première catégorie citée sert d'étiquette courte. */
+   Pilotest. La première catégorie citée sert d'étiquette courte.
+
+   PSY1 courant : relevé tel quel sur la page Pilotest. Les effectifs
+   annoncés par le site servent de contrôle — Numérique 8, Intellectuelle 5,
+   Attention 3, Psychomoteur 1, Spatiale 3, Verbale 1, Mémorisation 2, soit
+   16 exercices distincts (plusieurs comptent dans deux aptitudes). */
 const CATEGORY_MAP = {
   /* ---- PSY0 ---- */
   "Un mot sur deux":"Verbale","Pair ou impair":"Numérique","M2 Back numérique":"Mémorisation",
@@ -413,60 +411,46 @@ const CATEGORY_MAP = {
   "Boîtes à mots":"Verbale","Mots en étoile":"Verbale",
   "Séries logiques":"Intellectuelle","Anglais présélection cadets Air France":"Anglais",
 
-  /* ---- PSY1 — sélection en vigueur.
-     Relevé tel quel sur la page Pilotest, dans son ordre d'affichage. Les
-     effectifs annoncés par le site servent de contrôle : Numérique 9,
-     Intellectuelle 5, Attention 6, Psychomoteur 1, Spatiale 4, Verbale 1,
-     Mémorisation 2 — soit 19 exercices distincts. Toute modification de ce
-     bloc doit continuer à tomber juste sur ces sept totaux. ---- */
-
-  /* Numérique (9) — les cinq suivants n'appartiennent qu'à cette aptitude */
+  /* ---- PSY1 courant ---- */
+  /* une seule aptitude */
   "Calcul mental 1":"Numérique","Calcul mental 2":"Numérique",
   "Calcul mental 3":"Numérique","Calcul mental 4":"Numérique",
-  /* … complété par Attention 3, Chaises, Mathématiques, Mémoire de travail II
-     et Test des compteurs, cités plus bas avec leur seconde aptitude. */
-
-  /* Intellectuelle (5) */
-  "EFG":"Intellectuelle",
-  "Matrices de Raven":"Intellectuelle",
-
-  /* Attention (6) */
+  "EFG":"Intellectuelle","Matrices de Raven":"Intellectuelle",
   "Attention 1":"Attention",
-  "Attention 2":"Attention",
-
-  /* Psychomoteur (1) */
   "Psychomoteur ENAC":"Psychomoteur",
-
-  /* Spatiale (4) */
   "Patrons de cubes - psy1 - Cadets AF":"Spatiale",
-
-  /* Exercices à double aptitude — l'ordre suit celui de la page Pilotest,
-     et la première citée sert d'étiquette courte sur les réglettes. */
-  "Attention 3":["Numérique","Attention"],
-  "Chaises (point de vue)":["Numérique","Spatiale"],
+  /* deux aptitudes — dans l'ordre d'affichage de la page Pilotest */
+  "Angles":["Numérique","Spatiale"],
   "Mathématiques":["Numérique","Intellectuelle"],
   "Mémoire de travail II":["Numérique","Mémorisation"],
   "Test des compteurs":["Numérique","Attention"],
   "Lecture de textes":["Intellectuelle","Verbale"],
   "Tangram à compléter":["Intellectuelle","Spatiale"],
-  "Angles à saisir":["Attention","Spatiale"],
   "Mémoire de travail I":["Attention","Mémorisation"],
 
-  /* ---- Anciens ---- */
-  "Angles":"Spatiale","Tangram":"Spatiale",
-  "Voitures (basique)":"Spatiale","Voitures (séquentiel)":"Spatiale",
-  "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
+  /* ---- PSY1 anciens — aptitudes connues, pour les filtres et le radar.
+     Un ancien absent d'ici s'affiche simplement en « Autre ». ---- */
+  "Angles à saisir":["Attention","Spatiale"],
+  "Attention 2":"Attention",
+  "Attention 3":["Numérique","Attention"],
+  "Chaises (point de vue)":["Numérique","Spatiale"],
   "DLR/AF Cadets psy1 - VLR - Orientation spatiale":"Spatiale",
-  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"
+  "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
+  "Tangram":"Spatiale",
+  "Voitures (basique)":"Spatiale","Voitures (séquentiel)":"Spatiale",
+  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"   // sélection ENAC pilotes pros
 };
 
 // Fusion des deux tables → config interne {cat, cats, phase}
+const PSY1_OLD = "psy1_old";
 const CONFIG = {};
 new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(name=>{
   const raw = CATEGORY_MAP[name] || "Autre";
   const cats = Array.isArray(raw) ? raw : [raw];
-  CONFIG[name] = { cat: cats[0], cats, phase: PSY_PHASE_MAP[name] || "psy0" };
+  CONFIG[name] = { cat: cats[0], cats, phase: PSY_PHASE_MAP[name] || PSY1_OLD };
 });
+// Tout exercice inconnu de la table est un ancien PSY1, au même titre que les autres.
+const cfgOf = name => CONFIG[name] || { cat:"Autre", cats:["Autre"], phase:PSY1_OLD };
 
 /* ----------------------- Utilitaires ----------------------- */
 const DAY=86400000;
@@ -503,7 +487,7 @@ function parseCSV(text){
     const stanine=parseInt(p[p.length-2],10);
     const date=parseFrDate(p[p.length-1]);
     if(!test||isNaN(stanine)||!date) continue;
-    const cfg=CONFIG[test]||{cat:"Autre",cats:["Autre"],phase:"psy0"};
+    const cfg=cfgOf(test);
     out.push({test,score:isNaN(score)?null:score,stanine,date,
               cat:cfg.cat,cats:cfg.cats,phase:cfg.phase});
   }
@@ -539,21 +523,16 @@ const SUSTAIN_DAYS=3;   // jours actifs requis dans cette fenêtre
 const SUSTAIN_ATT=10;   // essais requis dans cette fenêtre
 const SUBST_DAYS=5, SUBST_ATT=30;  // seuil d'une session « substantielle »
 
-// Exercices absents de la table de correspondance : on ne les rattache à
-// aucune phase (les classer d'office en PSY0 fausserait les moyennes).
-// Les exercices retirés du programme (anciens PSY1, autres sélections) sont
-// eux aussi écartés : les références les ont travaillés, moi jamais — les
-// garder ferait comparer des choses que je ne passerai pas.
+// Les anciens PSY1 — y compris tout exercice absent de la table — sont
+// écartés de la comparaison : les références les ont travaillés, moi non,
+// ou plus. Les garder ferait comparer des choses que je ne passerai pas.
 function phaseRows(rows,ph){
-  const ok=r=>CONFIG[r.test]&&CONFIG[r.test].phase!=='retire'&&!excluded.has(r.test);
+  const ok=r=>r.phase!==PSY1_OLD&&!excluded.has(r.test);
   return ph==='all' ? rows.filter(ok) : rows.filter(r=>ok(r)&&r.phase===ph);
 }
-function unknownTests(rows){
-  const s=new Set(); rows.forEach(r=>{ if(!CONFIG[r.test]&&!excluded.has(r.test)) s.add(r.test); }); return s;
-}
-function retiredTests(rows){
+function oldTests(rows){
   const s=new Set();
-  rows.forEach(r=>{ const c=CONFIG[r.test]; if(c&&c.phase==='retire') s.add(r.test); });
+  rows.forEach(r=>{ if(r.phase===PSY1_OLD&&!excluded.has(r.test)) s.add(r.test); });
   return s;
 }
 function detectCampaigns(rows, ph){
@@ -1031,8 +1010,7 @@ function renderCands(){
 }
 function cardHtml(owner,id,name,color,isMe){
   const camps=detectCampaigns(owner.rows,phase);
-  const unk=unknownTests(owner.rows);
-  const ret=retiredTests(owner.rows);
+  const ret=oldTests(owner.rows);
   let body;
   if(!camps.length){
     body=`<div class="det"><span style="color:var(--s3)">aucun entraînement détecté pour cette phase</span></div>`;
@@ -1076,17 +1054,15 @@ function cardHtml(owner,id,name,color,isMe){
       il ne s’agit probablement pas des résultats personnels. Importer le bon export
       depuis le tableau de bord, ou utiliser « C’est mon dossier » sur le bon fichier.</div>`;
   }
-  const unkNote=unk.size?`<div class="det" style="color:var(--s3);margin-top:7px" title="${esc([...unk].join(', '))}">
-      ${unk.size} exercice${unk.size>1?'s':''} non reconnu${unk.size>1?'s':''}, ignoré${unk.size>1?'s':''}</div>`:'';
-  // Transparence : dire combien d'essais sortent du cadre faute d'être encore au programme
-  const retNote=ret.size?`<div class="det" style="color:var(--faint);margin-top:5px" title="${esc([...ret].sort().join(', '))}">
-      ${ret.size} exercice${ret.size>1?'s':''} hors programme actuel, écarté${ret.size>1?'s':''} de la comparaison</div>`:'';
+  // Transparence : dire combien d'exercices sortent du cadre, et lesquels
+  const retNote=ret.size?`<div class="det" style="color:var(--faint);margin-top:7px" title="${esc([...ret].sort((a,b)=>a.localeCompare(b,'fr')).join(', '))}">
+      ${ret.size} exercice${ret.size>1?'s':''} PSY1 ancien${ret.size>1?'s':''}, écarté${ret.size>1?'s':''} de la comparaison</div>`:'';
   return `<div class="cand">
     <div class="sw" style="background:${color}"></div>
     <div class="body">
       <div class="nm">${esc(name)}${isMe?'<span class="me">MOI</span>':''}
         ${camps.length>1?`<span class="badge">${camps.length} sessions</span>`:''}</div>
-      ${body}${srcNote}${unkNote}${retNote}${acts}
+      ${body}${srcNote}${retNote}${acts}
     </div></div>`;
 }
 
