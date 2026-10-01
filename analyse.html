@@ -123,6 +123,16 @@
   .row{cursor:pointer;border-radius:8px;transition:background .12s}
   .row:hover{background:var(--panel2)}
   .row.sel{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+  /* exercices sans essai : visibles mais sans ligne de niveau, et pas cliquables */
+  .row.never{cursor:default;opacity:.7}
+  .row.never:hover{background:transparent}
+  .row.never .tape{opacity:.5}
+  details.untouched{margin-top:14px;border-top:1px dashed var(--line);padding-top:6px}
+  details.untouched>summary{cursor:pointer;list-style:none;user-select:none;font-family:var(--mono);font-size:10px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:8px 0}
+  details.untouched>summary::-webkit-details-marker{display:none}
+  details.untouched>summary::before{content:"▾ "}
+  details.untouched:not([open])>summary::before{content:"▸ "}
   .row:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
 
   /* Régularité */
@@ -182,6 +192,7 @@
       <span class="lab">Phase</span>
       <div class="seg" id="segPhase">
         <button data-v="psy0" aria-pressed="true">PSY0</button>
+        <button data-v="psy1_all" aria-pressed="false" title="Tout le PSY1 : exercices encore proposés et anciens, réunis">PSY1 général</button>
         <button data-v="psy1" aria-pressed="false" title="Exercices PSY1 encore proposés par Pilotest">PSY1 courant</button>
         <button data-v="psy1_old" aria-pressed="false" title="Exercices PSY1 qui ne sont plus proposés">PSY1 anciens</button>
         <button data-v="all" aria-pressed="false">Tout</button>
@@ -370,6 +381,21 @@ new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(n
 // Tout exercice inconnu de la table est un ancien PSY1, au même titre que les autres.
 const cfgOf = name => CONFIG[name] || { cat:"Autre", cats:["Autre"], phase:PSY1_OLD };
 
+/* Filtres de phase. Une ligne d'export porte sa phase propre (psy0, psy1,
+   psy1_old) ; le filtre choisi peut en regrouper plusieurs :
+   all      = PSY0 + PSY1 courant
+   psy1_all = PSY1 courant + PSY1 anciens (le PSY1 « général »)
+   les autres valeurs désignent une seule phase. */
+const PSY1_ALL = "psy1_all";
+const PHASE_FILTERS = ["all","psy0",PSY1_ALL,"psy1",PSY1_OLD];
+const inPhase = (p, filter) =>
+  filter==="all"   ? p!==PSY1_OLD :
+  filter===PSY1_ALL ? (p==="psy1" || p===PSY1_OLD) :
+  p===filter;
+// Tous les exercices connus d'un filtre, hors exclusions — y compris ceux
+// qui n'ont encore aucun essai : c'est ce qui permet de ne rien oublier.
+const universeOf = filter => Object.keys(CONFIG).filter(n=>inPhase(CONFIG[n].phase,filter) && !excluded.has(n));
+
 /* ----------------------- Utilitaires ----------------------- */
 const DAY=86400000, EOD=DAY-1;
 const LS_MAIN="pilotest_dashboard_v2";
@@ -422,10 +448,8 @@ function loadExcluded(){
   catch(e){ excluded=new Set(); }
 }
 function phaseRows(rows,ph){
-  const ok=r=>!excluded.has(r.test);
-  // « Tout » = PSY0 + PSY1 courant ; les anciens PSY1 ont leur propre filtre.
-  if(ph==='all') return rows.filter(r=>ok(r)&&r.phase!==PSY1_OLD);
-  return rows.filter(r=>ok(r)&&r.phase===ph);
+  // « Tout » = PSY0 + PSY1 courant ; « PSY1 général » y ajoute les anciens.
+  return rows.filter(r=>!excluded.has(r.test)&&inPhase(r.phase,ph));
 }
 
 /* ----------------------- Détection des sessions -----------------------
@@ -493,7 +517,7 @@ function mergedCamp(camps){
 /* ----------------------- État ----------------------- */
 let dossiers=[];        // [{id,name,rows,me}]
 let whoId='me', phase='psy0', sessIdx=null, win=0;
-const PHASE_LAB={psy0:'PSY0',psy1:'le PSY1 courant',all:'tout le programme',psy1_old:'les anciens exercices PSY1'};
+const PHASE_LAB={psy0:'PSY0',psy1:'le PSY1 courant',all:'tout le programme',psy1_old:'les anciens exercices PSY1',psy1_all:'le PSY1 (courant et anciens)'};
 const phaseLab=p=>PHASE_LAB[p]||String(p).toUpperCase();
 let focusEx=null, unit='stanine';   // exercice détaillé dans le panneau Focus
 let overlayKey='';                 // « dossierId#idx » ou « dossierId#all » — superposition
@@ -674,7 +698,12 @@ function renderStrips(camp){
     rows.push({ex,n:arr.length,lvl:mean(w),min:Math.min(...w),max:Math.max(...w),
       first:mean(all.slice(0,Math.min(LASTK,all.length))),last:all[all.length-1]});
   });
-  if(!rows.length){ box.innerHTML='<div class="empty">Aucun exercice pour cette phase.</div>'; return; }
+  /* Exercices du programme que cette session n'a pas touchés : on les liste
+     plutôt que de les laisser disparaître — dans un dossier de référence, c'est
+     justement ce qui distingue sa préparation de la mienne. */
+  const seen=byEx(camp);
+  const untouched=universeOf(phase).filter(t=>!seen.has(t)).sort((a,b)=>a.localeCompare(b,'fr'));
+  if(!rows.length&&!untouched.length){ box.innerHTML='<div class="empty">Aucun exercice pour cette phase.</div>'; return; }
   rows.sort((a,b)=>a.lvl-b.lvl||a.ex.localeCompare(b.ex,'fr'));
   document.getElementById('stripsDesc').innerHTML=
     `Niveau sur ${win>0?`les <b>${win} derniers essais</b>`:'<b>tous les essais</b>'} `+
@@ -706,6 +735,15 @@ function renderStrips(camp){
           : `<span style="font-size:10px">${r.n} essai${r.n>1?'s':''}</span>`}</div></div>`;
   }).join('')+
   `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`+
+  (untouched.length
+    ? `<details class="untouched" open><summary>${untouched.length} exercice${untouched.length>1?'s':''} du programme sans essai dans cette session</summary>`
+      +untouched.map(t=>{
+        const ovv=ovMap?ovMap.get(t):null;
+        return `<div class="row never"><div class="ex" title="${esc(t)}">${esc(t)}</div>
+          <div class="tape">${ovv!==null&&ovv!==undefined?`<div class="ov" style="left:${pos(ovv)}%;background:${OV_COLOR}" title="${esc(ovName)} : ${fmt(ovv)}"></div>`:''}</div>
+          <div class="dl"><span style="font-size:10px">${ovv!==null&&ovv!==undefined?`${esc(ovName)} ${fmt(ovv)}`:'jamais pratiqué'}</span></div></div>`;
+      }).join('')+`</details>`
+    : '')+
   `<div class="legend">
      <span>chiffre = niveau retenu · à côté, l'écart avec le niveau de départ</span>
      <span>capsule = amplitude min–max sur la fenêtre</span>
@@ -832,6 +870,12 @@ function renderVolume(camp){
     const w=windowed(arr).map(r=>r.stanine);
     entries.push({ex,n:arr.length,lvl:w.length?mean(w):null});
   });
+  // + exercices du programme sans essai, et ceux que seul le dossier superposé a travaillés
+  const have=new Set(entries.map(e=>e.ex));
+  const ovx=overlayCamp();
+  const extra=new Set(universeOf(phase));
+  if(ovx) byEx(ovx.camp).forEach((_,ex)=>extra.add(ex));
+  extra.forEach(ex=>{ if(!have.has(ex)) entries.push({ex,n:0,lvl:null}); });
   entries.sort((a,b)=>b.n-a.n||a.ex.localeCompare(b.ex,'fr'));
   const box=document.getElementById('volBox');
   if(box) box.style.height=Math.min(Math.max(260,entries.length*24),900)+'px';
@@ -845,7 +889,7 @@ function renderVolume(camp){
       return l.length>mx?l.slice(0,mx-1)+'…':l;}},grid:{display:false}};
   o.plugins.tooltip.callbacks={label:c=>{
     const e=entries[c.dataIndex];
-    return `${e.n} essai${e.n>1?'s':''} · niveau ${fmt(e.lvl)}`;
+    return e.n?`${e.n} essai${e.n>1?'s':''} · niveau ${fmt(e.lvl)}`:'aucun essai dans cette session';
   }};
   const ov=overlayCamp();
   const ds=[{label:'analysé',data:entries.map(e=>e.n),
@@ -858,7 +902,7 @@ function renderVolume(camp){
     o.plugins.tooltip.callbacks={label:c=>{
       const e=entries[c.dataIndex];
       return c.datasetIndex===0
-        ? `${e.n} essai${e.n>1?'s':''} · niveau ${fmt(e.lvl)}`
+        ? (e.n?`${e.n} essai${e.n>1?'s':''} · niveau ${fmt(e.lvl)}`:'aucun essai dans cette session')
         : `${ov.name} : ${c.raw} essai${c.raw>1?'s':''}`;
     }};
     if(box) box.style.height=Math.min(Math.max(260,entries.length*34),1100)+'px';

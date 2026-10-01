@@ -133,6 +133,16 @@
   .panel p.desc{color:var(--muted);font-size:12px;margin:0 0 16px;font-family:var(--mono)}
   /* Hauteurs proportionnelles à l'écran (s'adaptent du téléphone au grand écran) */
   .chartbox{position:relative;height:320px;height:clamp(260px,42vh,380px)}
+  /* Exercices qu'aucun rythme ne peut décrire (jamais faits, ou un seul jour) :
+     listés sous le graphique pour qu'ils ne passent pas inaperçus. */
+  .miss{margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .miss b{color:var(--ink);font-weight:600;letter-spacing:.04em}
+  .miss .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .miss .chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 11px;
+    color:var(--muted);font-size:11.5px;cursor:pointer;transition:border-color .12s,color .12s}
+  .miss .chip:hover{border-color:var(--accent);color:var(--ink)}
+  .miss.never .chip{border-style:dashed;color:var(--faint)}
+  @media (max-width:600px){ .miss .chip{font-size:13px;padding:6px 12px} }
   .chartbox.tall{height:360px;height:clamp(280px,48vh,440px)}
 
   /* Focus panel */
@@ -234,6 +244,19 @@
   .prio-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
   @media(max-width:760px){.prio-grid{grid-template-columns:1fr}}
   .prio-col h3{font-size:13px;font-weight:600;margin:0 0 12px}
+  .prio-discover{margin-top:26px;padding-top:18px;border-top:1px dashed var(--line)}
+  .prio-discover h3{font-size:13px;font-weight:600;margin:0 0 6px}
+  #prioDiscover{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+  #prioDiscover .card{margin:0;opacity:.9;border-style:dashed}
+  #prioDiscover .card .cm{color:var(--faint);font-size:15px}
+  /* Au-delà des six premières cartes, le reste se déplie : rien n'est caché. */
+  details.more{margin-top:8px}
+  details.more>summary{cursor:pointer;list-style:none;user-select:none;font-family:var(--mono);font-size:11px;
+    letter-spacing:.06em;color:var(--muted);padding:8px 2px}
+  details.more>summary::-webkit-details-marker{display:none}
+  details.more>summary::before{content:"▸ ";color:var(--faint)}
+  details.more[open]>summary::before{content:"▾ "}
+  details.more>summary:hover{color:var(--ink)}
   .card{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
     background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:9px;
     cursor:pointer;transition:border-color .15s,transform .1s}
@@ -352,6 +375,8 @@
     .seg.segwrap{width:100%}
     .seg button{flex:1 1 auto}
     .seg button .sub{display:block;font-size:10px;line-height:1.1}
+    /* cinq phases sur une ligne, même sur les plus petits écrans */
+    #phaseSeg button{padding:8px 5px;font-size:11px;min-width:0}
     .win{min-width:0}
     .win input[type=range]{flex:1;width:auto}
     select{min-width:0;width:100%}
@@ -417,6 +442,7 @@
       <div class="seg" id="phaseSeg" role="group" aria-label="Filtre de phase">
         <button data-phase="all" aria-pressed="true">Tout</button>
         <button data-phase="psy0" aria-pressed="false">PSY0</button>
+        <button data-phase="psy1_all" aria-pressed="false" title="Tout le PSY1 : les exercices encore proposés et les anciens, réunis">PSY1 <span class="sub">général</span></button>
         <button data-phase="psy1" aria-pressed="false" title="Exercices PSY1 encore proposés par Pilotest">PSY1 <span class="sub">courant</span></button>
         <button data-phase="psy1_old" aria-pressed="false" title="Exercices PSY1 qui ne sont plus proposés — toujours jouables">PSY1 <span class="sub">anciens</span></button>
       </div>
@@ -492,6 +518,7 @@
         <button data-v="rate" aria-pressed="false">Séances / mois</button>
       </div>
       <div class="chartbox" id="freqBox"><canvas id="freq"></canvas></div>
+      <div id="freqMissing"></div>
     </div>
 
     <div class="panel" id="sec-niveau">
@@ -594,6 +621,11 @@
         <div class="prio-col"><h3>🎯 À travailler en priorité</h3><div id="prioWork"></div></div>
         <div class="prio-col"><h3>✅ Points forts</h3><div id="prioStrong"></div></div>
       </div>
+      <div class="prio-discover" id="prioDiscoverBox" hidden>
+        <h3 id="prioDiscoverTitle">🆕 À découvrir</h3>
+        <p class="desc" id="prioDiscoverDesc"></p>
+        <div id="prioDiscover"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -693,6 +725,21 @@ new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(n
 });
 // Tout exercice inconnu de la table est un ancien PSY1, au même titre que les autres.
 const cfgOf = name => CONFIG[name] || { cat:"Autre", cats:["Autre"], phase:PSY1_OLD };
+
+/* Filtres de phase. Une ligne d'export porte sa phase propre (psy0, psy1,
+   psy1_old) ; le filtre choisi peut en regrouper plusieurs :
+   all      = PSY0 + PSY1 courant
+   psy1_all = PSY1 courant + PSY1 anciens (le PSY1 « général »)
+   les autres valeurs désignent une seule phase. */
+const PSY1_ALL = "psy1_all";
+const PHASE_FILTERS = ["all","psy0",PSY1_ALL,"psy1",PSY1_OLD];
+const inPhase = (p, filter) =>
+  filter==="all"   ? p!==PSY1_OLD :
+  filter===PSY1_ALL ? (p==="psy1" || p===PSY1_OLD) :
+  p===filter;
+// Tous les exercices connus d'un filtre, hors exclusions — y compris ceux
+// qui n'ont encore aucun essai : c'est ce qui permet de ne rien oublier.
+const universeOf = filter => Object.keys(CONFIG).filter(n=>inPhase(CONFIG[n].phase,filter) && !excluded.has(n));
 
 /* ---- Données par défaut : ton export actuel (remplaçable via le bouton) ---- */
 const DEFAULT_CSV = `test,score,stanine,at
@@ -966,9 +1013,9 @@ function periodBounds(){
 }
 function periodActive(){ const {from,to}=periodBounds(); return !!(from||to); }
 function phaseRows(){
-  // « Tout » = PSY0 + PSY1 courant : les anciens PSY1 restent consultables,
-  // mais seulement via leur propre filtre.
-  let r = phase==="all"?RAW.filter(r=>r.phase!==PSY1_OLD):RAW.filter(r=>r.phase===phase);
+  // « Tout » = PSY0 + PSY1 courant : les anciens PSY1 restent consultables
+  // via leur propre filtre, ou via « PSY1 général » qui les réunit au courant.
+  let r = RAW.filter(r=>inPhase(r.phase,phase));
   if(excluded.size) r=r.filter(x=>!excluded.has(x.test));
   const {from,to}=periodBounds();
   if(from||to) r=r.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));
@@ -979,13 +1026,7 @@ function viewRows(){ const r=phaseRows(); return catFilter==="all"?r:r.filter(x=
 // liste de TOUS les exercices connus correspondant à la phase + catégorie choisies
 // (sert à afficher aussi ceux à 0 essai, sans mélanger psy0 et psy1)
 function exerciseUniverse(){
-  return Object.keys(CONFIG).filter(name=>{
-    const c=CONFIG[name];
-    if(excluded.has(name)) return false;
-    if(phase==="all"? c.phase===PSY1_OLD : c.phase!==phase) return false;
-    if(catFilter!=="all" && !c.cats.includes(catFilter)) return false;
-    return true;
-  });
+  return universeOf(phase).filter(name=>catFilter==="all" || CONFIG[name].cats.includes(catFilter));
 }
 function byExercise(rows){
   const map=new Map();
@@ -1101,8 +1142,14 @@ function renderRadar(){
   for(const arr of map.values()){
     for(const r of windowed(arr)){ for(const c of r.cats) (cats[c]=cats[c]||[]).push(r.stanine); }
   }
-  const labels=Object.keys(cats).sort();
-  const data=labels.map(c=>+fmt(mean(cats[c])));
+  /* Une aptitude jamais travaillée doit rester sur le radar : son absence se
+     lirait comme « pas de problème » alors que c'est un angle mort. Elle
+     s'affiche à 0 avec la mention « aucun essai ». */
+  const known=new Set(Object.keys(cats));
+  universeOf(phase).forEach(n=>CONFIG[n].cats.forEach(c=>known.add(c)));
+  const names=[...known].sort((a,b)=>a.localeCompare(b,'fr'));
+  const labels=names.map(c=>cats[c]?c:[c,'aucun essai']);
+  const data=names.map(c=>cats[c]?+fmt(mean(cats[c])):0);
   const tip=getCss('--accent');
   charts.radar?.destroy();
   charts.radar=new Chart(document.getElementById('radar'),{
@@ -1111,7 +1158,7 @@ function renderRadar(){
       {label:'Classe moyenne',data,fill:true,
         backgroundColor:'rgba(90,209,196,.16)',borderColor:tip,
         pointBackgroundColor:tip,borderWidth:2,pointRadius:3},
-      {label:'Objectif (7)',data:labels.map(()=>7),fill:false,
+      {label:'Objectif (7)',data:names.map(()=>7),fill:false,
         borderColor:'rgba(58,170,53,.55)',borderDash:[5,4],borderWidth:1,pointRadius:0}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
@@ -1195,6 +1242,19 @@ function viewSpanDays(rows){
   const ts=rows.map(r=>r.date.getTime());
   return Math.max(1,Math.round((Math.max(...ts)-Math.min(...ts))/DAY)+1);
 }
+// Sous le graphique : ce qu'il ne peut pas montrer — exercices jamais pratiqués
+// (rien à mesurer) et exercices travaillés un seul jour (pas d'intervalle).
+function renderFreqMissing(singles, map){
+  const host=document.getElementById('freqMissing'); if(!host) return;
+  const never=exerciseUniverse().filter(t=>!map.has(t)).sort((a,b)=>a.localeCompare(b,'fr'));
+  singles=singles.slice().sort((a,b)=>a.localeCompare(b,'fr'));
+  const block=(cls,title,list)=>list.length
+    ? `<div class="miss ${cls}"><b>${title} · ${list.length}</b><div class="chips">`
+      +list.map(t=>`<button type="button" class="chip" data-ex="${esc(t)}">${esc(t)}</button>`).join('')
+      +`</div></div>` : '';
+  host.innerHTML=block('never','Jamais pratiqués',never)+block('single','Travaillés un seul jour',singles);
+}
+
 function renderFreq(){
   const rows=viewRows(), map=byExercise(rows);
   const periodDays=viewSpanDays(rows);
@@ -1216,8 +1276,10 @@ function renderFreq(){
     : `<b>Intervalle médian</b> entre deux séances sur un même exercice. `+
       `Barre courte = exercice revu souvent, barre longue = délaissé.${single?` ${single} exercice${single>1?'s':''} travaillé${single>1?'s':''} un seul jour, non classé${single>1?'s':''}.`:''}`;
   const box=document.getElementById('freqBox');
-  if(box) box.style.height=Math.min(Math.max(240,usable.length*(isPhone()?15:19)),1100)+'px';
+  if(box){ box.style.height=Math.min(Math.max(240,usable.length*(isPhone()?15:19)),1100)+'px';
+    box.style.display=usable.length?'':'none'; }   // rien à tracer : pas de cadre vide
   charts.freq?.destroy();
+  renderFreqMissing(entries.filter(e=>e.f.med===null).map(e=>e.ex), map);
   if(!usable.length){ return; }
   charts.freq=new Chart(document.getElementById('freq'),{
     type:'bar',
@@ -1400,7 +1462,8 @@ function renderProg(){
   const unitTxt = useScore ? 'score %' : 'classe';
   const noScore = useScore && series.length && !usable.length;
   document.getElementById('progDesc').textContent =
-    label+` — ${unitTxt}, points + moyenne mobile (3).`+(noScore?' (pas de score % dans ces données)':'');
+    label+` — ${unitTxt}, points + moyenne mobile (3).`+(noScore?' (pas de score % dans ces données)':'')
+      +(series.length?'':' Aucun essai sur cette sélection : rien à tracer pour l\'instant.');
   const fd=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
   charts.prog?.destroy();
   charts.prog=new Chart(document.getElementById('prog'),{
@@ -1455,11 +1518,13 @@ function fillExerciseSelect(){
   const sel=document.getElementById('exSelect');
   const prev=sel.value;
   const rows=viewRows();
-  const cats=[...new Set(rows.flatMap(r=>r.cats))].sort();
-  const tests=[...new Set(rows.map(r=>r.test))].sort();
+  const tried=new Set(rows.map(r=>r.test));
+  const uni=exerciseUniverse();
+  const cats=[...new Set([...rows.flatMap(r=>r.cats),...uni.flatMap(n=>CONFIG[n].cats)])].sort((a,b)=>a.localeCompare(b,'fr'));
+  const tests=[...new Set([...tried,...uni])].sort((a,b)=>a.localeCompare(b,'fr'));
   sel.innerHTML =
     '<optgroup label="Catégories">'+cats.map(c=>`<option value="cat:${esc(c)}">▸ ${esc(c)}</option>`).join('')+'</optgroup>'+
-    '<optgroup label="Exercices">'+tests.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')+'</optgroup>';
+    '<optgroup label="Exercices">'+tests.map(t=>`<option value="${esc(t)}">${esc(t)}${tried.has(t)?'':' — aucun essai'}</option>`).join('')+'</optgroup>';
   if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
 }
 
@@ -1782,11 +1847,21 @@ function renderSessionPlan(rows, now){
       : `<div class="sday-rest">Rien d'imposé — révision libre ou repos.</div>`;
     return `<div class="sday">${head}${body}</div>`;
   };
+  /* Trois séances ne couvrent pas tout le programme. Plutôt que de laisser
+     croire que les autres n'existent pas, on les liste sous le plan. */
+  const planned=new Set(days.flat().map(i=>i.t));
+  const left=exerciseUniverse().filter(t=>!planned.has(t)).sort((a,b)=>a.localeCompare(b,'fr'));
+  const leftHtml=left.length
+    ? `<details class="more"><summary>${left.length} exercice${left.length>1?'s':''} du programme hors de ces 3 séances</summary>
+        <div class="miss"><div class="chips">${left.map(t=>`<button type="button" class="chip" data-ex="${esc(t)}">${esc(t)}</button>`).join('')}</div></div></details>`
+    : '';
   host.innerHTML =
     `<div class="session-head"><h3>🗓️ Programme de travail</h3>${bil}</div>`+
     modeHtml+
     `<div class="session-days">${days.map(dayHtml).join('')}</div>`+
+    leftHtml+
     `<div class="session-legende">🔥 échauffement · 🎯 cœur de séance (catégories alternées) · ✅ finir sur une réussite</div>`;
+  host.querySelectorAll('.chip[data-ex]').forEach(el=>el.addEventListener('click',()=>selectFocus(el.dataset.ex)));
   host.querySelectorAll('.sitem').forEach(el=>{
     el.addEventListener('click',()=>selectFocus(el.dataset.ex));
     el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectFocus(el.dataset.ex); } });
@@ -1796,12 +1871,13 @@ function renderSessionPlan(rows, now){
 function renderPriorities(){
   const rows=viewRows(); const now=refNow();
   const stats=exerciseStats(rows, now);
+  const SHOWN=6;   // cartes visibles d'emblée ; le reste se déplie
 
   // ---- À travailler ----
   const work=stats.map(s=>({...s,...workScore(s),showRhythm:true}))
-    .filter(s=>s.score>0).sort((a,b)=>b.score-a.score).slice(0,6);
+    .filter(s=>s.score>0).sort((a,b)=>b.score-a.score);
   // ---- Points forts (acquis) : la temporalité y devient « à entretenir » ----
-  const strong=stats.filter(s=>s.m>=7).sort((a,b)=>b.m-a.m).slice(0,6).map(s=>{
+  const strong=stats.filter(s=>s.m>=7).sort((a,b)=>b.m-a.m).map(s=>{
     const tags=[];
     if(s.d!==null && s.d>=0.75) tags.push({t:'En progression',c:'green'});
     if(s.m>=8) tags.push({t:'Excellent',c:'green'});
@@ -1819,11 +1895,39 @@ function renderPriorities(){
       <div class="cm" style="color:${bandColor(s.m)}">${fmt(s.m)}<small> /9</small></div>
     </div>`;
 
+  const list=(arr,emptyMsg)=>{
+    if(!arr.length) return `<div class="empty">${emptyMsg}</div>`;
+    const head=arr.slice(0,SHOWN).map(card).join('');
+    const rest=arr.slice(SHOWN);
+    return head+(rest.length
+      ? `<details class="more"><summary>${rest.length} autre${rest.length>1?'s':''} exercice${rest.length>1?'s':''}</summary>${rest.map(card).join('')}</details>`
+      : '');
+  };
+  // ---- À découvrir : TOUS les exercices du programme jamais pratiqués ----
+  // (sans plafond : un exercice jamais fait est une inconnue, pas un point acquis)
+  const tried=new Set(rows.map(r=>r.test));
+  const fresh=exerciseUniverse().filter(t=>!tried.has(t)).sort((a,b)=>a.localeCompare(b,'fr'));
+  const discoverCard=t=>`<div class="card" data-ex="${esc(t)}">
+      <div class="card-left"><div class="cn">${esc(t)}</div>
+        <div class="cc">${esc(CONFIG[t].cats.join(' · '))}</div>
+        <div class="cmeta">jamais pratiqué — niveau inconnu</div></div>
+      <div class="cm">–</div></div>`;
+  const dbox=document.getElementById('prioDiscoverBox');
+  if(dbox){
+    dbox.hidden=!fresh.length;
+    document.getElementById('prioDiscoverTitle').textContent=`🆕 À découvrir · ${fresh.length}`;
+    document.getElementById('prioDiscoverDesc').textContent=periodActive()
+      ? 'Exercices du programme sans aucun essai sur la période affichée.'
+      : 'Exercices du programme sans aucun essai. Leur niveau est inconnu : ils peuvent cacher un point faible.';
+    document.getElementById('prioDiscover').innerHTML=fresh.map(discoverCard).join('');
+  }
   document.getElementById('prioWork').innerHTML =
-    work.length?work.map(card).join(''):'<div class="empty">Rien d\'urgent — tout est au-dessus de l\'objectif 🎉</div>';
+    list(work, fresh.length
+      ? 'Rien d\'urgent sur les exercices déjà pratiqués — voir plus bas ceux à découvrir.'
+      : 'Rien d\'urgent — tout est au-dessus de l\'objectif 🎉');
   document.getElementById('prioStrong').innerHTML =
-    strong.length?strong.map(card).join(''):'<div class="empty">Aucun exercice encore en zone verte (≥ 7).</div>';
-  document.querySelectorAll('#prioWork .card,#prioStrong .card').forEach(c=>{
+    list(strong,'Aucun exercice encore en zone verte (≥ 7).');
+  document.querySelectorAll('#prioWork .card,#prioStrong .card,#prioDiscover .card').forEach(c=>{
     c.addEventListener('click',()=>selectFocus(c.dataset.ex));
   });
 
@@ -1899,6 +2003,9 @@ document.getElementById('examDateIn').addEventListener('change',e=>{
   renderPriorities(); saveState();
 });
 // clic / clavier sur une ligne « Niveau par exercice » → ouvre l'exercice dans le focus
+document.getElementById('freqMissing').addEventListener('click',e=>{
+  const b=e.target.closest('.chip'); if(b&&b.dataset.ex) selectFocus(b.dataset.ex);
+});
 const stripsBox=document.getElementById('strips');
 stripsBox.addEventListener('click',e=>{
   const s=e.target.closest('.strip'); if(s&&s.dataset.ex) selectFocus(s.dataset.ex);
@@ -2090,7 +2197,7 @@ if(saved){
   }
   if(saved.phase){
     const p=saved.phase==='retire'?PSY1_OLD:saved.phase;   // valeur d'une version précédente
-    if(['all','psy0','psy1',PSY1_OLD].includes(p)) phase=p;
+    if(PHASE_FILTERS.includes(p)) phase=p;
   }
   if(saved.catFilter) catFilter=saved.catFilter;
   if(typeof saved.win==='number') win=saved.win;
