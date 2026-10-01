@@ -259,6 +259,7 @@
       <span class="lab">Phase</span>
       <div class="seg" id="segPhase">
         <button data-v="psy0" aria-pressed="true">PSY0</button>
+        <button data-v="psy1_all" aria-pressed="false" title="Tout le PSY1 : exercices encore proposés et anciens, réunis — les références ont surtout travaillé les anciens">PSY1 général</button>
         <button data-v="psy1" aria-pressed="false" title="PSY1 courant — les anciens exercices sont écartés de la comparaison">PSY1 courant</button>
         <button data-v="all" aria-pressed="false">Tout</button>
       </div>
@@ -452,6 +453,21 @@ new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(n
 // Tout exercice inconnu de la table est un ancien PSY1, au même titre que les autres.
 const cfgOf = name => CONFIG[name] || { cat:"Autre", cats:["Autre"], phase:PSY1_OLD };
 
+/* Filtres de phase. Une ligne d'export porte sa phase propre (psy0, psy1,
+   psy1_old) ; le filtre choisi peut en regrouper plusieurs :
+   all      = PSY0 + PSY1 courant
+   psy1_all = PSY1 courant + PSY1 anciens (le PSY1 « général »)
+   les autres valeurs désignent une seule phase. */
+const PSY1_ALL = "psy1_all";
+const PHASE_FILTERS = ["all","psy0",PSY1_ALL,"psy1",PSY1_OLD];
+const inPhase = (p, filter) =>
+  filter==="all"   ? p!==PSY1_OLD :
+  filter===PSY1_ALL ? (p==="psy1" || p===PSY1_OLD) :
+  p===filter;
+// Tous les exercices connus d'un filtre, hors exclusions — y compris ceux
+// qui n'ont encore aucun essai : c'est ce qui permet de ne rien oublier.
+const universeOf = filter => Object.keys(CONFIG).filter(n=>inPhase(CONFIG[n].phase,filter) && !excluded.has(n));
+
 /* ----------------------- Utilitaires ----------------------- */
 const DAY=86400000;
 const LS_MAIN="pilotest_dashboard_v2";
@@ -527,8 +543,7 @@ const SUBST_DAYS=5, SUBST_ATT=30;  // seuil d'une session « substantielle »
 // écartés de la comparaison : les références les ont travaillés, moi non,
 // ou plus. Les garder ferait comparer des choses que je ne passerai pas.
 function phaseRows(rows,ph){
-  const ok=r=>r.phase!==PSY1_OLD&&!excluded.has(r.test);
-  return ph==='all' ? rows.filter(ok) : rows.filter(r=>ok(r)&&r.phase===ph);
+  return rows.filter(r=>!excluded.has(r.test)&&inPhase(r.phase,ph));
 }
 function oldTests(rows){
   const s=new Set();
@@ -1010,7 +1025,7 @@ function renderCands(){
 }
 function cardHtml(owner,id,name,color,isMe){
   const camps=detectCampaigns(owner.rows,phase);
-  const ret=oldTests(owner.rows);
+  const ret=inPhase(PSY1_OLD,phase)?new Set():oldTests(owner.rows);
   let body;
   if(!camps.length){
     body=`<div class="det"><span style="color:var(--s3)">aucun entraînement détecté pour cette phase</span></div>`;
@@ -1577,11 +1592,17 @@ function renderTable(ps,exSet){
   if(!ps.length){ box.innerHTML='<div class="empty">Rien à comparer pour cette phase.</div>'; return; }
   const bm=benchmark(ps);                    // la médiane porte sur les réussites
   const pos=v=>((Math.max(1,Math.min(9,v))-1)/8)*100;
-  const rows=[...exSet.set].map(ex=>{
+  /* Le comparatif ne listait que les exercices travaillés par quelqu'un. Un
+     exercice du programme que personne n'a touché en était absent — or c'est
+     un angle mort à connaître. On l'ajoute, sans repère, sauf en mode « communs ». */
+  const exs=new Set(exSet.set);
+  const nobody=exSet.common?[]:universeOf(phase).filter(t=>!exs.has(t));
+  nobody.forEach(t=>exs.add(t));
+  const rows=[...exs].map(ex=>{
     const mine=m?exLevelAt(m,ex,stage):null;
     const vals=rp.map(p=>({p,v:exLevelAt(p,ex,stage)})).filter(o=>o.v!==null);
     const grp=median(vals.filter(o=>bm.list.includes(o.p)).map(o=>o.v));
-    return {ex,mine,vals,grp,gap:(mine!==null&&grp!==null)?mine-grp:null};
+    return {ex,mine,vals,grp,gap:(mine!==null&&grp!==null)?mine-grp:null,none:nobody.includes(ex)};
   });
   const behind=rows.filter(r=>r.gap!==null&&r.gap<-0.15).sort((a,b)=>a.gap-b.gap);
   const ahead =rows.filter(r=>r.gap!==null&&r.gap>0.15).sort((a,b)=>b.gap-a.gap);
@@ -1601,7 +1622,7 @@ function renderTable(ps,exSet){
       ?`<div class="med" style="left:${pos(r.grp)}%" title="Médiane du groupe : ${fmt(r.grp)}"></div>`:'';
     const mine=r.mine!==null&&m?mark(m,r.mine,true):'';
     let lab,labCol;
-    if(r.gap===null){ lab=r.mine!==null?'—':'pas de repère'; labCol='var(--faint)'; }
+    if(r.gap===null){ lab=r.none?'aucun essai':(r.mine!==null?'—':'pas de repère'); labCol='var(--faint)'; }
     else { lab=(r.gap>0?'+':'')+fmt(r.gap); labCol=r.gap>=0.15?getCss('--s7'):r.gap<=-0.15?getCss('--s2'):getCss('--s5'); }
     return `<div class="row">
       <div class="ex" title="${esc(r.ex)}">${esc(r.ex)}</div>
