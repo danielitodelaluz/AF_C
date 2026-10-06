@@ -429,8 +429,13 @@ const DAY=86400000;
 const dayIdx=d=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/DAY);
 const GAP_DAYS=28;      // coupure au-delà de laquelle on change de session
 const SUSTAIN_WIN=14;   // fenêtre d'observation d'un entraînement « soutenu »
-const SUSTAIN_DAYS=3;   // jours actifs requis dans cette fenêtre
-const SUSTAIN_ATT=10;   // essais requis dans cette fenêtre
+/* Démarrage : il faut un vrai rythme (4 jours et 20 essais sur 14 jours) —
+   quelques essais épars avant de s'y mettre, c'est du rodage, pas de la
+   préparation. Arrêt : critère plus souple (3 jours, 10 essais), pour ne pas
+   amputer les derniers jours, souvent plus légers, avant l'épreuve. */
+const START_DAYS=4, START_ATT=20;
+const SUSTAIN_DAYS=3;   // jours actifs requis pour l'arrêt
+const SUSTAIN_ATT=10;   // essais requis pour l'arrêt
 const SUBST_DAYS=5, SUBST_ATT=30;   // seuil d'une session « substantielle »
 const LINK_DAYS=90;     // un PSY1 entamé moins de 3 mois après un PSY0 : même candidature
 const LS_ME="pilotest_cmp_me_v1";
@@ -457,7 +462,7 @@ function periodLabel(a,b){
    La fin retenue est le jour J : on cesse de s'entraîner une fois l'épreuve
    passée. Un candidat peut avoir plusieurs sessions (une candidature ratée,
    puis la bonne) : chacune est analysable et comparable séparément. */
-function detectCampaigns(rows,ph,phaseOf){
+function detectCampaigns(rows,ph,phaseOf,keepLargest=true){
   const src=phaseRows(rows,ph,phaseOf);
   if(!src.length) return [];
   const byDay=new Map();
@@ -480,20 +485,25 @@ function detectCampaigns(rows,ph,phaseOf){
   const sustained=(b,i,dir)=>{
     let d=0,a=0;
     for(let j=i; j>=0&&j<b.length&&Math.abs(b[j]-b[i])<=SUSTAIN_WIN; j+=dir){ d++; a+=byDay.get(b[j]).n; }
-    return d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT;
+    return dir>0 ? d>=START_DAYS&&a>=START_ATT : d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT;
   };
   // 2) recalage du début et de la fin de chaque bloc
   const built=blocks.map(b=>{
-    let si=0, ei=b.length-1;
-    for(let i=0;i<b.length;i++) if(sustained(b,i,1)){ si=i; break; }
+    let si=0, ei=b.length-1, started=false;
+    for(let i=0;i<b.length;i++) if(sustained(b,i,1)){ si=i; started=true; break; }
     for(let i=b.length-1;i>si;i--) if(sustained(b,i,-1)){ ei=i; break; }
     const kept=b.slice(si,ei+1);
-    return {startK:kept[0], endK:kept[kept.length-1], trimmedDays:si, trimmedTail:b.length-1-ei,
+    return {startK:kept[0], endK:kept[kept.length-1], started, trimmedDays:si, trimmedTail:b.length-1-ei,
             activeDays:kept.length, att:kept.reduce((s,d)=>s+byDay.get(d).n,0)};
   });
-  // 3) on ne retient que les sessions substantielles ; à défaut, la plus grosse
-  let keep=built.filter(c=>c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
-  if(!keep.length) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
+  /* 3) on ne retient que les sessions substantielles. À défaut, la plus
+     grosse — seulement pour MES résultats (keepLargest) : une préparation
+     qui démarre doit apparaître ; chez un autre candidat, une poignée
+     d'essais n'est pas une session comparable. */
+  // sans jamais atteindre le rythme de démarrage, ce n'est pas une préparation
+  let keep=built.filter(c=>c.started&&c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
+  if(!keep.length&&keepLargest) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
+  if(!keep.length) return [];
   const dropped=built.length-keep.length;
   return keep.map((c,i)=>{
     const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=c.startK&&k<=c.endK;});
@@ -517,8 +527,8 @@ function detectCampaigns(rows,ph,phaseOf){
    candidature qui a abouti. */
 function selectionHistory(owner,phaseOf){
   if(owner._hist) return owner._hist;
-  const p0=detectCampaigns(owner.rows,'psy0',phaseOf);
-  const p1=detectCampaigns(owner.rows,PSY1_ALL,phaseOf);
+  const p0=detectCampaigns(owner.rows,'psy0',phaseOf,!!owner.me);
+  const p1=detectCampaigns(owner.rows,PSY1_ALL,phaseOf,!!owner.me);
   const cycles=p0.map(s=>({p0:s,p1:[]}));
   p1.forEach(s=>{
     let host=null;
@@ -757,7 +767,7 @@ const current=()=>dossiers.find(d=>d.id===whoId)||dossiers[0]||null;
 /* Issue d'une session : même déduction que la page Comparaison (statut du
    candidat, enchaînement PSY0 → PSY1, réglage manuel éventuel). */
 function outcomeFor(d,c,camps){
-  camps=camps||detectCampaigns(d.rows,phase);
+  camps=camps||detectCampaigns(d.rows,phase,null,!!d.me);
   const J=d.me?myExamTarget(phase,camps,c):null;
   return sessionOutcome(d,phase,c,{ongoing:examStillAhead(J)});
 }
@@ -766,7 +776,7 @@ function outcomeFor(d,c,camps){
 function overlayChoices(){
   const out=[];
   dossiers.forEach(d=>{
-    const camps=detectCampaigns(d.rows,phase);
+    const camps=detectCampaigns(d.rows,phase,null,!!d.me);
     camps.forEach(c=>{
       const o=outcomeFor(d,c,camps);
       out.push({key:d.id+'#'+c.index,
@@ -780,7 +790,7 @@ function overlayCamp(){
   if(!overlayKey) return null;
   const [id,part]=overlayKey.split('#');
   const d=dossiers.find(x=>x.id===id); if(!d) return null;
-  const camps=detectCampaigns(d.rows,phase); if(!camps.length) return null;
+  const camps=detectCampaigns(d.rows,phase,null,!!d.me); if(!camps.length) return null;
   const camp=part==='all'?(camps.length>1?mergedCamp(camps):camps[0]):camps[+part];
   if(!camp) return null;
   const choice=overlayChoices().find(c=>c.key===overlayKey);
@@ -788,7 +798,7 @@ function overlayCamp(){
 }
 // campagne actuellement analysée : une session précise, ou toutes réunies
 function pickCamp(d){
-  const camps=detectCampaigns(d.rows,phase);
+  const camps=detectCampaigns(d.rows,phase,null,!!d.me);
   if(!camps.length) return null;
   return sessIdx==='all'&&camps.length>1?mergedCamp(camps):camps[Math.min(sessIdx||0,camps.length-1)];
 }
@@ -1299,7 +1309,7 @@ function render(){
     ['heatmap','hmStats','hoursTbl'].forEach(id=>document.getElementById(id).innerHTML='');
     return;
   }
-  const camps=detectCampaigns(d.rows,phase);
+  const camps=detectCampaigns(d.rows,phase,null,!!d.me);
   if(sessIdx!=='all'&&(sessIdx===null||sessIdx>=camps.length)) sessIdx=camps.length?camps.length-1:0;
   if(sessIdx==='all'&&camps.length<2) sessIdx=camps.length?camps.length-1:0;
   renderSessionSeg(camps);
@@ -1349,7 +1359,7 @@ function renderWho(){
   if(!dossiers.length){ sel.innerHTML='<option>Aucun dossier</option>'; return; }
   if(!dossiers.some(d=>d.id===whoId)) whoId=dossiers[0].id;
   sel.innerHTML=dossiers.map(d=>{
-    const n=detectCampaigns(d.rows,phase).length;
+    const n=detectCampaigns(d.rows,phase,null,!!d.me).length;
     return `<option value="${esc(d.id)}"${d.id===whoId?' selected':''}>${esc(d.name)}${
       n>1?` (${n} sessions)`:''}</option>`;
   }).join('');
