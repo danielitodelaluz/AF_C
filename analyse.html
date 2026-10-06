@@ -316,10 +316,12 @@ const PSY_PHASE_MAP = {
   /* ---- PSY1 anciens : TOUT le reste, sans liste à tenir.
      Un exercice absent des deux blocs ci-dessus est un ancien PSY1 (voir
      PSY1_OLD plus bas) : ceux que Pilotest range sous « Ces tests ne sont
-     plus posés », ceux qu'il a retirés sans le dire, et ceux qui relèvent
-     d'une autre sélection. Ils restent jouables et consultables via le
-     filtre « PSY1 anciens », mais n'entrent ni dans la vue « Tout » ni
-     dans aucun calcul PSY0 / PSY1 courant. ---- */
+     plus posés », et ceux qu'il a retirés sans le dire. Ils restent
+     jouables et consultables via le filtre « PSY1 anciens », mais
+     n'entrent ni dans la vue « Tout » ni dans aucun calcul PSY0 / PSY1
+     courant.
+     Seule exception : les tests d'AUTRES sélections (DLR, COMPASS, ENAC
+     pilotes pros…), reconnus à leur nom — voir OTHER_PATTERNS. ---- */
 };
 
 /* Un exercice peut relever de plusieurs aptitudes — c'est le classement de
@@ -367,8 +369,18 @@ const CATEGORY_MAP = {
   "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
   "Tangram":"Spatiale",
   "Voitures (basique)":"Spatiale","Voitures (séquentiel)":"Spatiale",
-  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"   // sélection ENAC pilotes pros
+
+  /* ---- Autres sélections (hors Cadets AF) ---- */
+  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"
 };
+
+/* Autres sélections : certains exports contiennent des tests d'autres
+   concours (DLR, COMPASS, ENAC pilotes pros…). Ils ne relèvent ni du PSY0
+   ni du PSY1 Cadets AF : on les reconnaît à leur nom et on les met à part,
+   hors de tout calcul — sinon ils fabriqueraient de fausses sessions PSY1. */
+const OTHER = "autre";
+const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
+const isOtherSelection = name => OTHER_PATTERNS.some(re=>re.test(name));
 
 // Fusion des deux tables → config interne {cat, cats, phase}
 const PSY1_OLD = "psy1_old";
@@ -376,28 +388,275 @@ const CONFIG = {};
 new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(name=>{
   const raw = CATEGORY_MAP[name] || "Autre";
   const cats = Array.isArray(raw) ? raw : [raw];
-  CONFIG[name] = { cat: cats[0], cats, phase: PSY_PHASE_MAP[name] || PSY1_OLD };
+  CONFIG[name] = { cat: cats[0], cats,
+    phase: PSY_PHASE_MAP[name] || (isOtherSelection(name) ? OTHER : PSY1_OLD) };
 });
-// Tout exercice inconnu de la table est un ancien PSY1, au même titre que les autres.
-const cfgOf = name => CONFIG[name] || { cat:"Autre", cats:["Autre"], phase:PSY1_OLD };
+// Tout exercice inconnu de la table est un ancien PSY1 — sauf s'il relève d'une autre sélection.
+const cfgOf = name => CONFIG[name] ||
+  { cat:"Autre", cats:["Autre"], phase: isOtherSelection(name) ? OTHER : PSY1_OLD };
+
+/* Certains exports encodent les apostrophes (« Trouvez l&#39;intrus ») : les
+   noms retrouvent leur forme lisible dès la lecture du fichier. */
+const decodeEntities = s => String(s)
+  .replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(+d))
+  .replace(/&#x([0-9a-f]+);/gi,(m,h)=>String.fromCharCode(parseInt(h,16)))
+  .replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+  .replace(/&amp;/g,'&');
 
 /* Filtres de phase. Une ligne d'export porte sa phase propre (psy0, psy1,
-   psy1_old) ; le filtre choisi peut en regrouper plusieurs :
+   psy1_old, autre) ; le filtre choisi peut en regrouper plusieurs :
    all      = PSY0 + PSY1 courant
    psy1_all = PSY1 courant + PSY1 anciens (le PSY1 « général »)
-   les autres valeurs désignent une seule phase. */
+   les autres valeurs désignent une seule phase. Les autres sélections
+   n'entrent dans aucun filtre. */
 const PSY1_ALL = "psy1_all";
 const PHASE_FILTERS = ["all","psy0",PSY1_ALL,"psy1",PSY1_OLD];
 const inPhase = (p, filter) =>
-  filter==="all"   ? p!==PSY1_OLD :
+  filter==="all"    ? (p==="psy0" || p==="psy1") :
   filter===PSY1_ALL ? (p==="psy1" || p===PSY1_OLD) :
   p===filter;
 // Tous les exercices connus d'un filtre, hors exclusions — y compris ceux
 // qui n'ont encore aucun essai : c'est ce qui permet de ne rien oublier.
 const universeOf = filter => Object.keys(CONFIG).filter(n=>inPhase(CONFIG[n].phase,filter) && !excluded.has(n));
+/* ---- fin du bloc partagé (identique dans index, comparaison et analyse) ---- */
+
+/* ==== BLOC PARTAGÉ « SESSIONS » — identique dans comparaison.html et analyse.html ====
+   Découpage d'un historique en sessions d'entraînement, regroupement en
+   candidatures (années de sélection) et déduction de l'issue de chaque
+   session. Se modifie dans comparaison.html et se recopie tel quel dans
+   analyse.html. */
+const DAY=86400000;
+const dayIdx=d=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/DAY);
+const GAP_DAYS=28;      // coupure au-delà de laquelle on change de session
+const SUSTAIN_WIN=14;   // fenêtre d'observation d'un entraînement « soutenu »
+const SUSTAIN_DAYS=3;   // jours actifs requis dans cette fenêtre
+const SUSTAIN_ATT=10;   // essais requis dans cette fenêtre
+const SUBST_DAYS=5, SUBST_ATT=30;   // seuil d'une session « substantielle »
+const LINK_DAYS=90;     // un PSY1 entamé moins de 3 mois après un PSY0 : même candidature
+const LS_ME="pilotest_cmp_me_v1";
+const MY_EXAM_DEFAULT={psy0:'2026-09-05',psy1:'2026-10-31'};
+
+/* Lignes d'une phase. phaseOf permet de lire une autre phase que celle de
+   l'exercice : la page Comparaison range un ancien exercice sous la phase de
+   son équivalent actuel. */
+function phaseRows(rows,ph,phaseOf){
+  const f=phaseOf||(r=>r.phase);
+  return rows.filter(r=>!excluded.has(r.test)&&inPhase(f(r),ph));
+}
+// Libellé compact d'une session : « 2023 » ou « 2022–23 »
+function periodLabel(a,b){
+  const ya=a.getFullYear(), yb=b.getFullYear();
+  return ya===yb? String(ya) : `${ya}–${String(yb).slice(2)}`;
+}
+/* Le premier essai d'une phase ne marque pas le début de la préparation (un
+   exercice isolé suivi de deux semaines de rien, c'est du repérage), et le
+   dernier n'en marque pas toujours la fin (un essai isolé des semaines après
+   l'épreuve). On découpe l'historique en blocs séparés par une longue
+   coupure, on recale le début ET la fin de chacun sur un entraînement
+   soutenu, puis on ne garde que les blocs substantiels.
+   La fin retenue est le jour J : on cesse de s'entraîner une fois l'épreuve
+   passée. Un candidat peut avoir plusieurs sessions (une candidature ratée,
+   puis la bonne) : chacune est analysable et comparable séparément. */
+function detectCampaigns(rows,ph,phaseOf){
+  const src=phaseRows(rows,ph,phaseOf);
+  if(!src.length) return [];
+  const byDay=new Map();
+  src.forEach(r=>{
+    const k=dayIdx(r.date);
+    let o=byDay.get(k);
+    if(!o){ const d=new Date(r.date); d.setHours(0,0,0,0); o={n:0,date:d}; byDay.set(k,o); }
+    o.n++;
+  });
+  const days=[...byDay.keys()].sort((a,b)=>a-b);
+  // 1) découpage en blocs
+  const blocks=[]; let cur=[days[0]];
+  for(let i=1;i<days.length;i++){
+    if(days[i]-days[i-1]>GAP_DAYS){ blocks.push(cur); cur=[]; }
+    cur.push(days[i]);
+  }
+  blocks.push(cur);
+  // entraînement soutenu autour du jour b[i] : assez de jours actifs et
+  // d'essais dans la fenêtre qui suit (dir = 1) ou qui précède (dir = -1)
+  const sustained=(b,i,dir)=>{
+    let d=0,a=0;
+    for(let j=i; j>=0&&j<b.length&&Math.abs(b[j]-b[i])<=SUSTAIN_WIN; j+=dir){ d++; a+=byDay.get(b[j]).n; }
+    return d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT;
+  };
+  // 2) recalage du début et de la fin de chaque bloc
+  const built=blocks.map(b=>{
+    let si=0, ei=b.length-1;
+    for(let i=0;i<b.length;i++) if(sustained(b,i,1)){ si=i; break; }
+    for(let i=b.length-1;i>si;i--) if(sustained(b,i,-1)){ ei=i; break; }
+    const kept=b.slice(si,ei+1);
+    return {startK:kept[0], endK:kept[kept.length-1], trimmedDays:si, trimmedTail:b.length-1-ei,
+            activeDays:kept.length, att:kept.reduce((s,d)=>s+byDay.get(d).n,0)};
+  });
+  // 3) on ne retient que les sessions substantielles ; à défaut, la plus grosse
+  let keep=built.filter(c=>c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
+  if(!keep.length) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
+  const dropped=built.length-keep.length;
+  return keep.map((c,i)=>{
+    const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=c.startK&&k<=c.endK;});
+    const start=byDay.get(c.startK).date, end=byDay.get(c.endK).date;
+    return {
+      index:i, total:keep.length, start, end, campRows,
+      id:start.toISOString().slice(0,10),
+      trimmedDays:c.trimmedDays, trimmedTail:c.trimmedTail,
+      dropped:i===0?dropped:0,      // périodes trop courtes écartées (signalé une fois)
+      activeDays:c.activeDays, attempts:campRows.length,
+      weeks:Math.max(1,Math.round((c.endK-c.startK)/7)+1),
+      label:periodLabel(start,end)
+    };
+  });
+}
+
+/* Candidatures. Chaque PSY0 ouvre une candidature ; une préparation PSY1
+   commencée pendant ce PSY0 ou dans les LINK_DAYS jours qui suivent, et
+   terminée après lui, en fait partie. Un PSY1 sans PSY0 juste avant forme
+   sa propre candidature. Pour un candidat admis, c'est la dernière
+   candidature qui a abouti. */
+function selectionHistory(owner,phaseOf){
+  if(owner._hist) return owner._hist;
+  const p0=detectCampaigns(owner.rows,'psy0',phaseOf);
+  const p1=detectCampaigns(owner.rows,PSY1_ALL,phaseOf);
+  const cycles=p0.map(s=>({p0:s,p1:[]}));
+  p1.forEach(s=>{
+    let host=null;
+    cycles.forEach(c=>{ if(c.p0&&s.end>c.p0.end&&s.start-c.p0.end<=LINK_DAYS*DAY) host=c; });
+    if(host) host.p1.push(s); else cycles.push({p0:null,p1:[s]});
+  });
+  const endOf=c=>Math.max(c.p0?c.p0.end.getTime():0,...c.p1.map(s=>s.end.getTime()));
+  cycles.sort((a,b)=>endOf(a)-endOf(b));
+  cycles.forEach((c,i)=>{
+    c.index=i; c.final=i===cycles.length-1;
+    if(c.p0) c.p0.cycle=c;
+    c.p1.forEach(s=>{ s.cycle=c; });
+  });
+  return (owner._hist={p0,p1,cycles});
+}
+// Session de l'historique qui recouvre le plus une session affichée
+function histMatch(list,c){
+  let best=null,bo=-1;
+  list.forEach(s=>{
+    const o=Math.min(s.end.getTime(),c.end.getTime())-Math.max(s.start.getTime(),c.start.getTime());
+    if(o>=0&&o>bo){ best=s; bo=o; }
+  });
+  return best;
+}
+// Une issue se raisonne par épreuve : PSY0, ou PSY1 (courant, anciens ou les deux)
+const histKind=ph=>ph==='psy0'?'psy0':'psy1';
+const hasOutcome=ph=>ph==='psy0'||ph==='psy1'||ph===PSY1_ALL||ph===PSY1_OLD;
+function histOf(owner,ph,c,phaseOf){
+  const H=selectionHistory(owner,phaseOf);
+  return histMatch(histKind(ph)==='psy0'?H.p0:H.p1,c);
+}
+
+/* Issues. Le statut du candidat (admis lors de sa dernière candidature,
+   jamais admis, inconnu) et l'enchaînement de ses sessions suffisent à
+   déduire la plupart des issues ; le reste est une hypothèse, signalée comme
+   telle (« ? »), fondée sur son niveau. Une issue réglée à la main prime. */
+const OUTCOMES={
+  pass:   {sym:'✓', lab:'réussie',        col:'--s7'},
+  fail:   {sym:'✗', lab:'échouée',        col:'--s2'},
+  unknown:{sym:'?', lab:'issue inconnue', col:'--muted'},
+  ongoing:{sym:'•', lab:'en cours',       col:'--accent'},
+  ignored:{sym:'–', lab:'ignorée',        col:'--faint'}
+};
+function outcomeText(o){
+  if(!o) return '';
+  if(o.code==='pass') return o.sure?'✓ réussie':'✓? réussite probable';
+  if(o.code==='fail') return o.sure?'✗ échouée':'✗? échec probable';
+  return OUTCOMES[o.code].sym+' '+OUTCOMES[o.code].lab;
+}
+const outcomeSym=o=>!o?'':(o.code==='pass'||o.code==='fail')?OUTCOMES[o.code].sym+(o.sure?'':'?'):OUTCOMES[o.code].sym;
+// 'admis' par défaut : les dossiers importés avant l'ajout du statut étaient ceux de candidats admis
+const statusOf=owner=>owner.me?'moi':(owner.status||'admis');
+// Niveau d'une session à sa fin, sur des exercices donnés (5 derniers essais de chacun)
+function levelAtEnd(s,fams){
+  const vals=[];
+  fams.forEach(f=>{
+    const st=s.campRows.filter(r=>(r.fam||r.test)===f).map(r=>r.stanine);
+    if(st.length){ const w=st.slice(-5); vals.push(w.reduce((a,b)=>a+b,0)/w.length); }
+  });
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+}
+// Écart de niveau final entre deux sessions, sur leurs exercices communs
+function endLevelGap(a,b){
+  const fb=new Set(b.campRows.map(r=>r.fam||r.test));
+  const common=[...new Set(a.campRows.map(r=>r.fam||r.test))].filter(f=>fb.has(f));
+  if(common.length<3) return null;
+  const la=levelAtEnd(a,common), lb=levelAtEnd(b,common);
+  return la===null||lb===null?null:{d:la-lb,n:common.length};
+}
+function autoOutcome(owner,kind,h,ctx){
+  const st=statusOf(owner), cyc=h.cycle;
+  if(ctx&&ctx.ongoing) return {code:'ongoing',sure:true,why:'préparation en cours'};
+  if(!cyc) return {code:'unknown',sure:false,why:'session isolée'};
+  if(kind==='psy0'){
+    if(cyc.p1.length) return {code:'pass',sure:true,why:'suivie d’une préparation PSY1 : PSY0 franchi'};
+    if(!cyc.final) return {code:'fail',sure:true,why:'aucune préparation PSY1 ensuite, puis nouvelle candidature : PSY0 non franchi'};
+    if(st==='admis') return {code:'pass',sure:true,why:'dernière candidature d’un candidat admis'};
+    if(st==='non') return {code:'fail',sure:false,why:'candidat non admis, sans préparation PSY1 ensuite'};
+    return {code:'unknown',sure:false,why:st==='moi'?'aucune préparation PSY1 enregistrée ensuite':'statut du candidat à préciser sur sa fiche'};
+  }
+  if(cyc.final){
+    if(st==='admis') return {code:'pass',sure:true,why:'dernière candidature d’un candidat admis'};
+    if(st==='non') return {code:'fail',sure:false,why:'candidat non admis : arrêt au PSY1 ou à une étape suivante'};
+    return {code:'unknown',sure:false,why:st==='moi'?'issue à venir':'statut du candidat à préciser sur sa fiche'};
+  }
+  /* Candidature antérieure : le candidat est revenu ensuite, il n'a donc pas
+     été admis cette année-là — mais l'étape de l'échec est inconnue. Pour un
+     candidat admis plus tard, son niveau final face à celui de son année
+     d'admission fonde l'hypothèse. */
+  const cs=owner._hist?owner._hist.cycles:[];
+  const fin=cs.length?cs[cs.length-1]:null;
+  const ref=st==='admis'&&fin&&fin.p1.length?fin.p1[fin.p1.length-1]:null;
+  const g=ref?endLevelGap(h,ref):null;
+  if(g){
+    const dd=(g.d>0?'+':'')+(Math.round(g.d*10)/10).toFixed(1);
+    if(g.d>=-0.3) return {code:'pass',sure:false,
+      why:`non admis cette année-là, mais niveau final comparable à son année d’admission (${dd} sur ${g.n} exercices communs) : PSY1 sans doute franchi, arrêt à une étape suivante`};
+    return {code:'fail',sure:false,
+      why:`niveau final inférieur à son année d’admission (${dd} sur ${g.n} exercices communs) : échec probable au PSY1`};
+  }
+  return {code:'fail',sure:false,why:'nouvelle candidature ensuite : non admis cette année-là, étape inconnue'};
+}
+const ocKey=(kind,h)=>'oc:'+kind+'|'+h.id;
+function sessionOutcome(owner,ph,c,ctx,phaseOf){
+  if(!hasOutcome(ph)) return null;          // phases mêlant PSY0 et PSY1 : pas d'issue
+  const kind=histKind(ph), h=histOf(owner,ph,c,phaseOf);
+  if(!h) return {code:'unknown',sure:false,why:'session absente de l’historique'};
+  const man=(owner.sess||{})[ocKey(kind,h)];
+  if(man&&OUTCOMES[man]) return {code:man,sure:true,manual:true,why:'issue réglée à la main'};
+  return autoOutcome(owner,kind,h,ctx);
+}
+function setSessionOutcome(owner,ph,c,code,phaseOf){
+  const h=histOf(owner,ph,c,phaseOf); if(!h) return;
+  owner.sess=owner.sess||{};
+  const k=ocKey(histKind(ph),h);
+  if(code) owner.sess[k]=code; else delete owner.sess[k];
+}
+
+/* Mes dates d'examen, une par épreuve. Ma dernière session d'une phase est
+   alignée sur cette date si elle y mène ; tant que la date n'est pas passée,
+   elle est « en cours ». */
+function myExams(){
+  let cfg=null;
+  try{ cfg=JSON.parse(localStorage.getItem(LS_ME)||'null'); }catch(e){}
+  return Object.assign({},MY_EXAM_DEFAULT,(cfg&&cfg.exams)||{});
+}
+function myExamTarget(ph,camps,c){
+  const ex=myExams()[histKind(ph)];
+  if(!ex||!camps.length||c.id!==camps[camps.length-1].id) return null;   // par identifiant : les objets peuvent être recalculés
+  const J=new Date(ex+'T00:00:00');
+  if(c.end.getTime()<J.getTime()-120*DAY||c.start.getTime()>J.getTime()+DAY) return null;
+  return J;
+}
+const examStillAhead=J=>!!J&&Date.now()<=J.getTime()+DAY;
+/* ==== fin du bloc partagé « SESSIONS » ==== */
 
 /* ----------------------- Utilitaires ----------------------- */
-const DAY=86400000, EOD=DAY-1;
+const EOD=DAY-1;
 const LS_MAIN="pilotest_dashboard_v2";
 const LS_REFS="pilotest_refs_v1";
 const LS_EXCL="pilotest_excluded_v1";
@@ -418,7 +677,7 @@ function parseCSV(text){
   for(const line of lines){
     const p=line.split(",");
     if(p.length<4) continue;
-    const test=p.slice(0,p.length-3).join(",").trim().replace(/^"(.*)"$/,'$1');
+    const test=decodeEntities(p.slice(0,p.length-3).join(",").trim().replace(/^"(.*)"$/,'$1'));
     const score=parseFloat(p[p.length-3]);
     const stanine=parseInt(p[p.length-2],10);
     const date=parseFrDate(p[p.length-1]);
@@ -438,7 +697,6 @@ const bandColor=v=>getCss('--s'+Math.min(9,Math.max(1,Math.round(v))));
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isPhone=()=>window.matchMedia('(max-width:600px)').matches;
 const chartFont=n=>isPhone()?n+2:n;
-const dayIdx=d=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/DAY);
 const fdate=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
 
 /* Exercices exclus des calculs — liste partagée avec les autres pages */
@@ -447,55 +705,7 @@ function loadExcluded(){
   try{ const a=JSON.parse(localStorage.getItem(LS_EXCL)||'[]'); if(Array.isArray(a)) excluded=new Set(a); }
   catch(e){ excluded=new Set(); }
 }
-function phaseRows(rows,ph){
-  // « Tout » = PSY0 + PSY1 courant ; « PSY1 général » y ajoute les anciens.
-  return rows.filter(r=>!excluded.has(r.test)&&inPhase(r.phase,ph));
-}
-
-/* ----------------------- Détection des sessions -----------------------
-   Identique à la page Comparaison : blocs séparés par une longue coupure,
-   départ recalé sur le premier jour réellement suivi d'un entraînement
-   soutenu, et seules les périodes substantielles sont retenues. */
-const GAP_DAYS=28, SUSTAIN_WIN=14, SUSTAIN_DAYS=3, SUSTAIN_ATT=10, SUBST_DAYS=5, SUBST_ATT=30;
-function detectCampaigns(rows,ph){
-  const src=phaseRows(rows,ph);
-  if(!src.length) return [];
-  const byDay=new Map();
-  src.forEach(r=>{
-    const k=dayIdx(r.date);
-    const o=byDay.get(k)||{n:0,date:(()=>{const d=new Date(r.date);d.setHours(0,0,0,0);return d;})()};
-    o.n++; byDay.set(k,o);
-  });
-  const days=[...byDay.keys()].sort((a,b)=>a-b);
-  const blocks=[]; let cur=[days[0]];
-  for(let i=1;i<days.length;i++){
-    if(days[i]-days[i-1]>GAP_DAYS){ blocks.push(cur); cur=[]; }
-    cur.push(days[i]);
-  }
-  blocks.push(cur);
-  const att=b=>b.reduce((s,d)=>s+byDay.get(d).n,0);
-  const built=blocks.map(b=>{
-    let si=0;
-    for(let i=0;i<b.length;i++){
-      const lim=b[i]+SUSTAIN_WIN; let d=0,a=0;
-      for(let j=i;j<b.length&&b[j]<=lim;j++){ d++; a+=byDay.get(b[j]).n; }
-      if(d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT){ si=i; break; }
-    }
-    const kept=b.slice(si);
-    return {startK:kept[0],endK:kept[kept.length-1],activeDays:kept.length,att:att(kept)};
-  });
-  let keep=built.filter(c=>c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
-  if(!keep.length) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
-  return keep.map((c,i)=>{
-    const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=c.startK&&k<=c.endK;});
-    const start=byDay.get(c.startK).date, end=byDay.get(c.endK).date;
-    return {index:i,total:keep.length,start,end,campRows,activeDays:c.activeDays,
-      attempts:campRows.length,
-      weeks:Math.max(1,Math.round((c.endK-c.startK)/7)+1),
-      label:start.getFullYear()===end.getFullYear()?String(start.getFullYear())
-            :`${start.getFullYear()}–${String(end.getFullYear()).slice(2)}`};
-  });
-}
+/* Sessions, candidatures et issues : voir le bloc partagé « SESSIONS » plus haut. */
 
 /* Vue « toutes les sessions » : une campagne virtuelle réunissant les essais
    de toutes les périodes. Les semaines cumulées excluent les creux entre
@@ -530,24 +740,38 @@ function loadDossiers(){
   let saved=null,refs=null;
   try{ saved=JSON.parse(localStorage.getItem(LS_MAIN)||'null'); }catch(e){}
   try{ refs=JSON.parse(localStorage.getItem(LS_REFS)||'null'); }catch(e){}
+  let meCfg=null;
+  try{ meCfg=JSON.parse(localStorage.getItem(LS_ME)||'null'); }catch(e){}
   if(saved&&saved.csv){
     const rows=parseCSV(saved.csv);
-    if(rows.length) dossiers.push({id:'me',name:'Mes résultats',src:saved.name||'',rows,me:true});
+    if(rows.length) dossiers.push({id:'me',name:'Mes résultats',src:saved.name||'',rows,me:true,
+      sess:(meCfg&&meCfg.sess)||{}});
   }
   (refs||[]).forEach(r=>{
     const rows=parseCSV(r.csv||'');
-    if(rows.length) dossiers.push({id:r.id,name:r.name,src:'',rows,me:false});
+    if(rows.length) dossiers.push({id:r.id,name:r.name,src:'',rows,me:false,
+      status:r.status,sess:r.sess||{}});
   });
 }
 const current=()=>dossiers.find(d=>d.id===whoId)||dossiers[0]||null;
+/* Issue d'une session : même déduction que la page Comparaison (statut du
+   candidat, enchaînement PSY0 → PSY1, réglage manuel éventuel). */
+function outcomeFor(d,c,camps){
+  camps=camps||detectCampaigns(d.rows,phase);
+  const J=d.me?myExamTarget(phase,camps,c):null;
+  return sessionOutcome(d,phase,c,{ongoing:examStillAhead(J)});
+}
 /* Superposition : chaque entrée de la liste désigne un couple dossier/session,
    ce qui permet aussi de superposer deux sessions d'un même candidat. */
 function overlayChoices(){
   const out=[];
   dossiers.forEach(d=>{
     const camps=detectCampaigns(d.rows,phase);
-    camps.forEach(c=>out.push({key:d.id+'#'+c.index,
-      label:`${d.name} — ${camps.length>1?c.label+(c.index===c.total-1?' ✓':' ✗'):'préparation'}`}));
+    camps.forEach(c=>{
+      const o=outcomeFor(d,c,camps);
+      out.push({key:d.id+'#'+c.index,
+        label:`${d.name} — ${camps.length>1?c.label:'préparation'}${o?' '+outcomeSym(o):''}`});
+    });
     if(camps.length>1) out.push({key:d.id+'#all',label:`${d.name} — ${camps.length} sessions réunies`});
   });
   return out;
@@ -657,15 +881,15 @@ function renderTiles(camp,d){
     ovLine=i=>`<div class="t-sub" style="color:${OV_COLOR};margin-top:6px;padding-top:6px;
       border-top:1px solid var(--line)" title="${esc(ov.name)}">◆ ${vals[i]}</div>`;
   }
-  const outcome=camp.merged?{lab:`${camp.total} sessions`,col:'--muted'}
-    :(d.me?{lab:'en cours',col:'--accent'}
-      :(camp.index===camp.total-1?{lab:'réussite',col:'--s7'}:{lab:'tentative',col:'--s2'}));
+  const oc=camp.merged?null:outcomeFor(d,camp);
+  const outcome=camp.merged?{lab:`${camp.total} sessions`,col:'--muted',why:''}
+    :oc?{lab:outcomeText(oc),col:OUTCOMES[oc.code].col,why:oc.why}:{lab:'—',col:'--muted',why:''};
   const nEx=byEx(camp).size;
   box.innerHTML=`
     <div class="tile"><div class="t-lab">📅 ${camp.merged?'Sessions réunies':'Période'}</div>
       <div class="t-val" style="font-size:17px">${camp.weeks} sem.${camp.merged?' <small>cumulées</small>':''}</div>
       <div class="t-sub">${fdate(camp.start)} → ${fdate(camp.end)}
-        <span class="tag" style="color:var(${outcome.col});border-color:var(${outcome.col})">${outcome.lab}</span></div>${ovLine(0)}</div>
+        <span class="tag" style="color:var(${outcome.col});border-color:var(${outcome.col})" title="${esc(outcome.why)}">${esc(outcome.lab)}</span></div>${ovLine(0)}</div>
     <div class="tile"><div class="t-lab">🎯 Niveau final</div>
       <div class="t-val" style="color:${g?bandColor(g.v):getCss('--muted')}">${g?fmt(g.v):'–'}<small>/9</small></div>
       <div class="t-sub">moyenne sur ${g?g.n:0} exercice${g&&g.n>1?'s':''}</div>${ovLine(1)}</div>
@@ -1047,10 +1271,11 @@ function renderHours(camp,d){
 function renderSessionSeg(camps){
   const seg=document.getElementById('segSess');
   if(!camps.length){ seg.innerHTML='<span class="winval" style="color:var(--faint)">—</span>'; return; }
+  const d=current();
   seg.innerHTML=camps.map(c=>{
-    const last=c.index===c.total-1;
-    return `<button data-i="${c.index}" aria-pressed="${c.index===sessIdx}">${
-      camps.length>1?`${c.label}${last?' ✓':' ✗'}`:'Préparation'}</button>`;
+    const o=d?outcomeFor(d,c,camps):null;
+    return `<button data-i="${c.index}" aria-pressed="${c.index===sessIdx}" title="${o?esc(outcomeText(o)+' : '+o.why):''}">${
+      camps.length>1?c.label:'Préparation'}${o?' '+outcomeSym(o):''}</button>`;
   }).join('')+(camps.length>1
     ? `<button data-i="all" aria-pressed="${sessIdx==='all'}" title="Réunir les essais de toutes les sessions">Toutes</button>`
     : '');

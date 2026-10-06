@@ -34,19 +34,34 @@
   .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
     color:var(--accent);margin:0 0 6px}
   h1{font-size:clamp(22px,4vw,32px);font-weight:700;margin:0;letter-spacing:-.01em}
-  .sub{color:var(--muted);font-size:13px;margin-top:6px}
+  .sub{color:var(--muted);font-size:13px;margin-top:6px;max-width:900px}
+  .toplinks{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
   a.back{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;
-    border:1px solid var(--line);border-radius:20px;padding:5px 11px;display:inline-block;margin-bottom:14px}
+    border:1px solid var(--line);border-radius:20px;padding:5px 11px;display:inline-block}
   a.back:hover{color:var(--ink);border-color:var(--accent)}
 
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:20px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:20px;min-width:0}
   .panel h2{font-size:15px;margin:0 0 4px;font-weight:600;letter-spacing:.01em}
-  .desc{color:var(--muted);font-size:12px;margin:0 0 14px}
+  .panel h3{font-size:13px;margin:0 0 6px;font-weight:600}
+  .desc{color:var(--muted);font-size:12px;margin:0 0 14px;max-width:920px}
+  .desc b{color:var(--ink);font-weight:600}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .grid>*{min-width:0}
   .grid .panel{margin-bottom:0}
   .chartbox{position:relative;height:320px;height:clamp(260px,42vh,380px)}
+  .chartbox.tall{height:380px;height:clamp(300px,52vh,460px)}
+  .note{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:10px}
+  .warn{color:var(--s3)}
+  .empty{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:24px 10px}
 
-  /* Import */
+  /* Dossiers (repliable) */
+  details.panel>summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;user-select:none}
+  details.panel>summary::-webkit-details-marker{display:none}
+  details.panel>summary h2{margin:0}
+  details.panel>summary::before{content:"▸";color:var(--faint);font-size:13px}
+  details.panel[open]>summary::before{content:"▾"}
+  details.panel>summary .sumline{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  details.panel[open]>summary{margin-bottom:10px}
   .drop{border:1px dashed var(--line);border-radius:12px;padding:16px;text-align:center;
     background:var(--panel);transition:border-color .15s,background .15s}
   .drop.over{border-color:var(--accent);background:var(--panel2)}
@@ -56,41 +71,62 @@
   .status.err{color:var(--s1)} .status.ok{color:var(--s7)}
 
   /* Cartes candidats */
-  .cands{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-top:14px}
-  .cand{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;
-    display:flex;gap:10px;align-items:flex-start}
-  .cand.off{opacity:.45}
-  .cand .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto;margin-top:4px}
-  .cand .body{flex:1;min-width:0}
-  .cand .nm{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .cands{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-top:14px}
+  .cand{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 13px;min-width:0}
+  .cand.me{border-color:rgba(90,209,196,.45)}
+  .cand .nm{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
   .cand .nm .me{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--accent);
     border:1px solid var(--accent);border-radius:4px;padding:1px 4px}
-  .cand .det{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.65}
-  .cand .det b{color:var(--ink)}
-  .cand .acts{display:flex;gap:6px;margin-top:8px}
-  .cand button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;
-    font-family:var(--mono);font-size:10px;padding:3px 8px;cursor:pointer}
-  .cand button:hover{color:var(--ink);border-color:var(--accent)}
-  .cand input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;flex:0 0 auto}
   .cand .badge{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted);
     border:1px solid var(--line);border-radius:4px;padding:1px 5px}
-  .sess{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
-  .sess:first-of-type{border-top:0;margin-top:6px;padding-top:0}
-  .sess.off{opacity:.45}
-  .sess label{display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer}
-  .sess .det{margin-left:22px}
-  .sess .acts{margin-left:22px;margin-top:6px}
+  .cand .det{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.6}
+  .cand .det b{color:var(--ink)}
+  .cand .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .cand button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;
+    font-family:var(--mono);font-size:10px;padding:4px 9px;cursor:pointer}
+  .cand button:hover{color:var(--ink);border-color:var(--accent)}
+  .cand .field{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;
+    font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .cand select,.cand input[type=date]{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;padding:4px 7px;font-family:var(--mono);font-size:11px;max-width:100%}
+  .sess{border-top:1px solid var(--line);margin-top:10px;padding-top:9px}
+  .sess .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px}
+  .sess .sw{width:22px;height:4px;border-radius:2px;flex:0 0 auto}
+  .sess .why{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:4px;line-height:1.5}
+  .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;border:1px solid;border-radius:4px;
+    padding:1px 5px;white-space:nowrap}
   .nodata{font-family:var(--mono);font-size:12px;color:var(--muted);padding:14px;text-align:center;
     border:1px dashed var(--line);border-radius:10px}
+
+  /* Équivalences d'exercices */
+  details.sub{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+  details.sub>summary{cursor:pointer;list-style:none;font-size:13.5px;font-weight:600;user-select:none}
+  details.sub>summary::-webkit-details-marker{display:none}
+  details.sub>summary::before{content:"▸ ";color:var(--faint)}
+  details.sub[open]>summary::before{content:"▾ "}
+  .eq-list{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+  .eq-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+  .eq-row .arrow{color:var(--accent)}
+  .eq-row button{margin-left:auto;background:none;border:1px solid var(--line);color:var(--muted);
+    border-radius:6px;font-family:var(--mono);font-size:10px;padding:3px 8px;cursor:pointer}
+  .eq-add{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .eq-add select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;
+    padding:6px 9px;font-family:var(--mono);font-size:12px;max-width:100%}
+  .eq-add button,.btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:7px;
+    font-family:var(--mono);font-size:11px;padding:6px 11px;cursor:pointer}
+  .eq-add button:hover,.btn:hover{border-color:var(--accent)}
+  label.toggle{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--muted);cursor:pointer}
+  label.toggle input{accent-color:var(--accent);width:15px;height:15px}
 
   .exclnote{background:rgba(224,162,58,.10);border:1px solid rgba(224,162,58,.38);border-radius:10px;
     padding:9px 14px;margin-bottom:20px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
   .exclnote b{color:var(--ink)}
 
   /* Contrôles */
-  .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;
-    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:20px}
-  .ctl{display:flex;flex-direction:column;gap:6px}
+  .controls{display:flex;flex-wrap:wrap;gap:18px 22px;align-items:flex-end;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+  .ctl{display:flex;flex-direction:column;gap:6px;min-width:0}
   .ctl .lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .seg button{font-family:var(--mono);font-size:11px;background:var(--panel2);color:var(--muted);
@@ -98,124 +134,139 @@
   .seg button[aria-pressed=true]{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
   input[type=range]{accent-color:var(--accent);width:210px}
   select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;
-    padding:7px 10px;font-family:var(--mono);font-size:12px;max-width:320px}
+    padding:7px 10px;font-family:var(--mono);font-size:12px;max-width:100%}
   select:focus{outline:1px solid var(--accent)}
   .stageval{font-family:var(--mono);font-size:12px;color:var(--ink)}
+  .stageval small{color:var(--faint)}
 
-  /* Légende commune à tous les graphiques — en HTML, donc jamais tronquée
-     par la hauteur du canvas (ce que fait la légende intégrée sur téléphone). */
-  .chartkeys{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;
-    background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    padding:12px 16px;margin-bottom:20px}
-  .chartkeys:empty{display:none}
-  .chartkeys .ck{display:inline-flex;align-items:center;gap:9px;
-    font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
-  .chartkeys .ck svg{flex:0 0 auto;display:block}
-  .chartkeys .ck.me{font-weight:600}
-  .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
-    border:1px solid;border-radius:4px;padding:1px 5px;margin-left:2px;white-space:nowrap}
-  .chartkeys .ck{background:none;border:0;padding:2px 0;cursor:pointer;transition:opacity .12s}
-  .chartkeys .ck:hover{opacity:.75}
-  .chartkeys .ck.off{opacity:.38;text-decoration:line-through}
-  .chartkeys .ck:focus-visible{outline:1px solid var(--accent);outline-offset:3px;border-radius:4px}
-  @media (max-width:600px){
-    .chartkeys{gap:9px 14px;padding:11px 13px}
-    .chartkeys .ck{font-size:13px}
-  }
+  /* Barre des sessions : légende ET sélection, pour tous les graphiques */
+  .sessbar{position:sticky;top:0;z-index:30;background:rgba(15,20,26,.95);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:20px;
+    display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .sessbar:empty{display:none}
+  .sessbar .qf{display:flex;gap:4px;flex:0 0 auto;align-items:center}
+  .sessbar .qf span{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-right:2px}
+  .sessbar .qf button{font-family:var(--mono);font-size:10.5px;background:none;border:1px solid var(--line);
+    color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;white-space:nowrap}
+  .sessbar .qf button:hover{color:var(--ink);border-color:var(--accent)}
+  .sessbar .sep{width:1px;align-self:stretch;background:var(--line);margin:0 3px}
+  .chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 6px;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink);cursor:pointer;white-space:nowrap;
+    transition:opacity .12s,border-color .12s}
+  .chip:hover{border-color:var(--muted)}
+  .chip svg{display:block;flex:0 0 auto}
+  .chip.hero{border-color:rgba(90,209,196,.6);font-weight:600}
+  .chip.off{opacity:.42}
+  .chip.off .lbl{text-decoration:line-through}
+  .chip .oc{font-size:10.5px;font-weight:600}
+  .chip:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
 
-  /* Tuiles verdict */
-  .readout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
-  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+  /* Tuiles */
+  .readout{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .tile{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
   .t-lab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .t-val{font-family:var(--mono);font-size:24px;font-weight:600;margin-top:6px;line-height:1.15}
-  .t-val small{font-size:12px;color:var(--faint)}
-  .t-sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px;line-height:1.5}
+  .t-val{font-size:26px;font-weight:600;margin-top:4px;line-height:1.15}
+  .t-val small{font-size:12px;color:var(--faint);font-weight:400}
+  .t-sub{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.55}
+  .t-sub b{color:var(--ink)}
+  .closest{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:2px 0 12px}
+  .closest b{color:var(--ink)}
 
-  /* Comparatif par exercice — réglettes stanine */
-  .grp{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-    margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-  .grp:first-child{margin-top:4px}
-  .grp.behind{color:var(--s2)} .grp.ahead{color:var(--s7)} .grp.na{color:var(--faint)}
-  .row{display:grid;grid-template-columns:170px 1fr 58px;gap:12px;align-items:center;padding:5px 0}
-  .row .ex{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .row .dl{font-family:var(--mono);font-size:12px;font-weight:600;text-align:right}
+  /* Tableaux */
+  .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:11.5px;white-space:nowrap;
+    font-variant-numeric:tabular-nums}
+  th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left;font-family:var(--disp);font-size:13px;
+    position:sticky;left:0;background:var(--panel);z-index:1}
+  thead th{color:var(--faint);font-weight:500;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+    white-space:normal;vertical-align:bottom}
+  tbody tr:hover td{background:var(--panel2)}
+  td .sw{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle;margin-right:7px}
+  td.pos{color:var(--s7)} td.neg{color:var(--s2)} td.mid{color:var(--s5)}
+  td.dim{color:var(--faint)}
+  tr.me td{font-weight:600}
+  tr.tot td{border-top:1px solid var(--muted);font-weight:600}
+  .star{color:var(--accent)}
+
+  /* Réglettes stanine (comparatif, départ) */
   .tape{position:relative;height:22px;border-radius:11px;
     background:linear-gradient(90deg,
-      rgba(229,52,43,.34) 0%,   rgba(229,52,43,.34) 6.25%,
-      rgba(236,106,38,.34) 6.25%, rgba(236,106,38,.34) 18.75%,
-      rgba(243,147,18,.34) 18.75%, rgba(243,147,18,.34) 31.25%,
-      rgba(247,183,29,.34) 31.25%, rgba(247,183,29,.34) 43.75%,
-      rgba(245,217,15,.34) 43.75%, rgba(245,217,15,.34) 56.25%,
-      rgba(180,207,44,.34) 56.25%, rgba(180,207,44,.34) 68.75%,
-      rgba(58,170,53,.34) 68.75%, rgba(58,170,53,.34) 81.25%,
-      rgba(74,169,221,.34) 81.25%, rgba(74,169,221,.34) 93.75%,
-      rgba(58,112,207,.34) 93.75%, rgba(58,112,207,.34) 100%);
+      rgba(229,52,43,.30) 0%,   rgba(229,52,43,.30) 6.25%,
+      rgba(236,106,38,.30) 6.25%, rgba(236,106,38,.30) 18.75%,
+      rgba(243,147,18,.30) 18.75%, rgba(243,147,18,.30) 31.25%,
+      rgba(247,183,29,.30) 31.25%, rgba(247,183,29,.30) 43.75%,
+      rgba(245,217,15,.30) 43.75%, rgba(245,217,15,.30) 56.25%,
+      rgba(180,207,44,.30) 56.25%, rgba(180,207,44,.30) 68.75%,
+      rgba(58,170,53,.30) 68.75%, rgba(58,170,53,.30) 81.25%,
+      rgba(74,169,221,.30) 81.25%, rgba(74,169,221,.30) 93.75%,
+      rgba(58,112,207,.30) 93.75%, rgba(58,112,207,.30) 100%);
     border:1px solid var(--line)}
-  .tape .seg{position:absolute;top:50%;height:4px;transform:translateY(-50%);border-radius:2px;z-index:1}
+  .tape .gapseg{position:absolute;top:50%;height:4px;transform:translateY(-50%);border-radius:2px;z-index:1}
   .tape .med{position:absolute;top:50%;width:3px;height:16px;background:var(--ink);border-radius:2px;
-    transform:translate(-50%,-50%);box-shadow:0 0 0 1.5px rgba(11,18,24,.65);z-index:3}
-  /* un symbole par personne */
-  .mk{position:absolute;top:50%;width:11px;height:11px;background:var(--c);
-    transform:translate(-50%,-50%);border:1.5px solid rgba(11,18,24,.75);z-index:2}
-  .mk.sh-circle{border-radius:50%}
-  .mk.sh-square{border-radius:2px}
-  .mk.sh-diamond{border-radius:2px;transform:translate(-50%,-50%) rotate(45deg)}
-  .mk.sh-triangle,.mk.sh-down{width:0;height:0;background:none;border:6px solid transparent;
-    border-bottom:11px solid var(--c);margin-top:-3px}
-  .mk.sh-down{border-bottom:0;border-top:11px solid var(--c);margin-top:3px}
-  .mk.me{width:16px;height:16px;z-index:4;border:2.5px solid var(--bg);
-    box-shadow:0 0 0 1.5px rgba(255,255,255,.8)}
-  .mk.me.sh-triangle,.mk.me.sh-down{width:0;height:0;border:8px solid transparent;
-    border-bottom:15px solid var(--c);box-shadow:none;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9))}
-  .mk.me.sh-down{border-bottom:0;border-top:15px solid var(--c)}
-  /* légende */
-  .keys{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10.5px;
-    color:var(--muted);padding-bottom:12px;border-bottom:1px solid var(--line)}
-  .keys .k{display:inline-flex;align-items:center;gap:7px}
-  .keys .mk{position:static;transform:none;flex:0 0 auto}
-  .keys .mk.sh-diamond{transform:rotate(45deg)}
-  .keys .mk.me{width:13px;height:13px}
-  .keys .med-k{display:inline-block;width:3px;height:12px;background:var(--ink);border-radius:2px}
-  .keys .seg-k{display:inline-block;width:16px;height:4px;border-radius:2px}
+    transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--panel);z-index:3}
+  /* une marque par session : couleur = session ; plein = réussie, creux = échouée,
+     pointillé = issue inconnue — Moi en plus gros, cerclé de blanc */
+  .mk{position:absolute;top:50%;width:11px;height:11px;border-radius:50%;background:var(--c);
+    transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--panel);z-index:2}
+  .mk.rect{border-radius:2px} .mk.triangle{border-radius:2px;transform:translate(-50%,-50%) rotate(45deg)}
+  .mk.o-fail{background:var(--panel);border:2.5px solid var(--c);width:12px;height:12px}
+  .mk.o-unknown{background:var(--panel);border:2px dotted var(--c);width:12px;height:12px}
+  .mk.hero{width:16px;height:16px;z-index:4;background:var(--c);border:2px solid var(--bg);
+    box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}
+  .grp{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .grp:first-child{margin-top:4px}
+  .grp.behind{color:var(--s2)} .grp.ahead{color:var(--s7)} .grp.na{color:var(--faint)}
+  .row{display:grid;grid-template-columns:190px 1fr 64px;gap:12px;align-items:center;padding:5px 6px;
+    border-radius:8px;cursor:pointer}
+  .row:hover{background:var(--panel2)}
+  .row.sel{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+  .row .ex{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .ex .eqm{color:var(--accent);font-family:var(--mono);font-size:11px;margin-left:5px}
+  .row .dl{font-family:var(--mono);font-size:12px;font-weight:600;text-align:right}
   .scaleticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
-    margin:6px 0 0;padding:0 0 0 182px}
+    margin:6px 0 0;padding:0 82px 0 208px}
+  .scaleticks.db-ticks{padding:0 132px 0 202px}
   .scaleticks span{font-weight:600}
-  @media (max-width:600px){
-    .row{grid-template-columns:1fr;gap:3px;padding:8px 0}
-    .row .dl{text-align:left}
-    .scaleticks{padding-left:0}
-  }
+  /* Départ → arrivée */
+  .db{display:grid;grid-template-columns:190px 1fr 120px;gap:12px;align-items:center;padding:6px 0}
+  .db .who{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .db .who .sw{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle;margin-right:7px}
+  .db .num{font-family:var(--mono);font-size:12px;text-align:right}
+  .db .bar{position:absolute;top:50%;height:3px;transform:translateY(-50%);border-radius:2px;z-index:1;opacity:.9}
+  .db .p0{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--panel);
+    border:2.5px solid var(--c);transform:translate(-50%,-50%);z-index:2}
+  .db .p1{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:var(--c);
+    transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--panel);z-index:3}
+  .db.hero .p1{width:16px;height:16px;box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px rgba(255,255,255,.85)}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin:4px 0 12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{display:inline-block}
 
-  /* Grille heure × jour */
-  .cg{margin-bottom:18px}
+  /* Exercice en détail */
+  .focus-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+  .focus-tools select{min-width:260px}
+
+  /* Cartes de chaleur (volumes, répartition horaire) */
+  .heat td.h{min-width:46px;text-align:center;color:var(--ink)}
+  .heat td.h.zero{color:var(--faint)}
+  .heat th.col{min-width:64px;text-align:center}
+  .heat th.col .sw{display:block;width:22px;height:4px;border-radius:2px;margin:0 auto 5px}
+  .cg{margin-bottom:16px}
   .cg-nm{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:7px}
-  .cg-nm .mk{position:static;transform:none;flex:0 0 auto}
-  .cg-nm .mk.sh-diamond{transform:rotate(45deg)}
+  .cg-nm .sw{width:16px;height:4px;border-radius:2px}
   .cg-body{overflow-x:auto;padding-bottom:2px}
   .cg-row{display:flex;gap:3px;align-items:center;margin-bottom:3px}
   .cg-row>span{width:14px;flex:0 0 auto;font-family:var(--mono);font-size:9.5px;color:var(--faint)}
   .cg-row>i{flex:0 0 auto;width:26px;height:15px;border-radius:3px;border:1px solid var(--line)}
-  .cg-ax>i{border:0;background:none!important;opacity:1!important;height:12px;
+  .cg-ax>i{border:0;background:none!important;height:12px;
     font-family:var(--mono);font-size:9px;color:var(--faint);font-style:normal;line-height:12px}
-  @media (max-width:600px){ .cg-row>i{width:20px} }
 
-  /* Tableau (heures) */
-  .tblwrap{overflow-x:auto}
-  table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:11.5px;white-space:nowrap}
-  th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
-  th:first-child,td:first-child{text-align:left;white-space:normal;min-width:150px;font-family:var(--disp);font-size:13px}
-  thead th{color:var(--faint);font-weight:500;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
-    position:sticky;top:0;background:var(--panel)}
-  td.val{font-weight:600}
-  td.gap{font-size:11px}
-  tbody tr:hover{background:var(--panel2)}
-  .legend{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px}
-  .legend span{display:inline-flex;align-items:center;gap:6px}
-  .legend i{display:inline-block;width:16px;height:3px;border-radius:2px}
-  .empty{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:28px 10px}
-
-  @media (max-width:820px){
+  @media (max-width:860px){
     .grid{grid-template-columns:1fr}
     .readout{grid-template-columns:1fr 1fr}
   }
@@ -223,34 +274,64 @@
     .wrap{padding:12px 11px 48px}
     .panel{padding:14px}
     /* iOS : Safari zoome sur tout champ < 16px */
-    select,input[type=date],input[type=text]{font-size:16px}
-    .chartbox{height:225px}
-    .controls{flex-direction:column;align-items:stretch;padding:14px;gap:15px}
+    select,input[type=date],input[type=text],.cand select,.cand input[type=date],.eq-add select{font-size:16px}
+    .chartbox{height:250px}
+    .chartbox.tall{height:300px}
+    .controls{flex-direction:column;align-items:stretch;padding:14px;gap:14px}
     input[type=range]{width:100%}
     .cands{grid-template-columns:1fr}
+    /* barre de sessions : une seule ligne qui défile, pour rester compacte */
+    .sessbar{flex-wrap:nowrap;overflow-x:auto;padding:7px 8px;border-radius:10px;scrollbar-width:none}
+    .sessbar::-webkit-scrollbar{display:none}
+    .chip{font-size:12px}
+    .row{grid-template-columns:1fr 58px;gap:4px 8px;padding:8px 4px}
+    .row .ex{grid-column:1/2}
+    .row .tape{grid-column:1/-1;grid-row:2}
+    .row .dl{grid-column:2/3;grid-row:1}
+    .scaleticks,.scaleticks.db-ticks{padding:0 4px}
+    .db{grid-template-columns:1fr 92px;gap:4px 8px}
+    .db .tape{grid-column:1/-1;grid-row:2}
+    .focus-tools select{min-width:0;width:100%}
+    th:first-child,td:first-child{font-size:12px;max-width:150px;white-space:normal}
+    .readout{gap:8px}
+    .t-val{font-size:22px}
   }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="index.html">← Tableau de bord</a>
-  <a class="back" href="analyse.html" style="margin-left:8px">🔍 Analyse d’un dossier</a>
+  <nav class="toplinks">
+    <a class="back" href="index.html">← Tableau de bord</a>
+    <a class="back" href="analyse.html">🔍 Analyse d’un dossier</a>
+  </nav>
   <header>
     <p class="eyebrow">Comparaison · Pilotest</p>
-    <h1>Comparaison avec des candidats admis</h1>
-    <p class="sub">Chaque session de référence est recalée sur <b>sa propre fin d’entraînement</b>, qui marque son jour J : la comparaison porte sur le même stade de préparation, quelle que soit l’année. La dernière session d’un candidat admis est celle qui a abouti — les précédentes sont des tentatives.</p>
+    <h1>Comparaison des préparations</h1>
+    <p class="sub">Une <b>session</b>, c’est une période d’entraînement d’une personne sur une phase. Chacune est alignée sur <b>son jour J</b> : pour un autre candidat, le jour où il a cessé de s’entraîner — c’était son épreuve ; pour toi, la date de ton examen. On compare ainsi le même stade de préparation, quelle que soit l’année.</p>
   </header>
 
-  <div class="panel">
-    <h2>Dossiers de référence</h2>
-    <p class="desc">Importer les exports CSV des candidats admis (plusieurs fichiers à la fois). Ils sont <b>mémorisés sur cet appareil</b> — inutile de les réimporter à chaque visite. Les résultats personnels sont repris automatiquement du tableau de bord.</p>
+  <details class="panel" id="dossiers">
+    <summary><h2>Dossiers</h2><span class="sumline" id="dossierSum"></span></summary>
+    <p class="desc">Importer les exports CSV d’autres candidats, admis ou non (plusieurs fichiers à la fois). Ils sont <b>mémorisés sur cet appareil</b>. Tes résultats sont repris automatiquement du tableau de bord. Sur chaque fiche : le statut du candidat, l’issue de chaque session (déduite, ou réglée à la main) et son jour J.</p>
     <div class="drop" id="drop">
       <p>Glisser un ou plusieurs CSV ici</p>
       <input type="file" id="fileIn" accept=".csv,text/csv" multiple>
       <div class="status" id="status"></div>
     </div>
     <div class="cands" id="cands"></div>
-  </div>
+    <details class="sub" id="equivBox">
+      <summary>≈ Équivalences d’exercices <span class="sumline" id="equivSum"></span></summary>
+      <p class="desc" style="margin-top:8px">Quand un exercice a changé de nom, on peut le comparer à sa nouvelle version : les essais de l’ancien nom comptent alors comme ceux du nouveau, <b>dans cette page seulement</b> (le tableau de bord garde les historiques séparés). La classe stanine étant une note normalisée, comparer deux versions proches d’un même test a du sens ; le symbole <b style="color:var(--accent)">≈</b> signale les exercices concernés.</p>
+      <label class="toggle"><input type="checkbox" id="equivOn"> Appliquer les équivalences</label>
+      <div class="eq-list" id="equivList"></div>
+      <div class="eq-add">
+        <select id="eqOld" aria-label="Ancien nom"></select>
+        <span class="arrow" style="color:var(--accent)">→</span>
+        <select id="eqNew" aria-label="Nom actuel"></select>
+        <button type="button" id="eqAdd">Ajouter</button>
+      </div>
+    </details>
+  </details>
 
   <div class="exclnote" id="exclNote" hidden></div>
 
@@ -258,113 +339,125 @@
     <div class="ctl">
       <span class="lab">Phase</span>
       <div class="seg" id="segPhase">
-        <button data-v="psy0" aria-pressed="true">PSY0</button>
-        <button data-v="psy1_all" aria-pressed="false" title="Tout le PSY1 : exercices encore proposés et anciens, réunis — les références ont surtout travaillé les anciens">PSY1 général</button>
-        <button data-v="psy1" aria-pressed="false" title="PSY1 courant — les anciens exercices sont écartés de la comparaison">PSY1 courant</button>
-        <button data-v="all" aria-pressed="false">Tout</button>
+        <button data-v="psy0" aria-pressed="false">PSY0</button>
+        <button data-v="psy1" aria-pressed="true" title="Les exercices PSY1 encore proposés — les anciens exercices des autres candidats y entrent via les équivalences">PSY1 courant</button>
+        <button data-v="psy1_all" aria-pressed="false" title="Tout le PSY1 : exercices encore proposés et anciens, réunis">PSY1 général</button>
       </div>
     </div>
     <div class="ctl">
-      <span class="lab">Sessions</span>
-      <div class="seg" id="segSess">
-        <button data-v="all" aria-pressed="true">Toutes</button>
-        <button data-v="first" aria-pressed="false">Première</button>
-        <button data-v="last" aria-pressed="false">Dernière</button>
+      <span class="lab">Base de comparaison</span>
+      <div class="seg" id="segBasis">
+        <button data-v="common" aria-pressed="true" title="Seulement les exercices pratiqués par toutes les sessions affichées : on compare à périmètre égal">Exercices communs</button>
+        <button data-v="all" aria-pressed="false">Tous les exercices</button>
       </div>
-    </div>
-    <div class="ctl">
-      <span class="lab">Exercices</span>
-      <div class="seg" id="segSet">
-        <button data-v="all" aria-pressed="true">Tous</button>
-        <button data-v="common" aria-pressed="false">Communs uniquement</button>
-      </div>
-      <span class="stageval" id="exSetInfo"></span>
-    </div>
-    <div class="ctl">
-      <span class="lab">Échelle du graphique</span>
-      <input type="range" id="scale" min="-52" max="-2" value="-13" step="1">
-      <span class="stageval" id="scaleVal">—</span>
+      <span class="stageval" id="basisInfo"></span>
     </div>
     <div class="ctl">
       <span class="lab">Semaine comparée</span>
       <input type="range" id="stage" min="-26" max="0" value="0" step="1">
       <span class="stageval" id="stageVal">—</span>
     </div>
+    <div class="ctl">
+      <span class="lab">Fenêtre des graphiques</span>
+      <input type="range" id="scale" min="-52" max="-2" value="-13" step="1">
+      <span class="stageval" id="scaleVal">—</span>
+    </div>
   </div>
 
-  <div class="readout" id="readout"></div>
+  <div class="sessbar" id="sessBar" aria-label="Sessions affichées"></div>
 
-  <div class="chartkeys" id="chartKeys"></div>
+  <section class="panel" id="sec-now">
+    <h2>Où j’en suis</h2>
+    <p class="desc" id="nowDesc"></p>
+    <div class="readout" id="readout"></div>
+    <div class="closest" id="closest"></div>
+    <div class="tblwrap"><div id="nowTbl"></div></div>
+  </section>
 
-  <div class="panel">
-    <h2>Niveau global — une valeur par session</h2>
-    <p class="desc">À chaque semaine avant l’examen : pour chaque exercice de la phase choisie déjà pratiqué, on prend la moyenne de ses <b>5 derniers essais à cette date</b>, puis on fait la moyenne de ces valeurs — <b>chaque exercice comptant pour un</b>. <b>La courbe personnelle est en gras</b> ; une couleur par personne, un style de trait par session. Les points calculés sur trop peu d’exercices ne sont pas tracés.</p>
+  <section class="panel" id="sec-traj">
+    <h2>Trajectoire — niveau global</h2>
+    <p class="desc" id="trajDesc"></p>
     <div class="chartbox tall"><canvas id="chGlobal"></canvas></div>
-  </div>
+  </section>
 
-  <div class="panel">
+  <section class="panel" id="sec-base">
+    <h2>Niveau de départ et progression</h2>
+    <p class="desc" id="baseDesc"></p>
+    <div id="baseViz"></div>
+    <div class="tblwrap" style="margin-top:12px"><div id="baseTbl"></div></div>
+  </section>
+
+  <section class="panel" id="sec-ex">
     <h2>Comparatif par exercice — <span id="tblStage">—</span></h2>
     <p class="desc" id="tblDesc"></p>
     <div id="strips"></div>
-  </div>
+  </section>
 
-
-  <div class="panel">
-    <h2>Temps de travail</h2>
-    <p class="desc">Durées <b>estimées</b> : Pilotest n’exporte pas la durée des exercices, on reconstitue les séances en coupant dès que plus de 45 min séparent deux essais (l’écart habituel est de 7 min).</p>
-    <div class="tblwrap"><div id="hoursTbl"></div></div>
-  </div>
-
-  <div class="panel">
-    <h2>Volume d’essais par exercice</h2>
-    <p class="desc" id="volExDesc"></p>
-    <div class="controls" style="margin:0 0 14px;padding:12px 14px">
-      <div class="ctl">
-        <span class="lab">Exercice</span>
-        <select id="volEx"></select>
-      </div>
-      <div class="ctl">
-        <span class="lab">Comptage</span>
-        <div class="seg" id="segVolMode">
-          <button data-v="total" aria-pressed="true">Total de la session</button>
-          <button data-v="stage" aria-pressed="false" id="volStageBtn">À la semaine comparée</button>
-        </div>
-      </div>
+  <section class="panel" id="sec-focus">
+    <h2>Exercice en détail</h2>
+    <div class="focus-tools">
+      <select id="focusSel" aria-label="Exercice détaillé"></select>
     </div>
-    <div class="chartbox tall"><canvas id="chVolEx"></canvas></div>
-  </div>
+    <p class="desc" id="focusDesc"></p>
+    <div class="grid">
+      <div><h3>Niveau sur l’exercice</h3><div class="chartbox"><canvas id="chFocusLvl"></canvas></div></div>
+      <div><h3>Essais cumulés</h3><div class="chartbox"><canvas id="chFocusVol"></canvas></div></div>
+    </div>
+    <div class="tblwrap" style="margin-top:14px"><div id="focusTbl"></div></div>
+  </section>
 
-  <div class="grid">
-    <div class="panel">
+  <section class="panel" id="sec-dec">
+    <h2>Ce qui distingue les réussites</h2>
+    <p class="desc" id="decDesc"></p>
+    <div class="tblwrap"><div id="decTbl"></div></div>
+  </section>
+
+  <section class="panel" id="sec-vol">
+    <h2>Volume par exercice</h2>
+    <p class="desc" id="volDesc"></p>
+    <div class="seg" id="segVolMode" style="margin-bottom:12px">
+      <button data-v="total" aria-pressed="true">Total de la session</button>
+      <button data-v="stage" aria-pressed="false" id="volStageBtn">À la semaine comparée</button>
+    </div>
+    <div class="tblwrap"><div id="volTbl"></div></div>
+  </section>
+
+  <div class="grid" style="margin-bottom:20px">
+    <section class="panel">
       <h2>Volume hebdomadaire</h2>
-      <p class="desc">Essais réalisés chaque semaine — souvent le vrai écart.</p>
+      <p class="desc">Essais réalisés chaque semaine avant le jour J — souvent le vrai écart.</p>
       <div class="chartbox"><canvas id="chVol"></canvas></div>
-    </div>
-    <div class="panel">
+    </section>
+    <section class="panel">
       <h2>Heures par semaine</h2>
-      <p class="desc">Temps de travail hebdomadaire estimé, avant l’examen.</p>
+      <p class="desc">Temps de travail hebdomadaire <b>estimé</b> (voir ci-dessous).</p>
       <div class="chartbox"><canvas id="chHours"></canvas></div>
-    </div>
+    </section>
   </div>
 
-  <div class="panel">
+  <section class="panel">
+    <h2>Temps de travail et régularité</h2>
+    <p class="desc">Durées <b>estimées</b> : Pilotest n’exporte pas la durée des exercices, on reconstitue les séances en coupant dès que plus de 45 min séparent deux essais. « Jours actifs » rapporte les jours travaillés à la durée de la session ; la plus longue coupure est le plus grand trou entre deux jours travaillés.</p>
+    <div class="tblwrap"><div id="hoursTbl"></div></div>
+  </section>
+
+  <section class="panel">
     <h2>Répartition horaire du travail</h2>
     <p class="desc" id="clockDesc"></p>
-    <div class="seg" id="segClock" style="margin-bottom:14px">
+    <div class="seg" id="segClock" style="margin-bottom:12px">
       <button data-v="hour" aria-pressed="true">Par heure</button>
       <button data-v="day" aria-pressed="false">Par jour</button>
       <button data-v="grid" aria-pressed="false">Heure × jour</button>
     </div>
-    <div class="chartbox" id="clockBox"><canvas id="chClock"></canvas></div>
-    <div id="clockGrid"></div>
-  </div>
-
+    <div class="tblwrap" id="clockBox"></div>
+  </section>
 </div>
 
 <script>
+
 /* =================================================================
    Table de correspondance exercices → phase / catégorie
-   (identique au tableau de bord — injectée depuis index.html)
+   (bloc partagé, injecté depuis index.html — ne pas modifier ici)
    ================================================================= */
 const PSY_PHASE_MAP = {
   /* ---- PSY0 ---- */
@@ -388,10 +481,12 @@ const PSY_PHASE_MAP = {
   /* ---- PSY1 anciens : TOUT le reste, sans liste à tenir.
      Un exercice absent des deux blocs ci-dessus est un ancien PSY1 (voir
      PSY1_OLD plus bas) : ceux que Pilotest range sous « Ces tests ne sont
-     plus posés », ceux qu'il a retirés sans le dire, et ceux qui relèvent
-     d'une autre sélection. Ils restent jouables et consultables via le
-     filtre « PSY1 anciens », mais n'entrent ni dans la vue « Tout » ni
-     dans aucun calcul PSY0 / PSY1 courant. ---- */
+     plus posés », et ceux qu'il a retirés sans le dire. Ils restent
+     jouables et consultables via le filtre « PSY1 anciens », mais
+     n'entrent ni dans la vue « Tout » ni dans aucun calcul PSY0 / PSY1
+     courant.
+     Seule exception : les tests d'AUTRES sélections (DLR, COMPASS, ENAC
+     pilotes pros…), reconnus à leur nom — voir OTHER_PATTERNS. ---- */
 };
 
 /* Un exercice peut relever de plusieurs aptitudes — c'est le classement de
@@ -439,8 +534,18 @@ const CATEGORY_MAP = {
   "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
   "Tangram":"Spatiale",
   "Voitures (basique)":"Spatiale","Voitures (séquentiel)":"Spatiale",
-  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"   // sélection ENAC pilotes pros
+
+  /* ---- Autres sélections (hors Cadets AF) ---- */
+  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"
 };
+
+/* Autres sélections : certains exports contiennent des tests d'autres
+   concours (DLR, COMPASS, ENAC pilotes pros…). Ils ne relèvent ni du PSY0
+   ni du PSY1 Cadets AF : on les reconnaît à leur nom et on les met à part,
+   hors de tout calcul — sinon ils fabriqueraient de fausses sessions PSY1. */
+const OTHER = "autre";
+const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
+const isOtherSelection = name => OTHER_PATTERNS.some(re=>re.test(name));
 
 // Fusion des deux tables → config interne {cat, cats, phase}
 const PSY1_OLD = "psy1_old";
@@ -448,32 +553,280 @@ const CONFIG = {};
 new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(name=>{
   const raw = CATEGORY_MAP[name] || "Autre";
   const cats = Array.isArray(raw) ? raw : [raw];
-  CONFIG[name] = { cat: cats[0], cats, phase: PSY_PHASE_MAP[name] || PSY1_OLD };
+  CONFIG[name] = { cat: cats[0], cats,
+    phase: PSY_PHASE_MAP[name] || (isOtherSelection(name) ? OTHER : PSY1_OLD) };
 });
-// Tout exercice inconnu de la table est un ancien PSY1, au même titre que les autres.
-const cfgOf = name => CONFIG[name] || { cat:"Autre", cats:["Autre"], phase:PSY1_OLD };
+// Tout exercice inconnu de la table est un ancien PSY1 — sauf s'il relève d'une autre sélection.
+const cfgOf = name => CONFIG[name] ||
+  { cat:"Autre", cats:["Autre"], phase: isOtherSelection(name) ? OTHER : PSY1_OLD };
+
+/* Certains exports encodent les apostrophes (« Trouvez l&#39;intrus ») : les
+   noms retrouvent leur forme lisible dès la lecture du fichier. */
+const decodeEntities = s => String(s)
+  .replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(+d))
+  .replace(/&#x([0-9a-f]+);/gi,(m,h)=>String.fromCharCode(parseInt(h,16)))
+  .replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+  .replace(/&amp;/g,'&');
 
 /* Filtres de phase. Une ligne d'export porte sa phase propre (psy0, psy1,
-   psy1_old) ; le filtre choisi peut en regrouper plusieurs :
+   psy1_old, autre) ; le filtre choisi peut en regrouper plusieurs :
    all      = PSY0 + PSY1 courant
    psy1_all = PSY1 courant + PSY1 anciens (le PSY1 « général »)
-   les autres valeurs désignent une seule phase. */
+   les autres valeurs désignent une seule phase. Les autres sélections
+   n'entrent dans aucun filtre. */
 const PSY1_ALL = "psy1_all";
 const PHASE_FILTERS = ["all","psy0",PSY1_ALL,"psy1",PSY1_OLD];
 const inPhase = (p, filter) =>
-  filter==="all"   ? p!==PSY1_OLD :
+  filter==="all"    ? (p==="psy0" || p==="psy1") :
   filter===PSY1_ALL ? (p==="psy1" || p===PSY1_OLD) :
   p===filter;
 // Tous les exercices connus d'un filtre, hors exclusions — y compris ceux
 // qui n'ont encore aucun essai : c'est ce qui permet de ne rien oublier.
 const universeOf = filter => Object.keys(CONFIG).filter(n=>inPhase(CONFIG[n].phase,filter) && !excluded.has(n));
+/* ---- fin du bloc partagé (identique dans index, comparaison et analyse) ---- */
+
+/* ==== BLOC PARTAGÉ « SESSIONS » — identique dans comparaison.html et analyse.html ====
+   Découpage d'un historique en sessions d'entraînement, regroupement en
+   candidatures (années de sélection) et déduction de l'issue de chaque
+   session. Se modifie dans comparaison.html et se recopie tel quel dans
+   analyse.html. */
+const DAY=86400000;
+const dayIdx=d=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/DAY);
+const GAP_DAYS=28;      // coupure au-delà de laquelle on change de session
+const SUSTAIN_WIN=14;   // fenêtre d'observation d'un entraînement « soutenu »
+const SUSTAIN_DAYS=3;   // jours actifs requis dans cette fenêtre
+const SUSTAIN_ATT=10;   // essais requis dans cette fenêtre
+const SUBST_DAYS=5, SUBST_ATT=30;   // seuil d'une session « substantielle »
+const LINK_DAYS=90;     // un PSY1 entamé moins de 3 mois après un PSY0 : même candidature
+const LS_ME="pilotest_cmp_me_v1";
+const MY_EXAM_DEFAULT={psy0:'2026-09-05',psy1:'2026-10-31'};
+
+/* Lignes d'une phase. phaseOf permet de lire une autre phase que celle de
+   l'exercice : la page Comparaison range un ancien exercice sous la phase de
+   son équivalent actuel. */
+function phaseRows(rows,ph,phaseOf){
+  const f=phaseOf||(r=>r.phase);
+  return rows.filter(r=>!excluded.has(r.test)&&inPhase(f(r),ph));
+}
+// Libellé compact d'une session : « 2023 » ou « 2022–23 »
+function periodLabel(a,b){
+  const ya=a.getFullYear(), yb=b.getFullYear();
+  return ya===yb? String(ya) : `${ya}–${String(yb).slice(2)}`;
+}
+/* Le premier essai d'une phase ne marque pas le début de la préparation (un
+   exercice isolé suivi de deux semaines de rien, c'est du repérage), et le
+   dernier n'en marque pas toujours la fin (un essai isolé des semaines après
+   l'épreuve). On découpe l'historique en blocs séparés par une longue
+   coupure, on recale le début ET la fin de chacun sur un entraînement
+   soutenu, puis on ne garde que les blocs substantiels.
+   La fin retenue est le jour J : on cesse de s'entraîner une fois l'épreuve
+   passée. Un candidat peut avoir plusieurs sessions (une candidature ratée,
+   puis la bonne) : chacune est analysable et comparable séparément. */
+function detectCampaigns(rows,ph,phaseOf){
+  const src=phaseRows(rows,ph,phaseOf);
+  if(!src.length) return [];
+  const byDay=new Map();
+  src.forEach(r=>{
+    const k=dayIdx(r.date);
+    let o=byDay.get(k);
+    if(!o){ const d=new Date(r.date); d.setHours(0,0,0,0); o={n:0,date:d}; byDay.set(k,o); }
+    o.n++;
+  });
+  const days=[...byDay.keys()].sort((a,b)=>a-b);
+  // 1) découpage en blocs
+  const blocks=[]; let cur=[days[0]];
+  for(let i=1;i<days.length;i++){
+    if(days[i]-days[i-1]>GAP_DAYS){ blocks.push(cur); cur=[]; }
+    cur.push(days[i]);
+  }
+  blocks.push(cur);
+  // entraînement soutenu autour du jour b[i] : assez de jours actifs et
+  // d'essais dans la fenêtre qui suit (dir = 1) ou qui précède (dir = -1)
+  const sustained=(b,i,dir)=>{
+    let d=0,a=0;
+    for(let j=i; j>=0&&j<b.length&&Math.abs(b[j]-b[i])<=SUSTAIN_WIN; j+=dir){ d++; a+=byDay.get(b[j]).n; }
+    return d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT;
+  };
+  // 2) recalage du début et de la fin de chaque bloc
+  const built=blocks.map(b=>{
+    let si=0, ei=b.length-1;
+    for(let i=0;i<b.length;i++) if(sustained(b,i,1)){ si=i; break; }
+    for(let i=b.length-1;i>si;i--) if(sustained(b,i,-1)){ ei=i; break; }
+    const kept=b.slice(si,ei+1);
+    return {startK:kept[0], endK:kept[kept.length-1], trimmedDays:si, trimmedTail:b.length-1-ei,
+            activeDays:kept.length, att:kept.reduce((s,d)=>s+byDay.get(d).n,0)};
+  });
+  // 3) on ne retient que les sessions substantielles ; à défaut, la plus grosse
+  let keep=built.filter(c=>c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
+  if(!keep.length) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
+  const dropped=built.length-keep.length;
+  return keep.map((c,i)=>{
+    const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=c.startK&&k<=c.endK;});
+    const start=byDay.get(c.startK).date, end=byDay.get(c.endK).date;
+    return {
+      index:i, total:keep.length, start, end, campRows,
+      id:start.toISOString().slice(0,10),
+      trimmedDays:c.trimmedDays, trimmedTail:c.trimmedTail,
+      dropped:i===0?dropped:0,      // périodes trop courtes écartées (signalé une fois)
+      activeDays:c.activeDays, attempts:campRows.length,
+      weeks:Math.max(1,Math.round((c.endK-c.startK)/7)+1),
+      label:periodLabel(start,end)
+    };
+  });
+}
+
+/* Candidatures. Chaque PSY0 ouvre une candidature ; une préparation PSY1
+   commencée pendant ce PSY0 ou dans les LINK_DAYS jours qui suivent, et
+   terminée après lui, en fait partie. Un PSY1 sans PSY0 juste avant forme
+   sa propre candidature. Pour un candidat admis, c'est la dernière
+   candidature qui a abouti. */
+function selectionHistory(owner,phaseOf){
+  if(owner._hist) return owner._hist;
+  const p0=detectCampaigns(owner.rows,'psy0',phaseOf);
+  const p1=detectCampaigns(owner.rows,PSY1_ALL,phaseOf);
+  const cycles=p0.map(s=>({p0:s,p1:[]}));
+  p1.forEach(s=>{
+    let host=null;
+    cycles.forEach(c=>{ if(c.p0&&s.end>c.p0.end&&s.start-c.p0.end<=LINK_DAYS*DAY) host=c; });
+    if(host) host.p1.push(s); else cycles.push({p0:null,p1:[s]});
+  });
+  const endOf=c=>Math.max(c.p0?c.p0.end.getTime():0,...c.p1.map(s=>s.end.getTime()));
+  cycles.sort((a,b)=>endOf(a)-endOf(b));
+  cycles.forEach((c,i)=>{
+    c.index=i; c.final=i===cycles.length-1;
+    if(c.p0) c.p0.cycle=c;
+    c.p1.forEach(s=>{ s.cycle=c; });
+  });
+  return (owner._hist={p0,p1,cycles});
+}
+// Session de l'historique qui recouvre le plus une session affichée
+function histMatch(list,c){
+  let best=null,bo=-1;
+  list.forEach(s=>{
+    const o=Math.min(s.end.getTime(),c.end.getTime())-Math.max(s.start.getTime(),c.start.getTime());
+    if(o>=0&&o>bo){ best=s; bo=o; }
+  });
+  return best;
+}
+// Une issue se raisonne par épreuve : PSY0, ou PSY1 (courant, anciens ou les deux)
+const histKind=ph=>ph==='psy0'?'psy0':'psy1';
+const hasOutcome=ph=>ph==='psy0'||ph==='psy1'||ph===PSY1_ALL||ph===PSY1_OLD;
+function histOf(owner,ph,c,phaseOf){
+  const H=selectionHistory(owner,phaseOf);
+  return histMatch(histKind(ph)==='psy0'?H.p0:H.p1,c);
+}
+
+/* Issues. Le statut du candidat (admis lors de sa dernière candidature,
+   jamais admis, inconnu) et l'enchaînement de ses sessions suffisent à
+   déduire la plupart des issues ; le reste est une hypothèse, signalée comme
+   telle (« ? »), fondée sur son niveau. Une issue réglée à la main prime. */
+const OUTCOMES={
+  pass:   {sym:'✓', lab:'réussie',        col:'--s7'},
+  fail:   {sym:'✗', lab:'échouée',        col:'--s2'},
+  unknown:{sym:'?', lab:'issue inconnue', col:'--muted'},
+  ongoing:{sym:'•', lab:'en cours',       col:'--accent'},
+  ignored:{sym:'–', lab:'ignorée',        col:'--faint'}
+};
+function outcomeText(o){
+  if(!o) return '';
+  if(o.code==='pass') return o.sure?'✓ réussie':'✓? réussite probable';
+  if(o.code==='fail') return o.sure?'✗ échouée':'✗? échec probable';
+  return OUTCOMES[o.code].sym+' '+OUTCOMES[o.code].lab;
+}
+const outcomeSym=o=>!o?'':(o.code==='pass'||o.code==='fail')?OUTCOMES[o.code].sym+(o.sure?'':'?'):OUTCOMES[o.code].sym;
+// 'admis' par défaut : les dossiers importés avant l'ajout du statut étaient ceux de candidats admis
+const statusOf=owner=>owner.me?'moi':(owner.status||'admis');
+// Niveau d'une session à sa fin, sur des exercices donnés (5 derniers essais de chacun)
+function levelAtEnd(s,fams){
+  const vals=[];
+  fams.forEach(f=>{
+    const st=s.campRows.filter(r=>(r.fam||r.test)===f).map(r=>r.stanine);
+    if(st.length){ const w=st.slice(-5); vals.push(w.reduce((a,b)=>a+b,0)/w.length); }
+  });
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+}
+// Écart de niveau final entre deux sessions, sur leurs exercices communs
+function endLevelGap(a,b){
+  const fb=new Set(b.campRows.map(r=>r.fam||r.test));
+  const common=[...new Set(a.campRows.map(r=>r.fam||r.test))].filter(f=>fb.has(f));
+  if(common.length<3) return null;
+  const la=levelAtEnd(a,common), lb=levelAtEnd(b,common);
+  return la===null||lb===null?null:{d:la-lb,n:common.length};
+}
+function autoOutcome(owner,kind,h,ctx){
+  const st=statusOf(owner), cyc=h.cycle;
+  if(ctx&&ctx.ongoing) return {code:'ongoing',sure:true,why:'préparation en cours'};
+  if(!cyc) return {code:'unknown',sure:false,why:'session isolée'};
+  if(kind==='psy0'){
+    if(cyc.p1.length) return {code:'pass',sure:true,why:'suivie d’une préparation PSY1 : PSY0 franchi'};
+    if(!cyc.final) return {code:'fail',sure:true,why:'aucune préparation PSY1 ensuite, puis nouvelle candidature : PSY0 non franchi'};
+    if(st==='admis') return {code:'pass',sure:true,why:'dernière candidature d’un candidat admis'};
+    if(st==='non') return {code:'fail',sure:false,why:'candidat non admis, sans préparation PSY1 ensuite'};
+    return {code:'unknown',sure:false,why:st==='moi'?'aucune préparation PSY1 enregistrée ensuite':'statut du candidat à préciser sur sa fiche'};
+  }
+  if(cyc.final){
+    if(st==='admis') return {code:'pass',sure:true,why:'dernière candidature d’un candidat admis'};
+    if(st==='non') return {code:'fail',sure:false,why:'candidat non admis : arrêt au PSY1 ou à une étape suivante'};
+    return {code:'unknown',sure:false,why:st==='moi'?'issue à venir':'statut du candidat à préciser sur sa fiche'};
+  }
+  /* Candidature antérieure : le candidat est revenu ensuite, il n'a donc pas
+     été admis cette année-là — mais l'étape de l'échec est inconnue. Pour un
+     candidat admis plus tard, son niveau final face à celui de son année
+     d'admission fonde l'hypothèse. */
+  const cs=owner._hist?owner._hist.cycles:[];
+  const fin=cs.length?cs[cs.length-1]:null;
+  const ref=st==='admis'&&fin&&fin.p1.length?fin.p1[fin.p1.length-1]:null;
+  const g=ref?endLevelGap(h,ref):null;
+  if(g){
+    const dd=(g.d>0?'+':'')+(Math.round(g.d*10)/10).toFixed(1);
+    if(g.d>=-0.3) return {code:'pass',sure:false,
+      why:`non admis cette année-là, mais niveau final comparable à son année d’admission (${dd} sur ${g.n} exercices communs) : PSY1 sans doute franchi, arrêt à une étape suivante`};
+    return {code:'fail',sure:false,
+      why:`niveau final inférieur à son année d’admission (${dd} sur ${g.n} exercices communs) : échec probable au PSY1`};
+  }
+  return {code:'fail',sure:false,why:'nouvelle candidature ensuite : non admis cette année-là, étape inconnue'};
+}
+const ocKey=(kind,h)=>'oc:'+kind+'|'+h.id;
+function sessionOutcome(owner,ph,c,ctx,phaseOf){
+  if(!hasOutcome(ph)) return null;          // phases mêlant PSY0 et PSY1 : pas d'issue
+  const kind=histKind(ph), h=histOf(owner,ph,c,phaseOf);
+  if(!h) return {code:'unknown',sure:false,why:'session absente de l’historique'};
+  const man=(owner.sess||{})[ocKey(kind,h)];
+  if(man&&OUTCOMES[man]) return {code:man,sure:true,manual:true,why:'issue réglée à la main'};
+  return autoOutcome(owner,kind,h,ctx);
+}
+function setSessionOutcome(owner,ph,c,code,phaseOf){
+  const h=histOf(owner,ph,c,phaseOf); if(!h) return;
+  owner.sess=owner.sess||{};
+  const k=ocKey(histKind(ph),h);
+  if(code) owner.sess[k]=code; else delete owner.sess[k];
+}
+
+/* Mes dates d'examen, une par épreuve. Ma dernière session d'une phase est
+   alignée sur cette date si elle y mène ; tant que la date n'est pas passée,
+   elle est « en cours ». */
+function myExams(){
+  let cfg=null;
+  try{ cfg=JSON.parse(localStorage.getItem(LS_ME)||'null'); }catch(e){}
+  return Object.assign({},MY_EXAM_DEFAULT,(cfg&&cfg.exams)||{});
+}
+function myExamTarget(ph,camps,c){
+  const ex=myExams()[histKind(ph)];
+  if(!ex||!camps.length||c.id!==camps[camps.length-1].id) return null;   // par identifiant : les objets peuvent être recalculés
+  const J=new Date(ex+'T00:00:00');
+  if(c.end.getTime()<J.getTime()-120*DAY||c.start.getTime()>J.getTime()+DAY) return null;
+  return J;
+}
+const examStillAhead=J=>!!J&&Date.now()<=J.getTime()+DAY;
+/* ==== fin du bloc partagé « SESSIONS » ==== */
 
 /* ----------------------- Utilitaires ----------------------- */
-const DAY=86400000;
+const EOD=DAY-1;                       // fin de journée : un stade se mesure le soir
 const LS_MAIN="pilotest_dashboard_v2";
 const LS_REFS="pilotest_refs_v1";
-const LS_ME="pilotest_cmp_me_v1";
-const LS_EXCL="pilotest_excluded_v1";   // liste partagée avec le tableau de bord
+const LS_EXCL="pilotest_excluded_v1";  // liste partagée avec le tableau de bord
+const LS_EQUIV="pilotest_equiv_v1";
+const LS_UI="pilotest_cmp_ui_v1";
 /* Exercices retirés des calculs (épreuve modifiée, par exemple) : la liste est
    définie sur le tableau de bord et s'applique ici de la même façon. */
 let excluded=new Set();
@@ -492,13 +845,13 @@ function parseFrDate(s){
   return new Date(+m[3],mon,+m[1],+(m[4]||0),+(m[5]||0));
 }
 function parseCSV(text){
-  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const lines=String(text).split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
   if(lines.length && /^test\s*,/i.test(lines[0])) lines.shift();
   const out=[];
   for(const line of lines){
     const p=line.split(",");
     if(p.length<4) continue;
-    const test=p.slice(0,p.length-3).join(",").trim().replace(/^"(.*)"$/,'$1');
+    const test=decodeEntities(p.slice(0,p.length-3).join(",").trim().replace(/^"(.*)"$/,'$1'));
     const score=parseFloat(p[p.length-3]);
     const stanine=parseInt(p[p.length-2],10);
     const date=parseFrDate(p[p.length-1]);
@@ -511,8 +864,10 @@ function parseCSV(text){
 }
 const mean=a=>a.length? a.reduce((x,y)=>x+y,0)/a.length : 0;
 const fmt=v=>(v===null||v===undefined||isNaN(v))?'–':(Math.round(v*10)/10).toFixed(1);
+const fmtS=v=>(v===null||v===undefined||isNaN(v))?'–':((v>0.049?'+':v<-0.049?'−':'±')+Math.abs(Math.round(v*10)/10).toFixed(1));
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 function median(a){
-  if(!a.length) return null;
+  if(!a||!a.length) return null;
   const s=a.slice().sort((x,y)=>x-y), h=s.length>>1;
   return s.length%2? s[h] : (s[h-1]+s[h])/2;
 }
@@ -521,158 +876,85 @@ const bandColor=v=>getCss('--s'+Math.min(9,Math.max(1,Math.round(v))));
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isPhone=()=>window.matchMedia('(max-width:600px)').matches;
 const chartFont=n=>isPhone()?n+2:n;
-const dayIdx=d=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/DAY);
 const fdate=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+const fdateS=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+const isoDay=d=>{const z=new Date(d); return `${z.getFullYear()}-${String(z.getMonth()+1).padStart(2,'0')}-${String(z.getDate()).padStart(2,'0')}`;};
+const plural=(n,w,ws)=>`${n} ${n>1?(ws||w+'s'):w}`;
+const gapCls=d=>d===null||d===undefined?'dim':d>=0.15?'pos':d<=-0.15?'neg':'mid';
+// Abscisse lisible : S−3 = trois semaines avant le jour J
+const xLabel=v=>{
+  const n=Math.round(v);
+  return n===0?'jour J':(n>0?`S+${n}`:`S−${Math.abs(n)}`);
+};
+const daysLabel=v=>{
+  const d=Math.round(v*7);
+  return d===0?'le jour J':(d>0?`J+${d}`:`J−${Math.abs(d)}`);
+};
 
-/* ----------------------- Détection des sessions -----------------------
-   Le premier essai d'une phase ne marque PAS le début de la préparation :
-   un exercice isolé suivi de deux semaines de rien, c'est du repérage.
-   On découpe l'historique en blocs séparés par une longue coupure, on ne
-   garde que les blocs substantiels, puis on recale le départ de chacun sur
-   le premier jour réellement suivi d'un entraînement soutenu.
-   Un candidat peut avoir PLUSIEURS sessions (une tentative ratée, puis la
-   bonne) : chacune est analysable et comparable séparément.
-   -------------------------------------------------------------------- */
-const GAP_DAYS=28;      // coupure au-delà de laquelle on change de session
-const SUSTAIN_WIN=14;   // fenêtre d'observation du "vrai" départ
-const SUSTAIN_DAYS=3;   // jours actifs requis dans cette fenêtre
-const SUSTAIN_ATT=10;   // essais requis dans cette fenêtre
-const SUBST_DAYS=5, SUBST_ATT=30;  // seuil d'une session « substantielle »
+/* ----------------------- Équivalences d'exercices -----------------------
+   « ancien nom → nom actuel » : dans cette page, les essais de l'ancien nom
+   comptent comme ceux du nouveau. Les deux forment une « famille », désignée
+   par le nom actuel. Le tableau de bord, lui, garde les historiques séparés. */
+const DEFAULT_EQUIV=[['Tangram','Tangram à compléter'],['Angles à saisir','Angles']];
+let equiv={on:true,pairs:DEFAULT_EQUIV.map(p=>p.slice())};
+function loadEquiv(){
+  try{
+    const e=JSON.parse(localStorage.getItem(LS_EQUIV)||'null');
+    if(e&&Array.isArray(e.pairs)) equiv={on:e.on!==false,
+      pairs:e.pairs.filter(p=>Array.isArray(p)&&p.length===2&&p[0]&&p[1]&&p[0]!==p[1])};
+  }catch(e){}
+}
+function saveEquiv(){ try{ localStorage.setItem(LS_EQUIV,JSON.stringify(equiv)); }catch(e){} }
+function familyOf(name){
+  if(!equiv.on) return name;
+  const map=new Map(equiv.pairs);
+  let cur=name, guard=0;
+  while(map.has(cur)&&guard++<10) cur=map.get(cur);   // chaînes A → B → C résolues, boucles bornées
+  return cur;
+}
+// Chaque essai reçoit sa famille et la phase de celle-ci : un ancien exercice
+// devenu équivalent d'un exercice actuel rejoint la phase de ce dernier.
+function applyFamilies(owner){
+  owner.rows.forEach(r=>{
+    r.fam=familyOf(r.test);
+    r.famPhase=r.fam===r.test?r.phase:cfgOf(r.fam).phase;
+  });
+  delete owner._hist;
+}
+const famPhase=r=>r.famPhase||r.phase;
 
-// Les anciens PSY1 — y compris tout exercice absent de la table — sont
-// écartés de la comparaison : les références les ont travaillés, moi non,
-// ou plus. Les garder ferait comparer des choses que je ne passerai pas.
-function phaseRows(rows,ph){
-  return rows.filter(r=>!excluded.has(r.test)&&inPhase(r.phase,ph));
-}
-function oldTests(rows){
-  const s=new Set();
-  rows.forEach(r=>{ if(r.phase===PSY1_OLD&&!excluded.has(r.test)) s.add(r.test); });
-  return s;
-}
-function detectCampaigns(rows, ph){
-  const src=phaseRows(rows,ph);
-  if(!src.length) return [];
-  const byDay=new Map();
-  src.forEach(r=>{
-    const k=dayIdx(r.date);
-    const o=byDay.get(k)||{n:0,date:(()=>{const d=new Date(r.date);d.setHours(0,0,0,0);return d;})()};
-    o.n++; byDay.set(k,o);
-  });
-  const days=[...byDay.keys()].sort((a,b)=>a-b);
-  // 1) découpage en blocs
-  const blocks=[]; let cur=[days[0]];
-  for(let i=1;i<days.length;i++){
-    if(days[i]-days[i-1]>GAP_DAYS){ blocks.push(cur); cur=[]; }
-    cur.push(days[i]);
-  }
-  blocks.push(cur);
-  const att=b=>b.reduce((s,d)=>s+byDay.get(d).n,0);
-  // 2) recalage du départ de chaque bloc
-  const built=blocks.map(b=>{
-    let si=0;
-    for(let i=0;i<b.length;i++){
-      const lim=b[i]+SUSTAIN_WIN;
-      let d=0,a=0;
-      for(let j=i;j<b.length&&b[j]<=lim;j++){ d++; a+=byDay.get(b[j]).n; }
-      if(d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT){ si=i; break; }
-    }
-    const kept=b.slice(si);
-    return {startK:kept[0], endK:kept[kept.length-1], trimmedDays:si,
-            activeDays:kept.length, att:att(kept)};
-  });
-  // 3) on ne retient que les sessions substantielles ; à défaut, la plus grosse
-  let keep=built.filter(c=>c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
-  if(!keep.length) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
-  const dropped=built.length-keep.length;
-  return keep.map((c,i)=>{
-    const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=c.startK&&k<=c.endK;});
-    const start=byDay.get(c.startK).date, end=byDay.get(c.endK).date;
-    return {
-      index:i, total:keep.length, start, end, campRows,
-      trimmedDays:c.trimmedDays,
-      dropped:i===0?dropped:0,      // périodes trop courtes écartées (signalé une fois)
-      activeDays:c.activeDays,
-      attempts:campRows.length,
-      weeks:Math.max(1,Math.round((c.endK-c.startK)/7)+1),
-      label:periodLabel(start,end)
-    };
-  });
-}
-/* Recalage sur le jour J.
-   Pour une référence, la fin de sa session EST son examen : elle s'arrête de
-   travailler quand elle passe l'épreuve. Chaque session est donc alignée sur
-   sa propre date de fin, ce qui permet de comparer des entraînements menés à
-   des moments différents de l'année.
-   Pour la préparation en cours, l'examen est une date à venir : on prend
-   celle du tableau de bord, à défaut le 8 septembre le plus proche.
-   Une date précise reste renseignable session par session ; elle prime. */
-const EXAM_DAY=8, EXAM_MONTH=8;   // 8 septembre (mois 0-indexé)
-function examAnchor(end){
-  const y=end.getFullYear();
-  let best=null,bd=Infinity;
-  for(const yy of [y-1,y,y+1]){
-    const d=new Date(yy,EXAM_MONTH,EXAM_DAY);
-    const dist=Math.abs(d-end);
-    if(dist<bd){ bd=dist; best=d; }
-  }
-  return best;
-}
-// Libellé compact d'une session : « 2023 » ou « 2022–23 »
-function periodLabel(a,b){
-  const ya=a.getFullYear(), yb=b.getFullYear();
-  return ya===yb? String(ya) : `${ya}–${String(yb).slice(2)}`;
-}
-
-/* ----------------------- État ----------------------- */
-const REF_COLORS=['#c792ea','#82aaff','#f78c6c','#c3e88d','#ffcb6b','#89ddff','#ff9cac','#a1e8cc'];
+/* ----------------------- Dossiers ----------------------- */
 const ME_COLOR='#5ad1c4';
-let phase='psy0', stage=null, stageTouched=false;
-let commonOnly=false;   // n'utiliser que les exercices pratiqués par tout le monde
-let scaleFrom=-13;      // début de l'axe : le graphique va de là jusqu'au jour J
-let clockMode='hour'; // hour | day | grid — lecture du panneau « Répartition horaire »
-let volExSel='__all__';// exercice détaillé dans « Volume d'essais par exercice »
-let volMode='total'; // total | stage — jusqu'où compter les essais
-const hiddenSeries=new Set(); // courbes masquées par clic sur la légende
-let sessionFilter='all';// all | first | last — pour les candidats à plusieurs sessions
-// Un symbole par personne, repris sur les courbes et les réglettes
-const SHAPES=['circle','square','diamond','triangle','down'];
-const CHART_POINT={circle:'circle',square:'rect',diamond:'rectRot',triangle:'triangle',down:'triangle'};
-let refs=[];            // [{id,name,csv,rows,color,sess:{}}]
-let me=null;            // {name,rows,sess:{}}
-let myExamDate='2026-09-05';
-const charts={};
+/* Une couleur par session, dans un ordre fixe validé (séparation des couleurs,
+   daltonisme compris, et contraste sur le fond sombre) ; la session visée par
+   mon examen garde le turquoise de « Moi ». Au-delà de 7 sessions, la palette
+   repart avec un autre symbole : couleur + forme restent uniques. */
+const SESSION_COLORS=['#3987e5','#d95926','#9085e9','#c98500','#d55181','#008300','#e66767'];
+const SHAPES=['circle','rect','triangle'];
+const STATUS_LAB={admis:'Admis à sa dernière candidature',non:'Jamais admis',inconnu:'Statut inconnu'};
+let refs=[];            // [{id,name,fullName,csv,rows,status,sess}]
+let me=null;            // {id:'me',me:true,name,rows,csv,src,sess}
 
-// Clé stable d'une session (dépend de la phase et de sa date de début)
-const sessKey=(ph,c)=>ph+'|'+c.start.toISOString().slice(0,10);
-// Préférences d'une session : activée ? date d'examen ?
-function sessPref(owner,ph,c,isMe,camps){
-  const k=sessKey(ph,c), p=(owner.sess||{})[k];
-  if(p) return p;
-  // par défaut : toutes les sessions d'une référence, seulement la dernière pour moi
-  return {on:isMe? c.index===camps.length-1 : true, exam:null};
-}
-function setSessPref(owner,ph,c,patch){
-  owner.sess=owner.sess||{};
-  const k=sessKey(ph,c);
-  owner.sess[k]={...(owner.sess[k]||{on:true,exam:null}),...patch};
-}
-
-/* ----------------------- Chargement ----------------------- */
 function loadMe(){
   let saved=null,cfg=null;
   try{ saved=JSON.parse(localStorage.getItem(LS_MAIN)||'null'); }catch(e){}
   try{ cfg=JSON.parse(localStorage.getItem(LS_ME)||'null'); }catch(e){}
-  if(saved&&saved.examDate) myExamDate=saved.examDate;
+  me=null;
   if(saved&&saved.csv){
     const rows=parseCSV(saved.csv);
-    if(rows.length){
-      me={name:'Moi',rows,csv:saved.csv,src:saved.name||'fichier importé',
-          sess:(cfg&&cfg.sess)||{}};
-      return;
-    }
+    if(rows.length) me={id:'me',me:true,name:'Moi',rows,csv:saved.csv,
+      src:saved.name||'fichier importé',sess:(cfg&&cfg.sess)||{}};
   }
-  me=null;
+}
+function readMeCfg(){ try{ return JSON.parse(localStorage.getItem(LS_ME)||'null')||{}; }catch(e){ return {}; } }
+function saveMe(){
+  const cfg=readMeCfg(); cfg.sess=me?me.sess||{}:{};
+  try{ localStorage.setItem(LS_ME,JSON.stringify(cfg)); }catch(e){}
+}
+function setMyExam(kind,val){
+  const cfg=readMeCfg();
+  cfg.exams=Object.assign({},cfg.exams||{},{[kind]:val||''});
+  try{ localStorage.setItem(LS_ME,JSON.stringify(cfg)); }catch(e){}
 }
 // Empreinte d'un dossier : sert à repérer qu'un même fichier sert deux fois
 const fingerprint=rows=>rows.length?`${rows.length}|${rows[0].date.getTime()}|${rows[rows.length-1].date.getTime()}`:'';
@@ -680,29 +962,28 @@ const fingerprint=rows=>rows.length?`${rows.length}|${rows[0].date.getTime()}|${
 function promoteToMe(ref){
   let saved={};
   try{ saved=JSON.parse(localStorage.getItem(LS_MAIN)||'{}')||{}; }catch(e){}
-  saved.csv=ref.csv; saved.name=ref.name;
+  saved.csv=ref.csv; saved.name=ref.fullName||ref.name;
   try{ localStorage.setItem(LS_MAIN,JSON.stringify(saved)); }catch(e){
     setStatus('Stockage plein : impossible de mémoriser les résultats personnels.','err'); return;
   }
-  try{ localStorage.removeItem(LS_ME); }catch(e){}   // les sessions cochées ne valent plus
+  const cfg=readMeCfg(); cfg.sess={};              // mes réglages de sessions ne valent plus…
+  try{ localStorage.setItem(LS_ME,JSON.stringify(cfg)); }catch(e){}   // …mes dates d'examen, si
   refs=refs.filter(r=>r.id!==ref.id);
-  refs.forEach((r,i)=>r.color=REF_COLORS[i%REF_COLORS.length]);
   saveRefs(); loadMe(); stageTouched=false; renderAll();
   setStatus(`« ${ref.name} » sert désormais de dossier personnel — le tableau de bord l'utilise aussi.`,'ok');
 }
 function loadRefs(){
   let saved=null;
   try{ saved=JSON.parse(localStorage.getItem(LS_REFS)||'null'); }catch(e){}
-  refs=(saved||[]).map((r,i)=>({...r,rows:parseCSV(r.csv),sess:r.sess||{},
-    color:REF_COLORS[i%REF_COLORS.length]})).filter(r=>r.rows.length);
+  refs=(saved||[]).map(r=>({...r,rows:parseCSV(r.csv||''),sess:r.sess||{}})).filter(r=>r.rows.length);
 }
 function saveRefs(){
   try{
     localStorage.setItem(LS_REFS,JSON.stringify(refs.map(r=>({
-      id:r.id,name:r.name,csv:r.csv,sess:r.sess||{}
+      id:r.id,name:r.name,fullName:r.fullName||null,csv:r.csv,sess:r.sess||{},status:r.status||'admis'
     }))));
-    if(me) localStorage.setItem(LS_ME,JSON.stringify({sess:me.sess||{}}));
   }catch(e){ setStatus("Stockage plein : supprime un dossier de référence.",'err'); }
+  saveMe();
 }
 function setStatus(msg,cls){
   const el=document.getElementById('status');
@@ -714,12 +995,13 @@ function nextName(){
   for(const L of LETTERS){ const n='Candidat '+L; if(!used.has(n)) return n; }
   return 'Candidat '+(refs.length+1);
 }
-/* Nom du candidat déduit du fichier : « ResultsforPierreMERMET_2.csv » → Pierre
+/* Nom du candidat déduit du fichier : « Results-for-luc-lambert.csv » → Luc
    (prénom seul dans les légendes, nom complet en infobulle). */
 function nameFromFile(fn){
   let s=String(fn||'').replace(/\.[^.]+$/,'');
   s=s.replace(/^[0-9a-f]{6,}[-_]/i,'');               // préfixe technique éventuel
-  s=s.replace(/^\s*(r[ée]sultats?\s*(de|pour)?|results?\s*(for|of)?|export|pilotest)[\s_-]*/i,'');
+  // « Results-for-… », « Resultsfor… », « Résultats de … » : séparateurs facultatifs
+  s=s.replace(/^\s*(r[ée]sultats?([\s_-]*(de|pour|du))?|results?([\s_-]*(for|of))?|export|pilotest)[\s_-]*/i,'');
   s=s.replace(/\d{4}[-_.]\d{2}[-_.]\d{2}/g,'');       // dates
   s=s.replace(/[\s_-]*\(?\d+\)?\s*$/,'');             // _2, (1), -3 en fin
   s=s.replace(/[_+.-]+/g,' ');
@@ -741,8 +1023,8 @@ function addRef(text,srcName){
   const used=new Set(refs.map(r=>r.name));
   if(used.has(name)) name=nf&&nf.full!==nf.first?nf.full:name+' (2)';
   if(used.has(name)) name=nextName();
-  refs.push({id,name,fullName:nf?nf.full:null,csv:text,rows,sess:{},
-    color:REF_COLORS[refs.length%REF_COLORS.length]});
+  // statut inconnu par défaut : à préciser sur la fiche (admis ou non)
+  refs.push({id,name,fullName:nf?nf.full:null,csv:text,rows,sess:{},status:'inconnu'});
   return true;
 }
 function handleFiles(files){
@@ -755,7 +1037,8 @@ function handleFiles(files){
       if(addRef(e.target.result,f.name)) ok++;
       if(++done===list.length){
         saveRefs(); renderAll();
-        if(ok) setStatus(`${ok} dossier${ok>1?'s':''} ajouté${ok>1?'s':''} et mémorisé${ok>1?'s':''}.`,'ok');
+        document.getElementById('dossiers').open=true;
+        if(ok) setStatus(`${plural(ok,'dossier')} ajouté${ok>1?'s':''} et mémorisé${ok>1?'s':''}. Préciser le statut de chaque candidat sur sa fiche.`,'ok');
       }
     };
     rd.onerror=()=>{ if(++done===list.length){ saveRefs(); renderAll(); } };
@@ -763,140 +1046,193 @@ function handleFiles(files){
   });
 }
 
-/* ----------------------- Séries temporelles ----------------------- */
-// Un « participant » = UNE session (moi ou une référence). Un candidat qui
-// s'est préparé deux fois donne deux participants comparables entre eux.
-function participants(){
-  const out=[];
-  const push=(owner,ph,camps,isMe,color,name,shape)=>{
-    // filtre global : toutes les sessions, la première, ou la dernière
-    let sel=camps;
-    if(camps.length>1&&sessionFilter==='first') sel=[camps[0]];
-    else if(camps.length>1&&sessionFilter==='last') sel=[camps[camps.length-1]];
-    sel.forEach(c=>{
-      const pref=sessPref(owner,ph,c,isMe,camps);
-      if(!pref.on) return;
-      const multi=camps.length>1;
-      out.push({
-        key:(isMe?'me':owner.id)+'#'+c.index,
-        owner, camp:c, me:isMe, color, shape,
-        name:(multi?`${name} ${c.label}`:name)+
-             (isMe?'':(c.index===camps.length-1?' ✓':' ✗')),
-        exam:pref.exam?new Date(pref.exam+'T00:00:00')
-             :(isMe?(myExamDate?new Date(myExamDate+'T00:00:00'):examAnchor(c.end))
-                   :c.end),                     // référence : fin d'entraînement = jour J
-        outcome:isMe?'ongoing':(c.index===camps.length-1?'success':'attempt')
-      });
+/* ----------------------- Préférences d'affichage ----------------------- */
+let phase='psy1', basisMode='common', volMode='total', clockMode='hour';
+let focusFam=null, scaleFrom=null;       // null : fenêtre ajustée automatiquement
+let stage=null, stageTouched=false;
+function loadUI(){
+  try{
+    const u=JSON.parse(localStorage.getItem(LS_UI)||'null')||{};
+    if(['psy0','psy1',PSY1_ALL].includes(u.phase)) phase=u.phase;
+    if(['common','all'].includes(u.basis)) basisMode=u.basis;
+    if(['total','stage'].includes(u.vol)) volMode=u.vol;
+    if(['hour','day','grid'].includes(u.clock)) clockMode=u.clock;
+    if(typeof u.focus==='string') focusFam=u.focus;
+  }catch(e){}
+}
+function saveUI(){
+  try{ localStorage.setItem(LS_UI,JSON.stringify({phase,basis:basisMode,vol:volMode,clock:clockMode,focus:focusFam})); }catch(e){}
+}
+
+/* ----------------------- Modèle -----------------------
+   Un « participant » = UNE session, de moi ou d'un autre candidat, avec sa
+   couleur, son issue et son jour J. Tout le reste de la page s'en déduit. */
+let M=null;
+const DASH={pass:[],fail:[7,4],unknown:[2,3],ongoing:[],ignored:[2,3]};
+const dashFor=o=>DASH[o?o.code:'unknown']||[];
+const PHASE_NAME={psy0:'PSY0',psy1:'PSY1 courant',psy1_all:'PSY1 général'};
+function sessPrefOf(owner,key){ const v=(owner.sess||{})[key]; return v&&typeof v==='object'?v:{}; }
+function setSessPref(owner,key,patch){
+  owner.sess=owner.sess||{};
+  owner.sess[key]={...sessPrefOf(owner,key),...patch};
+}
+// ordre d'affichage : moi d'abord, puis réussites, échecs, issues inconnues
+const OC_RANK={ongoing:0,pass:1,fail:2,unknown:3,ignored:4};
+const ocRank=p=>p.me?-1:(OC_RANK[p.outcome?p.outcome.code:'unknown']*2+(p.outcome&&p.outcome.sure?0:1));
+function buildModel(){
+  const owners=[...(me?[me]:[]),...refs];
+  owners.forEach(applyFamilies);
+  const parts=[];
+  owners.forEach(o=>{
+    const camps=detectCampaigns(o.rows,phase,famPhase);
+    // ma session visée par mon examen ; à défaut, la plus récente
+    const targetC=o.me?camps.find(c=>myExamTarget(phase,camps,c)):null;
+    camps.forEach((c,i)=>{
+      const prefKey=phase+'|'+c.id;
+      const pref=sessPrefOf(o,prefKey);
+      const J=o.me?myExamTarget(phase,camps,c):null;
+      const ongoing=examStillAhead(J);
+      const exam=pref.exam?new Date(pref.exam+'T00:00:00'):(J||c.end);
+      const outcome=sessionOutcome(o,phase,c,{ongoing},famPhase);
+      parts.push({key:o.id+'|'+c.id, owner:o, me:!!o.me,
+        hero:!!o.me&&(targetC?c===targetC:i===camps.length-1),
+        camp:c, camps, prefKey, exam, examManual:!!pref.exam, target:!!J, ongoing, outcome,
+        ignored:!!outcome&&outcome.code==='ignored'});
     });
-  };
-  if(me) push(me,phase,detectCampaigns(me.rows,phase),true,ME_COLOR,'Moi',SHAPES[0]);
-  refs.forEach((r,i)=>push(r,phase,detectCampaigns(r.rows,phase),false,r.color,r.name,
-    SHAPES[(i+1)%SHAPES.length]));
+  });
+  // libellés : « Luc · 2023 » ; deux sessions de même libellé → « (2) »
+  const seen={};
+  parts.forEach(p=>{
+    let lab=`${p.owner.name} · ${p.camp.label}`;
+    seen[lab]=(seen[lab]||0)+1;
+    if(seen[lab]>1) lab+=` (${seen[lab]})`;
+    p.label=lab;
+  });
+  /* Couleurs : ordre fixe sur TOUTES les sessions de la phase, affichées ou
+     non — masquer une session ne repeint jamais les autres. */
+  let slot=0;
+  parts.forEach(p=>{
+    if(p.hero){ p.color=ME_COLOR; p.shape='circle'; return; }
+    p.color=SESSION_COLORS[slot%SESSION_COLORS.length];
+    p.shape=SHAPES[Math.min(SHAPES.length-1,Math.floor(slot/SESSION_COLORS.length))];
+    slot++;
+  });
+  parts.forEach(p=>{
+    const pref=sessPrefOf(p.owner,p.prefKey);
+    p.on=!p.ignored&&(pref.on!==undefined?!!pref.on:(p.me?p.hero:true));
+    p.dash=p.hero?[]:dashFor(p.outcome);
+  });
+  parts.sort((a,b)=>ocRank(a)-ocRank(b)||a.label.localeCompare(b.label,'fr'));
+  const vis=parts.filter(p=>p.on);
+  const mine=vis.find(p=>p.hero)||vis.find(p=>p.me)||null;
+  const refsV=vis.filter(p=>!p.me);
+  const isCode=c=>p=>p.outcome&&p.outcome.code===c;
+  const pass=refsV.filter(isCode('pass')), fail=refsV.filter(isCode('fail'));
+  // exercices (familles) pratiqués : par tout le monde, ou par au moins une session
+  const famSets=vis.map(p=>new Set(p.camp.campRows.map(r=>r.fam)));
+  const union=new Set(); famSets.forEach(s=>s.forEach(f=>union.add(f)));
+  const inter=famSets.length?new Set([...union].filter(f=>famSets.every(s=>s.has(f)))):new Set();
+  let basis=union, fallback=false;
+  if(basisMode==='common'&&vis.length>=2){
+    if(inter.size>=3) basis=inter; else fallback=true;   // trop peu en commun : on prend tout, et on le dit
+  }
+  // exercices au programme de la phase, même jamais pratiqués
+  const programme=new Set(universeOf(phase).map(familyOf));
+  return {parts,vis,mine,refsV,pass,fail,union,inter,basis,fallback,programme};
+}
+
+/* ----------------------- Mesures -----------------------
+   Niveau d'un exercice à un instant = moyenne de ses 5 derniers essais à cet
+   instant. Niveau global = moyenne de ces niveaux, CHAQUE EXERCICE COMPTANT
+   POUR UN : enchaîner un exercice facile ne gonfle pas la mesure. */
+const LASTK=5;
+function famRows(p,f){
+  if(!p._fam){
+    p._fam=new Map();
+    p.camp.campRows.forEach(r=>{ let a=p._fam.get(r.fam); if(!a){ a=[]; p._fam.set(r.fam,a); } a.push(r); });
+  }
+  return p._fam.get(f)||null;
+}
+function famLevelAt(p,f,t){
+  const a=famRows(p,f); if(!a) return null;
+  let i=a.length; while(i>0&&a[i-1].date.getTime()>t) i--;
+  if(!i) return null;
+  return mean(a.slice(Math.max(0,i-LASTK),i).map(r=>r.stanine));
+}
+function levelAt(p,t,fams){
+  const v=[]; fams.forEach(f=>{ const x=famLevelAt(p,f,t); if(x!==null) v.push(x); });
+  return v.length?{v:mean(v),n:v.length}:null;
+}
+// Niveau de départ : moyenne des 3 premiers essais de chaque exercice de la session
+function startLevel(p,fams){
+  const v=[]; fams.forEach(f=>{ const a=famRows(p,f); if(a&&a.length) v.push(mean(a.slice(0,3).map(r=>r.stanine))); });
+  return v.length?{v:mean(v),n:v.length}:null;
+}
+// Stades : s semaines avant le jour J (s ≤ 0), mesurés en fin de journée
+const tOf=(p,s)=>p.exam.getTime()+s*7*DAY+EOD;
+const xOf=(p,t)=>(t-p.exam.getTime())/(7*DAY);
+const startT=p=>p.camp.start.getTime();
+const endT=p=>p.camp.end.getTime()+EOD;
+const nowStage=p=>xOf(p,p.camp.end.getTime());   // dernières données d'une session
+function cumAt(p,t,f){
+  const a=f?(famRows(p,f)||[]):p.camp.campRows;
+  let n=0; for(const r of a){ if(r.date.getTime()<=t) n++; else break; }
+  return n;
+}
+function paceAt(p,t){   // essais par semaine sur les 4 semaines précédentes
+  let n=0; for(const r of p.camp.campRows){ const x=r.date.getTime(); if(x<=t&&x>t-28*DAY) n++; }
+  return n/4;
+}
+/* Grille hebdomadaire d'une session : un point par semaine entière avant J
+   couverte par ses données, plus un dernier point à la fin de ses données
+   s'il tombe entre deux semaines (préparation en cours). Les mêmes abscisses
+   pour tout le monde : les médianes se calculent semaine par semaine. */
+function grid(p){
+  if(p._grid) return p._grid;
+  const J=p.exam.getTime(), st=startT(p), en=p.camp.end.getTime();
+  const sMin=Math.ceil((st-J-EOD)/(7*DAY)), sMax=Math.floor((en-J)/(7*DAY));
+  const out=[];
+  for(let s=sMin;s<=sMax;s++) out.push({s,t:J+s*7*DAY+EOD});
+  const xe=(en-J)/(7*DAY);
+  if(!out.length||xe-out[out.length-1].s>0.07) out.push({s:Math.round(xe*100)/100,t:en+EOD,frac:true});
+  return (p._grid=out);
+}
+// Série de niveau : global (sur des exercices donnés) ou d'un seul exercice
+function seriesOf(p,fams,fam){
+  p._ser=p._ser||new Map();
+  const key=fam?'f:'+fam:'g:'+[...fams].sort().join('|');
+  if(p._ser.has(key)) return p._ser.get(key);
+  const minCover=fam?1:Math.max(2,Math.ceil(fams.size*0.4));
+  const out=grid(p).map(g=>{
+    if(fam){ const v=famLevelAt(p,fam,g.t); return v===null?null:{x:g.s,y:+v.toFixed(2),t:g.t}; }
+    const L=levelAt(p,g.t,fams);
+    // point calculé sur trop peu d'exercices : tracé en pâle, pas masqué
+    return L?{x:g.s,y:+L.v.toFixed(2),n:L.n,low:L.n<minCover,t:g.t}:null;
+  }).filter(Boolean);
+  p._ser.set(key,out);
   return out;
 }
-// Exercices retenus pour la comparaison : tous, ou seulement ceux que
-// TOUT LE MONDE a pratiqués (utile si certains tests n'existent plus).
-function exerciseSet(ps){
-  const sets=ps.map(p=>new Set(p.camp.campRows.map(r=>r.test)));
-  const all=new Set(); sets.forEach(s=>s.forEach(x=>all.add(x)));
-  const inter=sets.length<2?all:new Set([...all].filter(x=>sets.every(s=>s.has(x))));
-  // écart de périmètre : programme modifié d'un côté, exercices jamais faits de l'autre
-  const split=all.size-inter.size;
-  if(!commonOnly||sets.length<2) return {set:all,common:false,total:all.size,split};
-  return {set:inter,common:true,total:all.size,split};
+// Médiane d'un groupe de sessions, semaine par semaine (au moins 2 sessions)
+function medianSeries(list,fams){
+  if(list.length<2) return null;
+  const by=new Map();
+  list.forEach(p=>seriesOf(p,fams).forEach(pt=>{
+    if(!Number.isInteger(pt.x)||pt.low) return;
+    let a=by.get(pt.x); if(!a){ a=[]; by.set(pt.x,a); } a.push(pt.y);
+  }));
+  const pts=[...by.entries()].filter(([,v])=>v.length>=2)
+    .map(([x,v])=>({x,y:+median(v).toFixed(2),n:v.length})).sort((a,b)=>a.x-b.x);
+  return pts.length>=2?pts:null;
 }
-/* Étalon de comparaison : les sessions RÉUSSIES des références. Mélanger
-   réussites et échecs dans une même médiane brouillerait justement ce qu'on
-   cherche à voir. À défaut de réussite affichée, on retombe sur ce qui est là. */
-function benchmark(ps){
-  const rp=ps.filter(p=>!p.me);
-  const ok=rp.filter(p=>p.outcome==='success');
-  return ok.length?{list:ok,label:'réussites',only:true}
-                  :{list:rp,label:'sessions',only:false};
-}
-// Ma session de référence pour le verdict : la plus récente activée
-function myPart(ps){
-  const mine=ps.filter(p=>p.me);
-  return mine.length?mine[mine.length-1]:null;
-}
-// Abscisse d'un instant t pour un participant, en semaines
-// Tout est exprimé par rapport à l'examen : S−3 = trois semaines avant le jour J.
-function xOf(p,t){ return (t-p.exam.getTime())/(7*DAY); }
-// Instant d'observation d'un stade : FIN de la journée visée, sinon les essais
-// du jour même (faits à 9h, 17h…) tomberaient après le point de mesure.
-const EOD=DAY-1;
-function instantAt(p,st){
-  return p.exam.getTime()+st*7*DAY+EOD;
-}
-// Points hebdomadaires : niveau glissant 30 j, niveau global non pondéré,
-// volume de la semaine, cumul
-function buildSeries(p,exSet,minCover){
-  const rows=p.camp.campRows;
-  const t0=p.camp.start.getTime(), tEnd=p.camp.end.getTime()+EOD;
-  const bl=workBlocks(p);
-  const glob=[],vol=[],hrs=[];
-  for(let w=0;;w++){
-    const nominal=t0+w*7*DAY;          // sert d'abscisse (S−3, S−2, …)
-    const cut=Math.min(nominal+EOD,tEnd); // sert de point de mesure
-    const week=rows.filter(r=>r.date.getTime()<=cut&&r.date.getTime()>cut-7*DAY);
-    const x=Math.round(xOf(p,nominal)*10)/10;
-    const g=globalLevelAtT(p,cut,exSet);
-    // un point calculé sur trop peu d'exercices n'est pas comparable : on l'omet
-    if(g&&g.n>=minCover) glob.push({x,y:Math.round(g.v*100)/100,n:g.n});
-    vol.push({x,y:week.length});
-    const hm=bl.filter(b=>b.start.getTime()<=cut&&b.start.getTime()>cut-7*DAY)
-               .reduce((s,b)=>s+b.min,0);
-    hrs.push({x,y:Math.round(hm/60*10)/10});
-    if(nominal+EOD>=tEnd||w>400) break;
-  }
-  return {glob,vol,hrs};
-}
-function volumeAt(p,st){ // essais cumulés à ce stade
-  const t=instantAt(p,st);
-  return p.camp.campRows.filter(r=>r.date.getTime()<=t).length;
-}
-function paceAt(p,st){ // essais sur les 30 derniers jours, ramenés à la semaine
-  const t=instantAt(p,st);
-  const n=p.camp.campRows.filter(r=>r.date.getTime()<=t&&r.date.getTime()>t-30*DAY).length;
-  return n/30*7;
-}
-// Niveau par exercice à un stade : moyenne des K derniers essais avant cet instant
-const LASTK=5;
-function byEx(p){                       // index exercice → essais (construit une fois)
-  if(!p._byEx){
-    p._byEx=new Map();
-    p.camp.campRows.forEach(r=>{ (p._byEx.get(r.test)||p._byEx.set(r.test,[]).get(r.test)).push(r); });
-  }
-  return p._byEx;
-}
-function exLevelAtT(p,ex,t){
-  const arr=byEx(p).get(ex); if(!arr) return null;
-  let i=arr.length; while(i>0&&arr[i-1].date.getTime()>t) i--;
-  if(i===0) return null;
-  return mean(arr.slice(Math.max(0,i-LASTK),i).map(r=>r.stanine));
-}
-function exLevelAt(p,ex,st){ return exLevelAtT(p,ex,instantAt(p,st)); }
-/* Niveau GLOBAL non pondéré : chaque exercice compte pour un, quel que soit
-   le nombre de fois où il a été travaillé. Enchaîner un exercice facile ne
-   gonfle donc plus la courbe — contrairement à la moyenne des essais. */
-function globalLevelAtT(p,t,exSet){
-  const vals=[];
-  exSet.forEach(ex=>{ const v=exLevelAtT(p,ex,t); if(v!==null) vals.push(v); });
-  return vals.length?{v:mean(vals),n:vals.length}:null;
-}
-function globalLevelAt(p,st,exSet){ return globalLevelAtT(p,instantAt(p,st),exSet); }
 
 /* ----------------------- Temps de travail -----------------------
    Le CSV ne contient pas la durée des exercices : on reconstitue les séances
-   en coupant dès que plus de BLOCK_GAP minutes séparent deux essais (l'écart
-   habituel entre deux essais est de ~7 min), et on ajoute un forfait pour le
-   dernier exercice du bloc, dont la fin n'est pas horodatée.
-   --------------------------------------------------------------- */
+   en coupant dès que plus de BLOCK_GAP minutes séparent deux essais, et on
+   ajoute un forfait pour le dernier exercice de chaque séance. */
 const BLOCK_GAP=45, LAST_EX_MIN=4;
 function workBlocks(p){
   if(p._blocks) return p._blocks;
-  const rows=p.camp.campRows;
-  const out=[];
+  const rows=p.camp.campRows, out=[];
   if(rows.length){
     let cur=[rows[0]];
     for(let i=1;i<rows.length;i++){
@@ -905,825 +1241,887 @@ function workBlocks(p){
     }
     out.push(cur);
   }
-  p._blocks=out.map(b=>({
-    start:b[0].date, end:b[b.length-1].date, n:b.length,
-    min:(b[b.length-1].date-b[0].date)/60000+LAST_EX_MIN
-  }));
-  return p._blocks;
+  return (p._blocks=out.map(b=>({start:b[0].date,n:b.length,
+    min:(b[b.length-1].date-b[0].date)/60000+LAST_EX_MIN})));
 }
+const hoursAt=(p,t)=>workBlocks(p).reduce((s,b)=>s+(b.start.getTime()<=t?b.min:0),0)/60;
+const DAYS=['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+const DAYS_S=['L','M','M','J','V','S','D'];
 function hoursStats(p){
-  const bl=workBlocks(p);
+  if(p._hs) return p._hs;
+  const bl=workBlocks(p), rows=p.camp.campRows;
   const totMin=bl.reduce((s,b)=>s+b.min,0);
-  const days=new Set(p.camp.campRows.map(r=>dayIdx(r.date))).size;
-  const spanW=Math.max(1,(p.camp.end-p.camp.start)/(7*DAY)+1);
+  const dayKeys=[...new Set(rows.map(r=>dayIdx(r.date)))].sort((a,b)=>a-b);
+  const spanD=Math.max(1,dayKeys.length?dayKeys[dayKeys.length-1]-dayKeys[0]+1:1);
+  let maxGap=0; for(let i=1;i<dayKeys.length;i++) maxGap=Math.max(maxGap,dayKeys[i]-dayKeys[i-1]-1);
   const durs=bl.map(b=>b.min).sort((a,b)=>a-b);
-  // répartition des essais : par heure, par jour de la semaine, et croisée
   const byH=Array(24).fill(0), byD=Array(7).fill(0);
   const byDH=Array.from({length:7},()=>Array(12).fill(0));
-  p.camp.campRows.forEach(r=>{
+  rows.forEach(r=>{
     const h=r.date.getHours(), d=(r.date.getDay()+6)%7;   // 0 = lundi
     byH[h]++; byD[d]++; byDH[d][Math.floor(h/2)]++;
   });
-  const peak=byH.indexOf(Math.max(...byH));
-  const peakDay=byD.indexOf(Math.max(...byD));
-  return {hours:totMin/60, perWeek:totMin/60/spanW, perDay:totMin/60/Math.max(1,days),
-    sessions:bl.length, medMin:durs.length?durs[Math.floor(durs.length/2)]:0,
-    days, peak, peakDay, byH, byD, byDH, total:p.camp.campRows.length};
+  return (p._hs={hours:totMin/60, perWeek:totMin/60/Math.max(1,spanD/7), sessions:bl.length,
+    medMin:durs.length?durs[Math.floor(durs.length/2)]:0, days:dayKeys.length,
+    activePct:dayKeys.length/spanD*100, maxGap,
+    peak:byH.indexOf(Math.max(...byH)), peakDay:byD.indexOf(Math.max(...byD)),
+    byH, byD, byDH, total:rows.length});
 }
-const DAYS=['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
-const DAYS_S=['L','M','M','J','V','S','D'];
-// Bornes du curseur de stade
-function stageRange(ps){
-  if(!ps.length) return [0,1];
-  let lo=Infinity,hi=-Infinity;
-  ps.forEach(p=>{
-    lo=Math.min(lo,xOf(p,p.camp.start.getTime()));
-    hi=Math.max(hi,xOf(p,p.camp.end.getTime()));
+// Volume et heures semaine par semaine, sur la même grille
+function weeklyOf(p,what){
+  return grid(p).filter(g=>!g.frac).map(g=>{
+    if(what==='vol'){ let n=0; for(const r of p.camp.campRows){ const x=r.date.getTime(); if(x<=g.t&&x>g.t-7*DAY) n++; } return {x:g.s,y:n}; }
+    const m=workBlocks(p).reduce((s,b)=>{ const x=b.start.getTime(); return s+(x<=g.t&&x>g.t-7*DAY?b.min:0); },0);
+    return {x:g.s,y:Math.round(m/60*10)/10};
   });
-  return [Math.floor(lo),Math.ceil(hi)];
-}
-// Stade actuel de "Moi" (là où j'en suis aujourd'hui)
-function myStage(ps){
-  const m=myPart(ps);
-  if(!m) return null;
-  return Math.round(xOf(m,m.camp.end.getTime()));
-}
-// Une session a-t-elle des données à cette semaine ?
-function covers(p,x){
-  const t=instantAt(p,x);
-  return t>=p.camp.start.getTime() && t<=p.camp.end.getTime()+EOD;
-}
-/* Bornes affichées : intersection des données et de la fenêtre choisie.
-   Une seule source pour le curseur, les axes et les histogrammes — sinon
-   une session hors saison peut disparaître d'un graphique et pas de l'autre. */
-function viewRange(ps){
-  const lo=scaleFrom, hi=1;              // de l'échelle choisie jusqu'au jour J
-  // sauf si plus rien n'est visible dans cette fenêtre (sessions hors saison
-  // uniquement) : on élargit alors plutôt que d'afficher une page vide
-  const visible=ps.some(p=>xOf(p,p.camp.end.getTime())>=lo&&xOf(p,p.camp.start.getTime())<=hi);
-  if(visible||!ps.length) return [lo,hi];
-  const [rlo,rhi]=stageRange(ps);
-  return [Math.min(lo,Math.floor(rlo)),Math.max(hi,Math.ceil(rhi))];
-}
-/* Semaine proposée par défaut : la plus proche de l'examen où MOI et au moins
-   une référence avons des données — sinon la comparaison s'ouvre sur du vide. */
-function bestStage(ps,lo,hi){
-  const m=myPart(ps), rp=ps.filter(p=>!p.me);
-  let fallback=null;
-  for(let x=hi;x>=lo;x--){
-    const meOk=m?covers(m,x):false, refOk=rp.some(p=>covers(p,x));
-    if(meOk&&refOk) return x;
-    if(fallback===null&&(meOk||refOk)) fallback=x;
-  }
-  return fallback!==null?fallback:hi;
 }
 
-/* ----------------------- Rendu : cartes candidats ----------------------- */
-function renderCands(){
+/* ----------------------- Stades -----------------------
+   Curseur et graphiques partagent les mêmes bornes. Par défaut, le stade
+   comparé est celui où j'en suis aujourd'hui (fin de mes données). */
+function stageBounds(){
+  let lo=0,hi=0;
+  M.vis.forEach(p=>{ const g=grid(p); if(g.length){ lo=Math.min(lo,Math.floor(g[0].s)); hi=Math.max(hi,Math.ceil(g[g.length-1].s)); } });
+  return [Math.max(lo,-52),Math.max(hi,0)];
+}
+function chartWindow(){
+  const [lo,hi]=stageBounds();
+  const from=scaleFrom!==null?scaleFrom:clamp(lo,-30,-4);
+  return [from,hi+0.4];
+}
+const isNow=s=>!!(M&&M.mine&&Math.abs(s-nowStage(M.mine))<0.01);
+function stageText(s){
+  if(isNow(s)) return M.mine.ongoing?`aujourd’hui · ${daysLabel(s)}`:`fin de ta session · ${daysLabel(s)}`;
+  return Math.abs(s-Math.round(s))>0.01?daysLabel(s):xLabel(s);
+}
+function defaultStage(){
+  if(M.mine) return Math.min(0,nowStage(M.mine));
+  return 0;
+}
+
+/* ----------------------- Rendu : dossiers ----------------------- */
+const ocColor=o=>`var(${OUTCOMES[o?o.code:'unknown'].col})`;
+const ocTag=o=>o?`<span class="tag" style="color:${ocColor(o)};border-color:${ocColor(o)}">${esc(outcomeText(o))}</span>`:'';
+function sessBlock(p){
+  const c=p.camp, o=p.owner, auto=p.outcome;
+  const man=auto&&auto.manual;
+  const autoTxt=man?'':` — ${outcomeText(auto)}`;
+  const opt=(v,l)=>`<option value="${v}"${(man?auto.code:'')===v?' selected':''}>${l}</option>`;
+  const notes=[];
+  if(c.trimmedDays) notes.push(`${plural(c.trimmedDays,'jour')} de repérage écarté${c.trimmedDays>1?'s':''} au début`);
+  if(c.trimmedTail) notes.push(`${plural(c.trimmedTail,'jour')} isolé${c.trimmedTail>1?'s':''} écarté${c.trimmedTail>1?'s':''} après l’arrêt`);
+  const jTxt=p.examManual?'réglé à la main'
+    :(p.me?(p.target?'ta date d’examen':'fin de cette session'):'dernier jour d’entraînement');
+  return `<div class="sess">
+    <div class="hd"><span class="sw" style="background:${p.color}"></span><b>${esc(c.label)}</b>${ocTag(auto)}</div>
+    <div class="det">${fdate(c.start)} → ${fdate(c.end)}<br>${c.weeks} sem. · ${c.attempts} essais · ${c.activeDays} j actifs</div>
+    ${auto&&auto.why?`<div class="why">${esc(auto.why)}</div>`:''}
+    ${notes.length?`<div class="why">${notes.join(' · ')}</div>`:''}
+    <div class="field">Issue
+      <select data-oc="${esc(p.key)}" aria-label="Issue de la session ${esc(c.label)}">
+        <option value="">Déduite${esc(autoTxt)}</option>
+        ${opt('pass','✓ Réussie')}${opt('fail','✗ Échouée')}${opt('unknown','? Inconnue')}${opt('ignored','Ignorer cette session')}
+      </select></div>
+    <div class="field">Jour J
+      <input type="date" data-exam="${esc(p.key)}" value="${isoDay(p.exam)}" aria-label="Jour J de la session ${esc(c.label)}">
+      <span>${jTxt}</span></div>
+  </div>`;
+}
+function cardHtml(o){
+  const ps=M.parts.filter(p=>p.owner===o).sort((a,b)=>a.camp.start-b.camp.start);   // chronologique
+  const others=[...new Set(o.rows.filter(r=>r.phase===OTHER).map(r=>r.test))].sort((a,b)=>a.localeCompare(b,'fr'));
+  const outside=phase==='psy0'?[]:[...new Set(o.rows.filter(r=>famPhase(r)===PSY1_OLD&&!inPhase(PSY1_OLD,phase)).map(r=>r.test))];
+  const notes=[];
+  if(others.length) notes.push(`<span title="${esc(others.join(', '))}">${plural(others.length,'test')} d’autres sélections (DLR, COMPASS…) ignoré${others.length>1?'s':''}</span>`);
+  if(outside.length) notes.push(`<span title="${esc(outside.sort((a,b)=>a.localeCompare(b,'fr')).join(', '))}">${plural(outside.length,'ancien exercice','anciens exercices')} PSY1 hors de cette phase</span>`);
+  const sess=ps.length?ps.map(sessBlock).join('')
+    :`<div class="det" style="color:var(--s3);margin-top:8px">Aucun entraînement détecté en ${PHASE_NAME[phase]}.</div>`;
+  if(o.me){
+    const ex=myExams();
+    const fp=fingerprint(o.rows), clash=refs.find(r=>fingerprint(r.rows)===fp);
+    return `<div class="cand me">
+      <div class="nm">Moi <span class="me">MOI</span>${ps.length>1?`<span class="badge">${ps.length} sessions</span>`:''}</div>
+      <div class="det">d’après <b>${esc(o.src||'?')}</b> (repris du tableau de bord)</div>
+      ${clash?`<div class="det" style="color:var(--s2)">⚠ Ce fichier est aussi chargé comme référence sous « ${esc(clash.name)} » :
+        il ne s’agit probablement pas de tes résultats. Importer le bon export sur le tableau de bord,
+        ou utiliser « C’est mon dossier » sur le bon fichier.</div>`:''}
+      <div class="field">Examen PSY0 <input type="date" data-myexam="psy0" value="${esc(ex.psy0||'')}"></div>
+      <div class="field">Examen PSY1 <input type="date" data-myexam="psy1" value="${esc(ex.psy1||'')}"></div>
+      ${sess}
+      ${notes.length?`<div class="det" style="margin-top:9px;color:var(--faint)">${notes.join('<br>')}</div>`:''}
+    </div>`;
+  }
+  const st=statusOf(o);
+  return `<div class="cand">
+    <div class="nm"><span title="${esc(o.fullName||o.name)}">${esc(o.name)}</span>${ps.length>1?`<span class="badge">${ps.length} sessions</span>`:''}</div>
+    <div class="field">Statut
+      <select data-status="${esc(o.id)}" aria-label="Statut de ${esc(o.name)}">
+        ${Object.entries(STATUS_LAB).map(([v,l])=>`<option value="${v}"${v===st?' selected':''}>${l}</option>`).join('')}
+      </select></div>
+    ${st==='inconnu'?`<div class="det" style="color:var(--s3)">Statut à préciser : sans lui, l’issue de sa dernière candidature reste inconnue.</div>`:''}
+    ${sess}
+    ${notes.length?`<div class="det" style="margin-top:9px;color:var(--faint)">${notes.join('<br>')}</div>`:''}
+    <div class="acts">
+      <button data-act="mine" data-id="${esc(o.id)}">C’est mon dossier</button>
+      <button data-act="ren" data-id="${esc(o.id)}">Renommer</button>
+      <button data-act="del" data-id="${esc(o.id)}">Supprimer</button></div>
+  </div>`;
+}
+function renderDossiers(){
   const box=document.getElementById('cands');
   const parts=[];
-  if(me) parts.push(cardHtml(me,'me','Moi',ME_COLOR,true));
-  else parts.push(`<div class="nodata">Aucun résultat personnel trouvé.<br>Importer d'abord un export sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.</div>`);
-  refs.forEach(r=>parts.push(cardHtml(r,r.id,r.name,r.color,false)));
-  if(!refs.length) parts.push(`<div class="nodata">Aucun dossier de référence.<br>Glisser les CSV des candidats admis ci-dessus.</div>`);
+  if(me) parts.push(cardHtml(me));
+  else parts.push(`<div class="nodata">Aucun résultat personnel trouvé.<br>Importer d’abord un export sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.</div>`);
+  refs.forEach(r=>parts.push(cardHtml(r)));
+  if(!refs.length) parts.push(`<div class="nodata">Aucun dossier d’un autre candidat.<br>Glisser leurs CSV ci-dessus.</div>`);
   box.innerHTML=parts.join('');
-  const own=id=>id==='me'?me:refs.find(x=>x.id===id);
-  box.querySelectorAll('input[data-sess]').forEach(cb=>{
-    cb.addEventListener('change',()=>{
-      const o=own(cb.dataset.id); if(!o) return;
-      const camps=detectCampaigns(o.rows,phase);
-      const c=camps.find(x=>String(x.index)===cb.dataset.sess);
-      if(c){ setSessPref(o,phase,c,{on:cb.checked}); saveRefs(); stageTouched=false; renderAll(); }
-    });
-  });
-  box.querySelectorAll('button[data-act]').forEach(b=>{
-    b.addEventListener('click',()=>{
-      const o=own(b.dataset.id); if(!o) return;
-      const act=b.dataset.act;
-      if(act==='mine'){
-        if(!confirm(`Utiliser « ${o.name} » comme TES résultats ?\n\nLe tableau de bord utilisera aussi ce fichier.`)) return;
-        promoteToMe(o);
-      }else if(act==='del'){
-        if(!confirm(`Supprimer « ${o.name} » et ses données ?`)) return;
-        refs=refs.filter(x=>x.id!==o.id);
-        refs.forEach((x,i)=>x.color=REF_COLORS[i%REF_COLORS.length]);
-        saveRefs(); stageTouched=false; renderAll(); setStatus('Dossier supprimé.');
-      }else if(act==='ren'){
-        const n=prompt('Nom du candidat :',o.name);
-        if(n&&n.trim()){ o.name=n.trim(); saveRefs(); renderAll(); }
-      }else if(act==='exam'){
-        const camps=detectCampaigns(o.rows,phase);
-        const c=camps.find(x=>String(x.index)===b.dataset.sess); if(!c) return;
-        const cur=sessPref(o,phase,c,o===me,camps).exam||'';
-        const d=prompt(`Date d'examen de la session ${c.label} (AAAA-MM-JJ) — vide si inconnue :`,cur);
-        if(d===null) return;
-        setSessPref(o,phase,c,{exam:/^\d{4}-\d{2}-\d{2}$/.test(d.trim())?d.trim():null});
-        saveRefs(); renderAll();
-      }
-    });
-  });
-}
-function cardHtml(owner,id,name,color,isMe){
-  const camps=detectCampaigns(owner.rows,phase);
-  const ret=inPhase(PSY1_OLD,phase)?new Set():oldTests(owner.rows);
-  let body;
-  if(!camps.length){
-    body=`<div class="det"><span style="color:var(--s3)">aucun entraînement détecté pour cette phase</span></div>`;
-  }else{
-    body=camps.map(c=>{
-      const pref=sessPref(owner,phase,c,isMe,camps);
-      const notes=[];
-      if(c.trimmedDays) notes.push(`${c.trimmedDays} j de repérage écartés`);
-      if(c.dropped) notes.push(`${c.dropped} période${c.dropped>1?'s':''} trop courte${c.dropped>1?'s':''} ignorée${c.dropped>1?'s':''}`);
-      /* Issue de la session : chez une référence admise, la dernière session
-         est celle qui a abouti, les précédentes sont des tentatives. */
-      const oc=OUTCOME[isMe?'ongoing':(c.index===camps.length-1?'success':'attempt')];
-      const warn=`<br><span style="color:var(--faint)">${isMe
-        ?`examen visé : ${pref.exam?fdate(new Date(pref.exam+'T00:00:00')):(myExamDate?fdate(new Date(myExamDate+'T00:00:00')):'—')}`
-        :`fin d'entraînement alignée sur le jour J`}</span>`;
-      return `<div class="sess${pref.on?'':' off'}">
-        <label><input type="checkbox" data-id="${id}" data-sess="${c.index}" ${pref.on?'checked':''}>
-          <b>${camps.length>1?`Session ${c.index+1} · ${c.label}`:'Préparation'}</b>
-          <span class="tag" style="color:var(${oc.col});border-color:var(${oc.col})">${oc.lab}</span></label>
-        <div class="det">${fdate(c.start)} → ${fdate(c.end)}<br>
-          ${c.weeks} sem. · ${c.attempts} essais · ${c.activeDays} j actifs
-          ${pref.exam?`<br>examen : ${fdate(new Date(pref.exam+'T00:00:00'))}`:''}
-          ${notes.length?`<br><span style="color:var(--faint)">${notes.join(' · ')}</span>`:''}${warn}</div>
-        <div class="acts"><button data-act="exam" data-id="${id}" data-sess="${c.index}">Date d'examen</button></div>
-      </div>`;
-    }).join('');
-  }
-  const acts=isMe?'':`<div class="acts">
-      <button data-act="mine" data-id="${id}">C’est mon dossier</button>
-      <button data-act="ren" data-id="${id}">Renommer</button>
-      <button data-act="del" data-id="${id}">Supprimer</button></div>`;
-  // provenance du dossier « Moi » + alerte si le même fichier sert de référence
-  let srcNote='';
-  if(isMe){
-    const fp=fingerprint(owner.rows);
-    const clash=refs.find(r=>fingerprint(r.rows)===fp);
-    srcNote=`<div class="det" style="margin-top:7px">d’après <b>${esc(owner.src||'?')}</b>
-      <span style="color:var(--faint)">(repris du tableau de bord)</span></div>`;
-    if(clash) srcNote+=`<div class="det" style="color:var(--s2);margin-top:5px">
-      ⚠ Ce fichier est aussi chargé comme référence sous « ${esc(clash.name)} » :
-      il ne s’agit probablement pas des résultats personnels. Importer le bon export
-      depuis le tableau de bord, ou utiliser « C’est mon dossier » sur le bon fichier.</div>`;
-  }
-  // Transparence : dire combien d'exercices sortent du cadre, et lesquels
-  const retNote=ret.size?`<div class="det" style="color:var(--faint);margin-top:7px" title="${esc([...ret].sort((a,b)=>a.localeCompare(b,'fr')).join(', '))}">
-      ${ret.size} exercice${ret.size>1?'s':''} PSY1 ancien${ret.size>1?'s':''}, écarté${ret.size>1?'s':''} de la comparaison</div>`:'';
-  return `<div class="cand">
-    <div class="sw" style="background:${color}"></div>
-    <div class="body">
-      <div class="nm">${esc(name)}${isMe?'<span class="me">MOI</span>':''}
-        ${camps.length>1?`<span class="badge">${camps.length} sessions</span>`:''}</div>
-      ${body}${srcNote}${retNote}${acts}
-    </div></div>`;
+  const nS=M.parts.filter(p=>!p.ignored).length;
+  document.getElementById('dossierSum').textContent=
+    `${me?'Moi + ':''}${plural(refs.length,'dossier')} · ${plural(nS,'session')} en ${PHASE_NAME[phase]}`;
 }
 
-/* ----------------------- Rendu : graphiques ----------------------- */
-function baseOpts(xTitle,yTitle,yMax){
-  return {
-    responsive:true,maintainAspectRatio:false,
-    interaction:{mode:'nearest',intersect:false},
-    plugins:{
-      // La légende intégrée est bornée par la hauteur du canvas : sur un
-      // téléphone en portrait, elle tronque des entrées sans prévenir.
-      // On la remplace par le bloc HTML commun, toujours entier.
-      legend:{display:false},
-      tooltip:{titleFont:{family:'IBM Plex Mono',size:chartFont(10)},
-        bodyFont:{family:'IBM Plex Mono',size:chartFont(11)},
-        callbacks:{title:it=>xLabel(it[0].parsed.x)}}
-    },
-    scales:{
-      x:{type:'linear',title:{display:true,text:xTitle,color:getCss('--faint'),
-          font:{family:'IBM Plex Mono',size:chartFont(9)}},
-        ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},
-          callback:v=>xLabel(v)},
-        grid:{color:'rgba(255,255,255,.05)'}},
-      y:{title:{display:true,text:yTitle,color:getCss('--faint'),
-          font:{family:'IBM Plex Mono',size:chartFont(9)}},
-        ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)}},
-        grid:{color:'rgba(255,255,255,.05)'},beginAtZero:true,
-        ...(yMax?{min:1,max:9,beginAtZero:false}:{})}
-    }
-  };
+/* ----------------------- Rendu : équivalences ----------------------- */
+function renderEquiv(){
+  document.getElementById('equivOn').checked=equiv.on;
+  const owners=[...(me?[me]:[]),...refs];
+  const users=name=>owners.filter(o=>o.rows.some(r=>r.test===name)).map(o=>o.name);
+  document.getElementById('equivList').innerHTML=equiv.pairs.length
+    ? equiv.pairs.map((p,i)=>{
+        const u=users(p[0]), v=users(p[1]);
+        return `<div class="eq-row"><span>${esc(p[0])}</span><span class="arrow">→</span><b>${esc(p[1])}</b>
+          <span style="color:var(--faint);font-size:10.5px">${u.length?`ancien nom chez ${esc(u.join(', '))}`:'ancien nom chez personne'}${v.length?` · actuel chez ${esc(v.join(', '))}`:''}</span>
+          <button type="button" data-rm="${i}">Retirer</button></div>`;
+      }).join('')
+    : '<div class="note">Aucune équivalence.</div>';
+  // listes : tous les noms rencontrés (ancien) ; les exercices au programme (actuel)
+  const all=new Set(Object.keys(CONFIG));
+  owners.forEach(o=>o.rows.forEach(r=>{ if(r.phase!==OTHER) all.add(r.test); }));
+  const olds=[...all].filter(n=>!equiv.pairs.some(p=>p[0]===n)).sort((a,b)=>a.localeCompare(b,'fr'));
+  const news=Object.keys(CONFIG).filter(n=>CONFIG[n].phase==='psy0'||CONFIG[n].phase==='psy1').sort((a,b)=>a.localeCompare(b,'fr'));
+  document.getElementById('eqOld').innerHTML='<option value="">Ancien nom…</option>'+olds.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  document.getElementById('eqNew').innerHTML='<option value="">Nom actuel…</option>'+news.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  document.getElementById('equivSum').textContent=`· ${plural(equiv.pairs.length,'paire')}${equiv.on?'':' (désactivées)'}`;
 }
-// Abscisse lisible : semaines depuis le début (S+6) ou avant l'examen (S-9, S+0 = jour J)
-const xLabel=v=>{
-  const n=Math.round(v);
-  return n===0?'jour J':(n>0?`S+${n}`:`S−${Math.abs(n)}`);
-};
-// Même stade, exprimé en jours avant l'examen (pour la tuile de synthèse)
-const xLabelDays=v=>{
-  const d=Math.round(v*7);
-  return d===0?"le jour de l'examen":(d>0?`J+${d}`:`J−${Math.abs(d)}`);
-};
 
-/* Une couleur par personne, un style de trait porteur de sens :
-   la session réussie (la dernière) est en trait plein, les tentatives
-   précédentes en tirets puis pointillés, de la plus récente à la plus
-   ancienne. La préparation en cours est en trait plein. */
-const DASHES=[[],[7,4],[2,3],[9,3,2,3]];
-function dashIdx(p){
-  if(p.outcome!=='attempt') return 0;
-  const back=(p.camp.total-1)-p.camp.index;      // 1 = tentative juste avant la réussie
-  return Math.min(back,DASHES.length-1);
+/* ----------------------- Rendu : contrôles et barre de sessions ----------------------- */
+function renderControls(){
+  [['segPhase',phase],['segBasis',basisMode],['segVolMode',volMode],['segClock',clockMode]].forEach(([id,v])=>
+    [...document.getElementById(id).children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v)));
+  const info=document.getElementById('basisInfo');
+  if(!M.vis.length) info.textContent='';
+  else if(basisMode==='common'&&M.fallback)
+    info.innerHTML=`<span class="warn">${M.inter.size<1?'aucun exercice commun':'moins de 3 exercices communs'} : comparaison sur les ${M.union.size} exercices</span>`;
+  else if(basisMode==='common'&&M.vis.length>=2) info.textContent=`${plural(M.basis.size,'exercice')} en commun sur ${M.union.size}`;
+  else info.textContent=`${plural(M.basis.size,'exercice')}`;
+  const [lo,hi]=stageBounds();
+  const sl=document.getElementById('stage');
+  sl.min=lo; sl.max=hi; sl.value=Math.round(stage);
+  const back=M.mine&&!isNow(stage)?` <button type="button" class="btn" id="stageNow" style="padding:2px 8px;font-size:10px">↺ ${M.mine.ongoing?'aujourd’hui':'ma fin de session'}</button>`:'';
+  document.getElementById('stageVal').innerHTML=esc(stageText(stage))+back;
+  const [from]=chartWindow();
+  const sc=document.getElementById('scale'); sc.value=Math.round(from);
+  document.getElementById('scaleVal').textContent=`de ${xLabel(from)} au jour J`;
 }
-const dashOf=p=>DASHES[dashIdx(p)];
-const dashName=p=>['trait plein','tirets','pointillés','trait-point'][dashIdx(p)];
-const OUTCOME={success:{lab:'réussite',sym:'✓',col:'--s7'},
-               attempt:{lab:'tentative',sym:'✗',col:'--s2'},
-               ongoing:{lab:'en cours',sym:'•',col:'--accent'}};
-function dsFor(p,data,opts={}){
-  return {
-    label:p.name,data,borderColor:p.color,backgroundColor:p.color,
-    borderWidth:p.me?3.4:2,
-    pointStyle:CHART_POINT[p.shape]||'circle',
-    pointRotation:p.shape==='down'?180:0,
-    pointRadius:p.me?5:4,pointHoverRadius:8,pointBorderColor:'rgba(11,18,24,.85)',pointBorderWidth:1.2,
-    tension:.3,borderDash:dashOf(p),order:p.me?0:1,...opts.extra
-  };
+const CHART_POINT={circle:'circle',rect:'rect',triangle:'triangle'};
+function hexA(hex,a){
+  const h=hex.replace('#','');
+  return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
 }
-function medianCurve(refsP,series,field,label){
-  if(refsP.length<2) return null;
-  const xs=new Set(); refsP.forEach(p=>series.get(p.key)[field].forEach(pt=>xs.add(pt.x)));
-  const pts=[...xs].sort((a,b)=>a-b).map(x=>{
-    const vals=refsP.map(p=>{
-      const s=series.get(p.key)[field];
-      let best=null,bd=Infinity;
-      s.forEach(pt=>{const d=Math.abs(pt.x-x); if(d<bd&&d<=0.6){bd=d;best=pt.y;}});
-      return best;
-    }).filter(v=>v!==null);
-    return vals.length>=2?{x,y:median(vals)}:null;
-  }).filter(Boolean);
-  return {label:'Médiane des '+(label||'sessions'),endLabel:'Médiane',data:pts,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
-    borderWidth:2,borderDash:[6,4],pointRadius:0,tension:.3,order:2};
-}
-function renderCharts(ps,exSet){
-  const minCover=Math.max(3,Math.round(exSet.set.size*0.5));
-  const series=new Map(ps.map(p=>[p.key,buildSeries(p,exSet.set,minCover)]));
-  const refsP=ps.filter(p=>!p.me);
-  const vis=visible(ps);                       // séries non masquées par la légende
-  const xt="semaines avant l'examen";
-  const [vlo,vhi]=viewRange(ps);
-  const withZoom=o=>{ o.scales.x.min=vlo; o.scales.x.max=vhi; return o; };
-  const bm=benchmark(ps);
-  const medG=medianCurve(bm.list.filter(p=>!isHidden(p.key)),series,'glob',bm.label);
-  // 1) niveau global non pondéré — la mesure de référence
-  const optG=withZoom(baseOpts(xt,'classe stanine (moyenne par exercice)',true));
-  optG.plugins.tooltip.callbacks.label=it=>{
-    const n=it.raw&&it.raw.n;
-    return `${it.dataset.label} : ${fmt(it.parsed.y)}`+(n?` (sur ${n} exercice${n>1?'s':''})`:'');
-  };
-  optG.layout={padding:{right:isPhone()?58:96}};   // place pour les noms en bout de courbe
-  mk('chGlobal','line',{datasets:[...vis.map(p=>dsFor(p,series.get(p.key).glob)),
-     ...(medG&&!isHidden(MED_KEY)?[medG]:[])]},optG,[endLabels]);
-  mk('chVol','line',{datasets:vis.map(p=>dsFor(p,series.get(p.key).vol))},withZoom(baseOpts(xt,'essais / semaine')));
-  // H2 — heures par semaine : histogramme groupé (une barre par personne et par semaine)
-  const wks=[];
-  for(let x=vlo;x<=vhi;x++) wks.push(x);
-  const optH=baseOpts(xt,'heures / semaine');
-  optH.scales.x={type:'category',labels:wks.map(xLabel),
-    ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},
-      maxRotation:0,autoSkip:true},grid:{display:false}};
-  optH.plugins.tooltip.callbacks.title=it=>it[0].label;
-  optH.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} h`;
-  mk('chHours','bar',{labels:wks.map(xLabel),datasets:vis.map(p=>{
-    const map=new Map(series.get(p.key).hrs.map(pt=>[Math.round(pt.x),pt.y]));
-    return {label:p.name,data:wks.map(x=>map.has(x)?map.get(x):null),
-      backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
-      borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1};
-  })},optH);
-  renderClock(ps);
-}
-/* Légende commune : un échantillon de trait dessiné en SVG, avec la couleur
-   de la personne, le motif de sa session et son symbole au centre. */
-function swatchSvg(color,shape,dash,thick){
-  const W=48,H=18,cy=H/2,cx=W/2;
-  const line=`<line x1="1" y1="${cy}" x2="${W-1}" y2="${cy}" stroke="${color}"
-    stroke-width="${thick?3.6:2.4}" ${dash&&dash.length?`stroke-dasharray="${dash.join(' ')}"`:''}
-    stroke-linecap="round"/>`;
-  const st=`fill="${color}" stroke="#0f141a" stroke-width="1.4"`;
-  const r=thick?6:5;
-  const sym={
-    circle:`<circle cx="${cx}" cy="${cy}" r="${r}" ${st}/>`,
-    square:`<rect x="${cx-r}" y="${cy-r}" width="${r*2}" height="${r*2}" rx="1.5" ${st}/>`,
-    diamond:`<rect x="${cx-r+0.5}" y="${cy-r+0.5}" width="${r*2-1}" height="${r*2-1}" rx="1"
-       transform="rotate(45 ${cx} ${cy})" ${st}/>`,
-    triangle:`<polygon points="${cx},${cy-r-1} ${cx+r+1},${cy+r} ${cx-r-1},${cy+r}" ${st}/>`,
-    down:`<polygon points="${cx},${cy+r+1} ${cx+r+1},${cy-r} ${cx-r-1},${cy-r}" ${st}/>`
-  }[shape]||'';
-  const ring=thick?`<circle cx="${cx}" cy="${cy}" r="${r+2}" fill="none"
-    stroke="rgba(255,255,255,.85)" stroke-width="1.2"/>`:'';
+const hollowOf=p=>!p.hero&&p.outcome&&(p.outcome.code==='fail'||p.outcome.code==='unknown');
+/* Échantillon d'une session : trait (plein = réussie, tirets = échouée,
+   pointillés = issue inconnue) et symbole (plein ou creux), à sa couleur. */
+function swatchSvg(p){
+  const W=34,H=14,cy=7,cx=17,c=p.color,th=p.hero;
+  const dash=p.dash&&p.dash.length?`stroke-dasharray="${p.dash.join(' ')}"`:'';
+  const line=`<line x1="1" y1="${cy}" x2="${W-1}" y2="${cy}" stroke="${c}" stroke-width="${th?3.4:2.2}" ${dash} stroke-linecap="round"/>`;
+  const r=th?4.8:4;
+  const st=hollowOf(p)?`fill="#1d2733" stroke="${c}" stroke-width="2"`:`fill="${c}" stroke="#0f141a" stroke-width="1.2"`;
+  const sym={circle:`<circle cx="${cx}" cy="${cy}" r="${r}" ${st}/>`,
+    rect:`<rect x="${cx-r}" y="${cy-r}" width="${2*r}" height="${2*r}" rx="1" ${st}/>`,
+    triangle:`<polygon points="${cx},${cy-r-1} ${cx+r+1},${cy+r} ${cx-r-1},${cy+r}" ${st}/>`}[p.shape]||'';
+  const ring=th?`<circle cx="${cx}" cy="${cy}" r="${r+2}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.1"/>`:'';
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${line}${sym}${ring}</svg>`;
 }
-const MED_KEY='__median__';
-const isHidden=k=>hiddenSeries.has(k);
-const visible=ps=>ps.filter(p=>!isHidden(p.key));
-function renderKeys(ps){
-  const box=document.getElementById('chartKeys');
-  if(!ps.length){ box.innerHTML=''; return; }
-  const entry=(key,svg,label,cls,tip,badge)=>
-    `<button type="button" class="ck${cls}${isHidden(key)?' off':''}" data-k="${esc(key)}"
-       aria-pressed="${!isHidden(key)}" title="${esc(tip)}">${svg}${esc(label)}${badge||''}</button>`;
-  const items=ps.map(p=>{
-    const o=OUTCOME[p.outcome];
-    const badge=`<span class="tag" style="color:var(${o.col});border-color:var(${o.col})">${o.lab}</span>`;
-    return entry(p.key,swatchSvg(p.color,p.shape,dashOf(p),p.me),
-      p.name.replace(/ [✓✗]$/,'')+(p.me?' (moi)':''),p.me?' me':'',
-      `${p.name} — ${o.lab}, ${dashName(p)}. Cliquer pour masquer cette courbe sur les graphiques.`,badge);
+function renderSessBar(){
+  const bar=document.getElementById('sessBar');
+  const shown=M.parts.filter(p=>!p.ignored);
+  if(!shown.length){ bar.innerHTML=''; return; }
+  const qf=`<div class="sep"></div><div class="qf"><span>Afficher</span>
+    <button type="button" data-qf="all">Toutes</button>
+    <button type="button" data-qf="pass" title="Mes sessions et les sessions réussies (✓ et ✓?)">Réussites</button>
+    <button type="button" data-qf="fail" title="Mes sessions et les sessions échouées (✗ et ✗?)">Échecs</button>
+    <button type="button" data-qf="none" title="Ne garder que ma session principale">Aucune</button></div>`;
+  // les sessions d'abord : sur téléphone, la barre défile et elles restent visibles
+  bar.innerHTML=shown.map(p=>{
+    const o=p.outcome;
+    const tip=`${p.label} — ${outcomeText(o)}${o&&o.why?' : '+o.why:''}. Toucher pour ${p.on?'masquer':'afficher'} cette session sur tous les graphiques.`;
+    return `<button type="button" class="chip${p.on?'':' off'}${p.hero?' hero':''}" data-key="${esc(p.key)}"
+      aria-pressed="${p.on}" title="${esc(tip)}">${swatchSvg(p)}<span class="lbl">${esc(p.label)}</span>${o?`<span class="oc" style="color:${ocColor(o)}">${esc(outcomeSym(o))}</span>`:''}</button>`;
+  }).join('')+qf;
+}
+
+/* ----------------------- Rendu : où j'en suis -----------------------
+   Au stade choisi (par défaut : aujourd'hui), ma position face à chaque
+   session au MÊME stade de sa préparation. Chaque ligne compare sur les
+   exercices que nous avons tous deux pratiqués : à périmètre égal. */
+function commonFams(a,b){
+  const fb=new Set(b.camp.campRows.map(r=>r.fam));
+  return new Set([...new Set(a.camp.campRows.map(r=>r.fam))].filter(f=>fb.has(f)));
+}
+// Projection au jour J : mon niveau + le gain médian des réussites entre ce stade et J
+function projection(s){
+  const m=M.mine;
+  if(!m||!m.ongoing||!isNow(s)||s>-0.3) return null;
+  const my=levelAt(m,tOf(m,s),M.basis); if(!my) return null;
+  const gains=M.pass.map(p=>{
+    const a=levelAt(p,tOf(p,s),M.basis), b=levelAt(p,tOf(p,0),M.basis);
+    return a&&b?b.v-a.v:null;
+  }).filter(v=>v!==null);
+  if(!gains.length) return null;
+  return {from:my.v,v:clamp(my.v+median(gains),1,9),lo:clamp(my.v+Math.min(...gains),1,9),
+    hi:clamp(my.v+Math.max(...gains),1,9),n:gains.length};
+}
+// Session dont la trajectoire ressemble le plus à la mienne jusqu'ici
+function closestSession(s){
+  const m=M.mine; if(!m) return null;
+  const mine=seriesOf(m,M.basis).filter(pt=>Number.isInteger(pt.x)&&pt.x<=s+0.01&&!pt.low);
+  let best=null;
+  M.refsV.forEach(p=>{
+    const ref=new Map(seriesOf(p,M.basis).filter(pt=>!pt.low).map(pt=>[pt.x,pt.y]));
+    const d=mine.filter(pt=>ref.has(pt.x)).map(pt=>Math.abs(pt.y-ref.get(pt.x)));
+    if(d.length>=3){ const v=mean(d); if(!best||v<best.v) best={p,v,n:d.length}; }
   });
-  if(ps.filter(p=>!p.me).length>=2)
-    items.push(entry(MED_KEY,swatchSvg('#e9eef4','',[6,4],false),'Médiane du groupe','',
-      'Médiane des sessions de référence. Cliquer pour la masquer.'));
-  box.innerHTML=items.join('');
-  box.querySelectorAll('button[data-k]').forEach(b=>{
-    b.addEventListener('click',()=>{
-      const k=b.dataset.k;
-      if(hiddenSeries.has(k)) hiddenSeries.delete(k); else hiddenSeries.add(k);
-      const ps2=participants();
-      renderKeys(ps2);
-      const ex=exerciseSet(ps2);
-      if(ps2.length) renderCharts(ps2,ex);
-      renderVolEx(ps2,ex);
-    });
-  });
+  return best;
 }
-
-/* Volume d'essais par exercice : combien chacun a travaillé quoi.
-   Vue d'ensemble (tous les exercices) ou détail d'un exercice dans le temps. */
-/* Comptage des essais : soit le total de la session, soit ce qui était fait
-   à la semaine comparée (le curseur agit alors sur ce graphique aussi). */
-function nbAttempts(p,ex){
-  const a=byEx(p).get(ex); if(!a) return 0;
-  if(volMode==='total') return a.length;
-  const t=instantAt(p,stage);
-  return a.filter(r=>r.date.getTime()<=t).length;
-}
-function nbTotal(p){
-  const rows=p.camp.campRows;
-  if(volMode==='total') return rows.length;
-  const t=instantAt(p,stage);
-  return rows.filter(r=>r.date.getTime()<=t).length;
-}
-/* Repère vertical de la semaine comparée, sur la vue chronologique */
-const stageLine={
-  id:'stageLine',
-  afterDatasetsDraw(chart){
-    const sc=chart.scales.x; if(!sc) return;
-    const x=sc.getPixelForValue(stage);
-    if(x<chart.chartArea.left||x>chart.chartArea.right) return;
-    const {ctx,chartArea}=chart;
-    ctx.save();
-    ctx.strokeStyle='rgba(233,238,244,.45)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
-    ctx.beginPath(); ctx.moveTo(x,chartArea.top); ctx.lineTo(x,chartArea.bottom); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.font=`${chartFont(10)}px "IBM Plex Mono",monospace`;
-    ctx.fillStyle='rgba(233,238,244,.75)'; ctx.textAlign='center';
-    ctx.fillText(xLabel(stage),Math.min(Math.max(x,chartArea.left+18),chartArea.right-18),chartArea.top+11);
-    ctx.restore();
-  }
-};
-function renderVolEx(ps,exSet){
-  const sel=document.getElementById('volEx');
-  const desc=document.getElementById('volExDesc');
-  const exs=[...exSet.set];
-  if(!ps.length||!exs.length){
-    if(charts.chVolEx){ charts.chVolEx.destroy(); delete charts.chVolEx; }
-    sel.innerHTML=''; desc.textContent='Rien à comparer pour cette phase.'; return;
-  }
-  const m=myPart(ps), rp=ps.filter(p=>!p.me);
-  // tri : les exercices où j'ai le plus de retard de volume en premier
-  const gapOf=ex=>{
-    const mine=m?nbAttempts(m,ex):0;
-    const med=rp.length?median(rp.map(p=>nbAttempts(p,ex))):0;
-    return mine-med;
-  };
-  const sorted=exs.slice().sort((a,b)=>gapOf(a)-gapOf(b)||a.localeCompare(b));
-  // liste déroulante (on conserve la sélection si elle existe encore)
-  if(!exs.includes(volExSel)&&volExSel!=='__total__') volExSel='__all__';
-  document.getElementById('volStageBtn').textContent=`À ${xLabel(stage)}`;
-  sel.innerHTML=`<option value="__all__">Tous les exercices</option>`+
-    `<option value="__total__"${volExSel==='__total__'?' selected':''}>Total, tous exercices confondus</option>`+
-    sorted.map(ex=>`<option value="${esc(ex)}"${ex===volExSel?' selected':''}>${esc(ex)}</option>`).join('');
-  sel.value=volExSel;
-
-  if(volExSel==='__total__'){
-    const suffix=volMode==='total'?'sur toute la session':`à ${xLabel(stage)}`;
-    desc.innerHTML=`Nombre total d’essais réalisés par chacun, tous exercices confondus, ${suffix}.`;
-    const o=baseOpts('','essais',false);
-    o.scales.x={type:'category',ticks:{color:getCss('--muted'),
-      font:{family:'IBM Plex Mono',size:chartFont(11)},maxRotation:30},grid:{display:false}};
-    o.plugins.legend.display=false;
-    o.plugins.tooltip.callbacks.label=it=>`${it.parsed.y} essai${it.parsed.y>1?'s':''}`;
-    const boxT=document.getElementById('chVolEx').parentElement;
-    if(boxT) boxT.style.height='';
-    const vt=visible(ps);
-    mk('chVolEx','bar',{labels:vt.map(p=>p.name),datasets:[{
-      label:'essais',data:vt.map(nbTotal),
-      backgroundColor:vt.map(p=>p.color+(p.me?'':'cc')),
-      borderColor:vt.map(p=>p.color),borderWidth:vt.map(p=>p.me?2:0),borderRadius:4}]},o);
+const sessName=p=>`<span class="sw" style="background:${p.color}"></span>${esc(p.label)} <span style="color:${ocColor(p.outcome)};font-family:var(--mono);font-size:11px">${esc(outcomeSym(p.outcome))}</span>`;
+function renderNow(){
+  const R=document.getElementById('readout'), T=document.getElementById('nowTbl'),
+        C=document.getElementById('closest'), D=document.getElementById('nowDesc');
+  const {mine:m,refsV,pass,basis}=M;
+  if(!m||!refsV.length){
+    D.textContent=''; C.textContent=''; T.innerHTML='';
+    R.innerHTML=`<div class="tile" style="grid-column:1/-1"><div class="t-sub" style="font-size:12px">${
+      !me?'Importer d’abord tes résultats sur le tableau de bord.'
+      :!m?`Aucune de tes sessions n’est affichée en ${PHASE_NAME[phase]} : l’activer dans la barre des sessions.`
+      :'Ajouter ou afficher au moins une session d’un autre candidat pour lancer la comparaison.'}</div></div>`;
     return;
   }
-  if(volExSel==='__all__'){
-    desc.innerHTML=`Nombre d’essais réalisés sur chaque exercice, une barre par session,
-      ${volMode==='total'?'<b>sur toute la session</b>':`<b>à ${xLabel(stage)}</b>`}.
-      Les exercices <b>les moins travaillés par rapport au groupe</b> sont en haut.
-      Sélectionner un exercice ci-dessus pour en voir l’évolution dans le temps.`;
-    const o=baseOpts('essais','',false);
-    o.indexAxis='y';
-    o.scales.x={beginAtZero:true,
-      ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},precision:0},
-      grid:{color:'rgba(255,255,255,.05)'}};
-    o.scales.y={type:'category',
-      ticks:{color:getCss('--muted'),font:{family:'IBM Plex Mono',size:chartFont(10)},
-        callback:function(v){const l=this.getLabelForValue(v);const mx=isPhone()?15:38;
-          return l.length>mx?l.slice(0,mx-1)+'…':l;}},
-      grid:{display:false}};
-    o.plugins.tooltip.callbacks.title=it=>it[0].label;
-    o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${it.parsed.x} essai${it.parsed.x>1?'s':''}`;
-    const boxEl=document.getElementById('chVolEx').parentElement;
-    if(boxEl) boxEl.style.height=Math.min(Math.max(260,sorted.length*(10*Math.max(1,visible(ps).length)+18)),1200)+'px';
-    mk('chVolEx','bar',{labels:sorted,datasets:visible(ps).map(p=>({
-      label:p.name,data:sorted.map(ex=>nbAttempts(p,ex)),
-      backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
-      borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1}))},o);
+  const s=stage, tMe=tOf(m,s);
+  if(tMe<startT(m)){
+    D.textContent=''; C.textContent=''; T.innerHTML='';
+    R.innerHTML=`<div class="tile" style="grid-column:1/-1"><div class="t-lab">📍 ${esc(stageText(s))}</div>
+      <div class="t-sub" style="font-size:12px;color:var(--s3)">Ta préparation ne commence que le <b>${fdate(m.camp.start)}</b>
+      (${xLabel(Math.ceil(xOf(m,startT(m))))}) : rien à comparer à ce stade. Déplacer « Semaine comparée » vers la droite.</div></div>`;
     return;
   }
-  // détail d'un exercice : essais cumulés au fil des semaines
-  const tot=ps.map(p=>`${esc(p.name)} : <b>${nbAttempts(p,volExSel)}</b>`).join(' · ');
-  desc.innerHTML=`Essais cumulés sur <b>${esc(volExSel)}</b>, semaine après semaine.
-    ${volMode==='total'?'Total de la session':`Au repère ${xLabel(stage)}`} — ${tot}.`;
-  const boxEl2=document.getElementById('chVolEx').parentElement;
-  if(boxEl2) boxEl2.style.height='';
-  const [vlo,vhi]=viewRange(ps);
-  const o=baseOpts("semaines avant l'examen",'essais cumulés');
-  o.scales.x.min=vlo; o.scales.x.max=vhi;
-  o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${it.parsed.y} essai${it.parsed.y>1?'s':''}`;
-  mk('chVolEx','line',{datasets:visible(ps).map(p=>{
-    const arr=byEx(p).get(volExSel)||[];
-    const t0=p.camp.start.getTime(), tEnd=p.camp.end.getTime()+EOD;
-    const pts=[];
-    for(let w=0;;w++){
-      const nominal=t0+w*7*DAY, cut=Math.min(nominal+EOD,tEnd);
-      pts.push({x:Math.round(xOf(p,nominal)*10)/10,
-                y:arr.filter(r=>r.date.getTime()<=cut).length});
-      if(nominal+EOD>=tEnd||w>400) break;
-    }
-    return dsFor(p,pts);
-  })},o,[stageLine]);
-}
-
-/* Répartition horaire du travail — trois lectures d'une même donnée :
-   par heure de la journée, par jour de la semaine, ou les deux croisés. */
-const BIN_LAB=i=>`${String(i*2).padStart(2,'0')}–${String(i*2+2).padStart(2,'0')}h`;
-function renderClock(ps){
-  const box=document.getElementById('clockBox');
-  const grid=document.getElementById('clockGrid');
-  const desc=document.getElementById('clockDesc');
-  const bars=(labels,pick,xlab)=>{
-    const o=baseOpts(xlab,'% des essais');
-    o.scales.x={type:'category',
-      ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},maxRotation:60},
-      grid:{display:false}};
-    o.plugins.tooltip.callbacks.title=it=>it[0].label;
-    o.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} %`;
-    mk('chClock','bar',{labels,datasets:visible(ps).map(p=>{
-      const st=hoursStats(p), tot=st.total||1;
-      return {label:p.name,data:pick(st).map(n=>Math.round(n/tot*1000)/10),
-        backgroundColor:p.color+(p.me?'':'cc'),borderColor:p.color,
-        borderWidth:p.me?2:0,borderRadius:3,order:p.me?0:1};
-    })},o);
-  };
-  if(clockMode==='grid'){
-    box.style.display='none'; grid.style.display='';
-    desc.innerHTML='Chaque case croise un jour et une tranche de 2 h : plus elle est vive, plus la personne y a travaillé. Un profil par session.';
-    grid.innerHTML=visible(ps).map(p=>{
-      const st=hoursStats(p);
-      const max=Math.max(...st.byDH.flat())||1;
-      const rows=st.byDH.map((row,d)=>
-        `<div class="cg-row"><span>${DAYS_S[d]}</span>`+
-        row.map((n,i)=>{
-          const a=n?0.18+0.82*(n/max):0;
-          return `<i style="background:${n?p.color:'var(--panel2)'};opacity:${n?a:1}"
-            title="${DAYS[d]} ${BIN_LAB(i)} — ${n} essai${n>1?'s':''}"></i>`;
-        }).join('')+'</div>').join('');
-      return `<div class="cg">
-        <div class="cg-nm"><i class="mk sh-${p.shape}${p.me?' me':''}" style="--c:${p.color}"></i>
-          ${esc(p.name)}${p.me?' (moi)':''}</div>
-        <div class="cg-body">${rows}
-          <div class="cg-row cg-ax"><span></span>${Array.from({length:12},(_,i)=>
-            `<i>${i%2?'':String(i*2).padStart(2,'0')}</i>`).join('')}</div></div></div>`;
-    }).join('');
-    return;
-  }
-  box.style.display=''; grid.style.display='none'; grid.innerHTML='';
-  if(clockMode==='day'){
-    desc.innerHTML='Répartition des essais sur les jours de la semaine, en % du total de chacun — révèle qui travaille en semaine et qui travaille le week-end.';
-    bars(DAYS.map(d=>d[0].toUpperCase()+d.slice(1)),st=>st.byD,'jour de la semaine');
+  const stale=tMe>endT(m);
+  const my=levelAt(m,tMe,basis);
+  const grpVals=pass.map(p=>levelAt(p,tOf(p,s),basis)).filter(Boolean).map(g=>g.v);
+  const grp=median(grpVals);
+  const d=my&&grp!==null?my.v-grp:null;
+  const myCum=cumAt(m,tMe);
+  const grpCum=median(pass.map(p=>cumAt(p,tOf(p,s))));
+  const grpJ=median(pass.map(p=>cumAt(p,tOf(p,0))));
+  const weeksLeft=-s;
+  const need=m.ongoing&&isNow(s)&&weeksLeft>0.3&&grpJ!==null?Math.max(0,(grpJ-myCum)/weeksLeft):null;
+  const pr=projection(s);
+  D.innerHTML=`À <b>${esc(stageText(s))}</b>, face à chaque session au même stade de sa préparation. Niveau global sur `+
+    `${basisMode==='common'&&!M.fallback?'les <b>'+plural(basis.size,'exercice')+' communs</b>':'<b>'+plural(basis.size,'exercice')+'</b>'} ; `+
+    `dans le tableau, chaque ligne compare sur les exercices que vous avez <b>tous deux</b> pratiqués.`;
+  const pt=pass.length?`${plural(pass.length,'réussite')}${pass.some(p=>!p.outcome.sure)?` (dont ${pass.filter(p=>!p.outcome.sure).length} supposée${pass.filter(p=>!p.outcome.sure).length>1?'s':''})`:''}`:'';
+  const tiles=[];
+  tiles.push(`<div class="tile"><div class="t-lab">📍 Stade</div>
+    <div class="t-val">${esc(xLabel(s))}<small> ${esc(daysLabel(s))}</small></div>
+    <div class="t-sub">jour J : <b>${fdate(m.exam)}</b>${m.ongoing?`<br>dernières données : ${fdateS(m.camp.end)}`:''}</div></div>`);
+  tiles.push(`<div class="tile"><div class="t-lab">🎯 Ton niveau</div>
+    <div class="t-val" style="color:${my?bandColor(my.v):getCss('--muted')}">${my?fmt(my.v):'–'}<small>/9</small></div>
+    <div class="t-sub">${grp!==null?`réussites au même stade : <b style="color:${bandColor(grp)}">${fmt(grp)}</b> <span style="color:var(--${d===null?'muted':d>=0.15?'s7':d<=-0.15?'s2':'s5'})">(${fmtS(d)})</span>`
+      :'aucune réussite affichée à ce stade'}<br>sur ${plural(my?my.n:0,'exercice')}${stale?'<br>niveau de ta dernière séance':''}</div></div>`);
+  if(m.ongoing){
+    tiles.push(`<div class="tile"><div class="t-lab">🔭 Projection à J</div>
+      ${pr?`<div class="t-val" style="color:${bandColor(pr.v)}">${fmt(pr.v)}<small> (${fmt(pr.lo)}–${fmt(pr.hi)})</small></div>
+      <div class="t-sub">si tu progresses d’ici le jour J comme ${plural(pr.n,'session réussie','sessions réussies')} l’ont fait</div>`
+      :`<div class="t-val" style="color:var(--muted)">–</div><div class="t-sub">${isNow(s)?'aucune réussite mesurable à ce stade et au jour J':'disponible au stade d’aujourd’hui'}</div>`}</div>`);
   }else{
-    desc.innerHTML='Répartition des essais dans la journée, par tranche de 2 h et en % du total de chacun — comparable malgré des volumes très différents.';
-    bars(Array.from({length:12},(_,i)=>BIN_LAB(i)),
-      st=>{const b=Array(12).fill(0); st.byH.forEach((n,hh)=>b[Math.floor(hh/2)]+=n); return b;},
-      'tranche horaire');
+    const myJ=levelAt(m,Math.min(endT(m),tOf(m,0)),basis);
+    const grpJl=median(pass.map(p=>levelAt(p,tOf(p,0),basis)).filter(Boolean).map(g=>g.v));
+    tiles.push(`<div class="tile"><div class="t-lab">🏁 Au jour J</div>
+      <div class="t-val" style="color:${myJ?bandColor(myJ.v):getCss('--muted')}">${myJ?fmt(myJ.v):'–'}<small>/9</small></div>
+      <div class="t-sub">${grpJl!==null?`réussites : <b>${fmt(grpJl)}</b> (${fmtS(myJ?myJ.v-grpJl:null)})`:'aucune réussite affichée'}</div></div>`);
   }
+  const ratio=grpCum?Math.round(myCum/grpCum*100):null;
+  tiles.push(`<div class="tile"><div class="t-lab">🔁 Volume cumulé</div>
+    <div class="t-val">${myCum}<small> essais</small></div>
+    <div class="t-sub">${grpCum!==null?`réussites : <b>${Math.round(grpCum)}</b>${ratio!==null?` · <b style="color:var(--${ratio>=90?'s7':ratio>=60?'s5':'s2'})">${ratio} %</b>`:''}`:'aucune réussite affichée'}
+      ${need!==null?`<br>${need<1?'volume déjà au niveau des réussites au jour J':`≈ <b>${Math.round(need)}</b> essais/sem. pour rejoindre leur volume au jour J`}`:''}</div></div>`);
+  R.innerHTML=tiles.join('');
+  const cl=closestSession(s);
+  C.innerHTML=cl?`Trajectoire la plus proche de la tienne jusqu’ici : <b>${esc(cl.p.label)}</b> ${esc(outcomeText(cl.p.outcome))} — écart moyen ${fmt(cl.v)} classe sur ${plural(cl.n,'semaine')}.`:'';
+  // tableau : une ligne par session, comparée à moi sur nos exercices communs
+  const myP=paceAt(m,tMe), myH=hoursAt(m,tMe);
+  const rows=refsV.map(p=>{
+    const cf=commonFams(m,p), tp=tOf(p,s);
+    const pl=levelAt(p,tp,cf), ml=levelAt(m,tMe,cf), pj=levelAt(p,tOf(p,0),cf);
+    const before=tp<startT(p);
+    return {p,cf,pl,ml,pj,before,gap:pl&&ml?ml.v-pl.v:null,cum:cumAt(p,tp),pace:paceAt(p,tp),hrs:hoursAt(p,tp)};
+  });
+  const head=`<tr><th>Session</th><th>Niveau à ce stade</th><th>Toi, mêmes exercices</th><th>Écart</th>
+    <th>Essais cumulés</th><th>Rythme (essais/sem.)</th><th>Heures</th><th>Niveau au jour J</th><th>Exercices communs</th></tr>`;
+  const meRow=`<tr class="me"><td>${sessName(m)}</td><td style="color:${my?bandColor(my.v):''}">${fmt(my?my.v:null)}</td><td class="dim">—</td><td class="dim">—</td>
+    <td>${myCum}</td><td>${Math.round(myP)}</td><td>${myH.toFixed(1)} h</td><td class="dim">${pr?'≈ '+fmt(pr.v):'—'}</td><td>${my?my.n:0}</td></tr>`;
+  const body=rows.map(r=>`<tr${cl&&cl.p===r.p?' title="Trajectoire la plus proche de la tienne"':''}>
+    <td>${sessName(r.p)}${cl&&cl.p===r.p?' <span class="star">★</span>':''}</td>
+    <td style="color:${r.pl?bandColor(r.pl.v):''}">${r.before?'<span class="dim">pas commencé</span>':fmt(r.pl?r.pl.v:null)}</td>
+    <td>${fmt(r.ml?r.ml.v:null)}</td>
+    <td class="${gapCls(r.gap)}">${fmtS(r.gap)}</td>
+    <td>${r.cum}</td><td>${Math.round(r.pace)}</td><td>${r.hrs.toFixed(1)} h</td>
+    <td style="color:${r.pj?bandColor(r.pj.v):''}">${fmt(r.pj?r.pj.v:null)}</td>
+    <td>${r.cf.size}</td></tr>`).join('');
+  T.innerHTML=`<table><thead>${head}</thead><tbody>${meRow}${body}</tbody></table>`;
 }
 
-/* H3 — récapitulatif chiffré du temps de travail */
-function renderHours(ps){
-  const box=document.getElementById('hoursTbl');
-  if(!ps.length){ box.innerHTML='<div class="empty">Rien à afficher.</div>'; return; }
-  const head=`<tr><th>Session</th><th>Total</th><th>Par semaine</th><th>Par jour actif</th>
-    <th>Séances</th><th>Séance médiane</th><th>Pic</th><th>Jour fort</th></tr>`;
-  const body=ps.map(p=>{
-    const s=hoursStats(p);
-    return `<tr>
-      <td><span style="color:${p.color}">■</span> ${esc(p.name)}${p.me?' <b>(moi)</b>':''}</td>
-      <td>${s.hours.toFixed(1)} h</td>
-      <td><b>${s.perWeek.toFixed(1)} h</b></td>
-      <td>${s.perDay.toFixed(1)} h</td>
-      <td>${s.sessions}</td>
-      <td>${Math.round(s.medMin)} min</td>
-      <td>${s.peak}h</td>
-      <td>${DAYS[s.peakDay].slice(0,3)}.</td></tr>`;
-  }).join('');
-  box.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
-}
-/* Étiquettes au bout des courbes : sur le graphique principal, le nom est
-   écrit directement à droite du dernier point. C'est le repère le plus sûr
-   pour savoir quelle courbe appartient à qui, sans revenir à la légende. */
-const endLabels={
-  id:'endLabels',
-  afterDatasetsDraw(chart){
-    const {ctx,chartArea}=chart;
-    const items=[];
-    chart.data.datasets.forEach((ds,i)=>{
-      const meta=chart.getDatasetMeta(i);
-      if(meta.hidden||!meta.data||!meta.data.length) return;
-      const pt=meta.data[meta.data.length-1];
-      if(!pt||pt.x<chartArea.left-2||pt.x>chartArea.right+2) return;
-      items.push({y:pt.y,x:pt.x,label:ds.endLabel||ds.label,color:ds.borderColor,bold:ds.borderWidth>3});
-    });
-    if(!items.length) return;
-    // on écarte verticalement les étiquettes qui se chevauchent
-    items.sort((a,b)=>a.y-b.y);
-    const H=15;
-    for(let i=1;i<items.length;i++)
-      if(items[i].y-items[i-1].y<H) items[i].y=items[i-1].y+H;
-    const over=items[items.length-1].y-(chartArea.bottom-2);
-    if(over>0) items.forEach(it=>it.y-=over);
-    ctx.save();
-    ctx.font=`${items.some(i=>i.bold)?'600 ':''}${chartFont(11.5)}px "IBM Plex Mono",monospace`;
-    ctx.textBaseline='middle';
-    items.forEach(it=>{
-      ctx.font=`${it.bold?'600 ':''}${chartFont(11.5)}px "IBM Plex Mono",monospace`;
-      // on tronque plutôt que de déborder sur les courbes
-      let txt=it.label, w=ctx.measureText(txt).width;
-      const avail=chart.width-3-(it.x+9);
-      while(w>avail&&txt.length>4){ txt=txt.slice(0,-2)+'…'; w=ctx.measureText(txt).width; }
-      const x=it.x+9;
-      // léger fond pour rester lisible par-dessus une courbe
-      ctx.fillStyle='rgba(15,20,26,.72)';
-      ctx.fillRect(x-4,it.y-8,w+8,16);
-      ctx.fillStyle=it.color;
-      ctx.fillText(txt,x,it.y);
-    });
-    ctx.restore();
-  }
-};
+/* ----------------------- Graphiques : outillage commun ----------------------- */
+const charts={};
 function mk(id,type,data,options,plugins){
   if(charts[id]) charts[id].destroy();
   charts[id]=new Chart(document.getElementById(id),{type,data,options,plugins:plugins||[]});
 }
-
-/* ----------------------- Rendu : verdict ----------------------- */
-function renderReadout(ps,exSet){
-  const box=document.getElementById('readout');
-  const m=myPart(ps), rp=ps.filter(p=>!p.me);
-  if(!m||!rp.length){
-    box.innerHTML=`<div class="tile" style="grid-column:1/-1"><div class="t-lab">Verdict</div>
-      <div class="t-sub" style="font-size:11.5px;margin-top:8px">${
-        !m?"Importer des résultats personnels sur le tableau de bord pour lancer la comparaison."
-          :"Ajouter au moins un dossier de référence pour lancer la comparaison."}</div></div>`;
-    return;
-  }
-  const st=stage, S=exSet.set;
-  const bm=benchmark(ps), bench=bm.list;
-  /* Avant le début de ma préparation il n'y a rien à mesurer : on l'explique
-     plutôt que d'afficher des zéros inexplicables. En revanche, après ma
-     dernière séance, mon niveau reste celui de mes derniers essais — la
-     préparation est en cours, on continue donc d'afficher, avec une mention. */
-  if(instantAt(m,st)<m.camp.start.getTime()){
-    box.innerHTML=`<div class="tile" style="grid-column:1/-1">
-      <div class="t-lab">📍 ${xLabel(st)}</div>
-      <div class="t-sub" style="font-size:11.5px;margin-top:8px;color:var(--s3)">
-        La préparation personnelle ne commence qu’au <b>${fdate(m.camp.start)}</b>
-        (${xLabel(Math.ceil(xOf(m,m.camp.start.getTime())))}) : rien à comparer à cette semaine.
-        <br>Déplacer « Semaine comparée » vers la droite.</div></div>`;
-    return;
-  }
-  const stale=instantAt(m,st)>m.camp.end.getTime()+EOD
-    ? `<br><span style="color:var(--faint)">niveau de la dernière séance (${fdate(m.camp.end)})</span>` : '';
-  const gl=p=>{ const g=globalLevelAt(p,st,S); return g?g.v:null; };
-  const mg=globalLevelAt(m,st,S);
-  const my=mg?mg.v:null;
-  const grp=median(bench.map(gl).filter(v=>v!==null));
-  const myV=volumeAt(m,st), grpV=median(bench.map(p=>volumeAt(p,st)));
-  const myP=paceAt(m,st), grpP=median(bench.map(p=>paceAt(p,st)));
-  const d=(my!==null&&grp!==null)?my-grp:null;
-  const dCol=d===null?getCss('--muted'):d>=0.3?getCss('--s7'):d<=-0.3?getCss('--s2'):getCss('--s5');
-  /* « Groupe à ce niveau dès… » : premier stade où la médiane des sessions
-     de référence ATTEINT le niveau personnel ET s'y maintient (deux relevés),
-     pour qu'un simple pic de bruit ne déclenche pas un faux retard. */
-  let cross=null, shift=null, single=false;
-  if(my!==null){
-    const [lo,hi]=stageRange(ps);
-    let prevOk=false;
-    for(let x=lo;x<=hi;x+=1){
-      const vals=bench.map(p=>gl2(p,x,S)).filter(v=>v!==null);
-      if(!vals.length){ prevOk=false; continue; }
-      if(vals.length===1) single=true;
-      const ok=median(vals)>=my-0.15;
-      if(ok&&prevOk){ cross=x-1; break; }
-      prevOk=ok;
+function killChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+function baseOpts(yTitle,stanine){
+  const [from,to]=chartWindow();
+  return {
+    responsive:true,maintainAspectRatio:false,animation:false,
+    interaction:{mode:'nearest',intersect:false},
+    plugins:{
+      legend:{display:false},   // la barre des sessions sert de légende, toujours entière
+      tooltip:{titleFont:{family:'IBM Plex Mono',size:chartFont(10)},
+        bodyFont:{family:'IBM Plex Mono',size:chartFont(11)},
+        callbacks:{title:it=>it.length?stageText(it[0].parsed.x):''}}
+    },
+    scales:{
+      x:{type:'linear',min:from,max:to,
+        title:{display:true,text:'semaines avant le jour J',color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)}},
+        ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)},stepSize:1,
+          callback:v=>Number.isInteger(v)&&(v%2===0||!isPhone())?xLabel(v):''},
+        grid:{color:'rgba(255,255,255,.05)'}},
+      y:{title:{display:!!yTitle,text:yTitle,color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)}},
+        ticks:{color:getCss('--faint'),font:{family:'IBM Plex Mono',size:chartFont(9)}},
+        grid:{color:'rgba(255,255,255,.05)'},beginAtZero:!stanine,
+        ...(stanine?{min:1,max:9}:{})}
     }
-    if(cross!==null) shift=st-cross;   // >0 : ils y étaient plus tôt → retard
-  }
-  const sCol=shift===null?getCss('--muted'):shift<=-1?getCss('--s7'):shift>=1?getCss('--s2'):getCss('--s5');
-  let sTxt,sSub;
-  if(my===null){ sTxt='—'; sSub='pas encore de niveau mesurable'; }
-  else if(cross===null){ sTxt='jamais'; sSub='niveau non atteint par le groupe sur la période observée'; }
-  else{
-    sTxt=xLabel(cross);
-    sSub=shift===0?'même rythme que le groupe'
-      :(shift<0?`atteint ${Math.abs(shift)} sem. plus tôt → en avance`
-               :`atteint ${shift} sem. plus tard → en retard`);
-  }
-  const vRatio=grpV?Math.round(myV/grpV*100):null;
-  const nSess=rp.length;
-  box.innerHTML=`
-    <div class="tile"><div class="t-lab">📍 Stade comparé</div>
-      <div class="t-val">${xLabel(st)}</div>
-      <div class="t-sub">${xLabelDays(st)}<br>${bench.length} ${bm.only?'réussite':'session'}${bench.length>1?'s':''} en référence · ${phase.toUpperCase()}</div></div>
-    <div class="tile"><div class="t-lab">🎯 Niveau global</div>
-      <div class="t-val" style="color:${my===null?getCss('--muted'):bandColor(my)}">${fmt(my)}<small>/9</small></div>
-      <div class="t-sub">${bm.only?'réussites':'groupe'} : <b style="color:${grp===null?'':bandColor(grp)}">${fmt(grp)}</b>${
-        d===null?'':` · <span style="color:${dCol}">${d>0?'+':''}${fmt(d)}</span>`}
-        <br>moyenne sur ${mg?mg.n:0} exercice${mg&&mg.n>1?'s':''}${exSet.common?' communs':''}${stale}</div></div>
-    <div class="tile"><div class="t-lab">⏳ Groupe à ce niveau dès</div>
-      <div class="t-val" style="color:${sCol};font-size:20px">${sTxt}</div>
-      <div class="t-sub">${sSub}${single?'<br><span style="color:var(--s3)">une seule session sur une partie de la période</span>':''}</div></div>
-    <div class="tile"><div class="t-lab">🔁 Volume cumulé</div>
-      <div class="t-val">${myV}<small> essais</small></div>
-      <div class="t-sub">${bm.only?'réussites':'groupe'} : ${grpV}${vRatio!==null?` · <b style="color:${vRatio>=90?getCss('--s7'):vRatio>=60?getCss('--s5'):getCss('--s2')}">${vRatio}%</b>`:''}
-        <br>rythme : ${Math.round(myP)}/sem contre ${Math.round(grpP)}/sem</div></div>`;
+  };
 }
-function gl2(p,x,S){ const g=globalLevelAt(p,x,S); return g?g.v:null; }
-
-/* ----------------------- Rendu : tableau par exercice ----------------------- */
-/* Comparatif par exercice — réglettes à l'échelle stanine Pilotest.
-   Ta position et celle du groupe sur la même barre, reliées par un trait
-   dont la couleur dit qui est devant. Les exercices en retrait
-   sont regroupés en tête : c'est là qu'il faut travailler. */
-function renderTable(ps,exSet){
-  const box=document.getElementById('strips');
-  const m=myPart(ps), rp=ps.filter(p=>!p.me);
-  if(!ps.length){ box.innerHTML='<div class="empty">Rien à comparer pour cette phase.</div>'; return; }
-  const bm=benchmark(ps);                    // la médiane porte sur les réussites
-  const pos=v=>((Math.max(1,Math.min(9,v))-1)/8)*100;
-  /* Le comparatif ne listait que les exercices travaillés par quelqu'un. Un
-     exercice du programme que personne n'a touché en était absent — or c'est
-     un angle mort à connaître. On l'ajoute, sans repère, sauf en mode « communs ». */
-  const exs=new Set(exSet.set);
-  const nobody=exSet.common?[]:universeOf(phase).filter(t=>!exs.has(t));
-  nobody.forEach(t=>exs.add(t));
-  const rows=[...exs].map(ex=>{
-    const mine=m?exLevelAt(m,ex,stage):null;
-    const vals=rp.map(p=>({p,v:exLevelAt(p,ex,stage)})).filter(o=>o.v!==null);
-    const grp=median(vals.filter(o=>bm.list.includes(o.p)).map(o=>o.v));
-    return {ex,mine,vals,grp,gap:(mine!==null&&grp!==null)?mine-grp:null,none:nobody.includes(ex)};
+function dsFor(p,data,extra){
+  const hollow=hollowOf(p), faded=hexA(p.color,.3), panel='#161e27';
+  return {label:p.label,data,borderColor:p.color,backgroundColor:p.color,
+    borderWidth:p.hero?3.4:2,borderDash:p.dash,
+    pointStyle:CHART_POINT[p.shape]||'circle',pointRadius:p.hero?4.5:3.5,pointHoverRadius:7,
+    pointBackgroundColor:ctx=>{ const r=ctx.raw; return r&&r.low?faded:(hollow?panel:p.color); },
+    pointBorderColor:ctx=>{ const r=ctx.raw; return r&&r.low?faded:(hollow?p.color:'#0f141a'); },
+    pointBorderWidth:hollow?2:1.2,
+    segment:{borderColor:ctx=>{
+      const d=ctx.chart.data.datasets[ctx.datasetIndex].data;
+      const a=d[ctx.p0DataIndex], b=d[ctx.p1DataIndex];
+      return (a&&a.low)||(b&&b.low)?faded:undefined;
+    }},
+    tension:0,order:p.hero?0:1,...(extra||{})};
+}
+// Repère vertical du stade comparé
+const stageLine={id:'stageLine',afterDatasetsDraw(chart){
+  const sc=chart.scales.x; if(!sc||stage===null) return;
+  const x=sc.getPixelForValue(stage), {ctx,chartArea}=chart;
+  if(x<chartArea.left||x>chartArea.right) return;
+  ctx.save();
+  ctx.strokeStyle='rgba(233,238,244,.45)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(x,chartArea.top); ctx.lineTo(x,chartArea.bottom); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font=`${chartFont(10)}px "IBM Plex Mono",monospace`;
+  ctx.fillStyle='rgba(233,238,244,.8)'; ctx.textAlign='center';
+  const lab=isNow(stage)&&M.mine.ongoing?'aujourd’hui':xLabel(stage);
+  ctx.fillText(lab,clamp(x,chartArea.left+30,chartArea.right-30),chartArea.top+11);
+  ctx.restore();
+}};
+/* Noms au bout des courbes — seulement s'il y a peu de courbes et de la place
+   (au-delà, la barre des sessions fait foi). */
+const endLabels={id:'endLabels',afterDatasetsDraw(chart){
+  const {ctx,chartArea}=chart, items=[];
+  chart.data.datasets.forEach((ds,i)=>{
+    const meta=chart.getDatasetMeta(i);
+    if(meta.hidden||!meta.data||!meta.data.length||ds.noEndLabel) return;
+    const pt=meta.data[meta.data.length-1];
+    if(!pt||pt.x<chartArea.left-2||pt.x>chartArea.right+2) return;
+    items.push({y:pt.y,x:pt.x,label:ds.endLabel||ds.label,color:ds.borderColor,bold:ds.borderWidth>3});
   });
+  if(!items.length) return;
+  items.sort((a,b)=>a.y-b.y);
+  for(let i=1;i<items.length;i++) if(items[i].y-items[i-1].y<15) items[i].y=items[i-1].y+15;
+  const over=items[items.length-1].y-(chartArea.bottom-2); if(over>0) items.forEach(it=>it.y-=over);
+  ctx.save(); ctx.textBaseline='middle';
+  items.forEach(it=>{
+    ctx.font=`${it.bold?'600 ':''}${chartFont(11)}px "IBM Plex Mono",monospace`;
+    let txt=it.label, w=ctx.measureText(txt).width;
+    const avail=chart.width-3-(it.x+9);
+    while(w>avail&&txt.length>4){ txt=txt.slice(0,-2)+'…'; w=ctx.measureText(txt).width; }
+    ctx.fillStyle='rgba(15,20,26,.75)'; ctx.fillRect(it.x+5,it.y-8,w+8,16);
+    ctx.fillStyle=it.color; ctx.fillText(txt,it.x+9,it.y);
+  });
+  ctx.restore();
+}};
+// Projection : prolongement pointillé jusqu'au jour J et fourchette des réussites
+const projPlugin={id:'proj',afterDatasetsDraw(chart){
+  const P=chart.$proj; if(!P) return;
+  const xs=chart.scales.x, ys=chart.scales.y, {ctx}=chart;
+  const x0=xs.getPixelForValue(P.x0), y0=ys.getPixelForValue(P.from), x1=xs.getPixelForValue(0), y1=ys.getPixelForValue(P.v);
+  ctx.save();
+  ctx.strokeStyle=P.color; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke(); ctx.setLineDash([]);
+  const yh=ys.getPixelForValue(P.hi), yl=ys.getPixelForValue(P.lo);
+  ctx.fillStyle=hexA(P.color,.22); ctx.fillRect(x1-6,yh,12,Math.max(2,yl-yh));
+  ctx.beginPath(); ctx.arc(x1,y1,5,0,2*Math.PI); ctx.fillStyle=P.color; ctx.fill();
+  ctx.lineWidth=2; ctx.strokeStyle='#0f141a'; ctx.stroke();
+  ctx.restore();
+}};
+const fewLabels=()=>!isPhone()&&M.vis.length<=4;
+
+/* ----------------------- Rendu : trajectoire ----------------------- */
+function renderTraj(){
+  const {vis,pass,fail,basis,mine:m}=M;
+  const desc=document.getElementById('trajDesc');
+  if(!vis.length){ killChart('chGlobal'); desc.textContent='Aucune session affichée.'; return; }
+  const medP=medianSeries(pass,basis), medF=medianSeries(fail,basis);
+  const pr=projection(m?nowStage(m):0);
+  desc.innerHTML=`Chaque semaine avant le jour J : niveau moyen sur ${basisMode==='common'&&!M.fallback?`les <b>${plural(basis.size,'exercice')} communs</b>`:`<b>${plural(basis.size,'exercice')}</b>`} (5 derniers essais de chacun, chaque exercice comptant pour un). `+
+    `Trait plein : session réussie ; tirets : échouée ; pointillés : issue inconnue. Les semaines où peu d’exercices étaient déjà entamés sont en pâle.`+
+    (medP?' <b>Ligne blanche</b> : médiane des réussites.':'')+(medF?' <b>Tirets gris</b> : médiane des échecs.':'')+
+    (pr?' <b>Pointillé turquoise</b> : ta projection au jour J et la fourchette des réussites.':'');
+  const ds=vis.map(p=>dsFor(p,seriesOf(p,basis)));
+  if(medP) ds.push({label:'Médiane des réussites',endLabel:'Réussites',data:medP,borderColor:'#e9eef4',
+    backgroundColor:'#e9eef4',borderWidth:1.8,pointRadius:0,tension:0,order:2});
+  if(medF) ds.push({label:'Médiane des échecs',endLabel:'Échecs',data:medF,borderColor:'#8b98a8',
+    backgroundColor:'#8b98a8',borderWidth:1.8,borderDash:[5,4],pointRadius:0,tension:0,order:2});
+  const o=baseOpts('classe stanine (moyenne par exercice)',true);
+  o.plugins.tooltip.callbacks.label=it=>{
+    const r=it.raw||{}; return `${it.dataset.label} : ${fmt(it.parsed.y)}${r.n?` (sur ${plural(r.n,'exercice')})`:''}`;
+  };
+  if(fewLabels()) o.layout={padding:{right:110}};
+  else if(pr) o.layout={padding:{right:12}};
+  const plugins=[stageLine,projPlugin]; if(fewLabels()) plugins.push(endLabels);
+  mk('chGlobal','line',{datasets:ds},o,plugins);
+  charts.chGlobal.$proj=pr?{...pr,x0:nowStage(m),color:ME_COLOR}:null;
+  charts.chGlobal.update('none');
+}
+
+/* ----------------------- Rendu : niveau de départ ----------------------- */
+function renderBase(){
+  const {vis,basis}=M;
+  const V=document.getElementById('baseViz'), T=document.getElementById('baseTbl'), D=document.getElementById('baseDesc');
+  if(!vis.length){ V.innerHTML='<div class="empty">Aucune session affichée.</div>'; T.innerHTML=''; D.textContent=''; return; }
+  D.innerHTML=`Niveau de <b>départ</b> = moyenne des <b>3 premiers essais</b> de chaque exercice, `+
+    `sur ${basisMode==='common'&&!M.fallback?`les ${plural(basis.size,'exercice')} communs`:plural(basis.size,'exercice')} ; `+
+    `<b>arrivée</b> = niveau au jour J (pour ta session en cours : aujourd’hui). Le trait mesure la progression.`;
+  const pos=v=>((clamp(v,1,9)-1)/8)*100;
+  const rows=vis.map(p=>{
+    const dep=startLevel(p,basis);
+    const tArr=p.me?Math.min(endT(p),tOf(p,0)):tOf(p,0);
+    const arr=levelAt(p,tArr,basis);
+    const span=Math.max(1,(Math.min(p.camp.end.getTime(),p.exam.getTime())-startT(p))/(7*DAY));
+    return {p,dep,arr,gain:dep&&arr?arr.v-dep.v:null,weeks:Math.round(span*10)/10,att:cumAt(p,tArr),
+      now:p.me&&p.ongoing};
+  });
+  V.innerHTML=`<div class="legend"><span><i style="width:11px;height:11px;border-radius:50%;border:2.5px solid var(--muted)"></i>départ</span>
+      <span><i style="width:11px;height:11px;border-radius:50%;background:var(--muted)"></i>arrivée (jour J, ou aujourd’hui)</span></div>`+
+    rows.map(r=>{
+      const c=r.p.color;
+      const bar=r.dep&&r.arr?`<div class="bar" style="left:${Math.min(pos(r.dep.v),pos(r.arr.v))}%;width:${Math.abs(pos(r.arr.v)-pos(r.dep.v))}%;background:${c}"></div>`:'';
+      return `<div class="db${r.p.hero?' hero':''}" style="--c:${c}">
+        <div class="who" title="${esc(r.p.label)}"><span class="sw" style="background:${c}"></span>${esc(r.p.label)} <span style="color:${ocColor(r.p.outcome)};font-family:var(--mono);font-size:11px">${esc(outcomeSym(r.p.outcome))}</span></div>
+        <div class="tape">${bar}${r.dep?`<div class="p0" style="left:${pos(r.dep.v)}%" title="Départ : ${fmt(r.dep.v)}"></div>`:''}${r.arr?`<div class="p1" style="left:${pos(r.arr.v)}%" title="${r.now?'Aujourd’hui':'Jour J'} : ${fmt(r.arr.v)}"></div>`:''}</div>
+        <div class="num">${fmt(r.dep?r.dep.v:null)} → <b style="color:${r.arr?bandColor(r.arr.v):''}">${fmt(r.arr?r.arr.v:null)}</b></div></div>`;
+    }).join('')+
+    `<div class="scaleticks db-ticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`;
+  const head='<tr><th>Session</th><th>Départ</th><th>Arrivée</th><th>Progression</th><th>Semaines</th><th>Essais</th><th>Essais / sem.</th><th>Exercices mesurés</th></tr>';
+  T.innerHTML=`<table><thead>${head}</thead><tbody>${rows.map(r=>`<tr${r.p.me?' class="me"':''}>
+    <td>${sessName(r.p)}</td>
+    <td style="color:${r.dep?bandColor(r.dep.v):''}">${fmt(r.dep?r.dep.v:null)}</td>
+    <td style="color:${r.arr?bandColor(r.arr.v):''}">${fmt(r.arr?r.arr.v:null)}${r.now?' <span class="dim">(auj.)</span>':''}</td>
+    <td class="${r.gain===null?'dim':r.gain>=0.15?'pos':r.gain<=-0.15?'neg':'mid'}">${fmtS(r.gain)}</td>
+    <td>${fmt(r.weeks)}</td><td>${r.att}</td><td>${Math.round(r.att/Math.max(1,r.weeks))}</td>
+    <td>${r.dep?r.dep.n:0}</td></tr>`).join('')}</tbody></table>`;
+}
+
+/* ----------------------- Rendu : comparatif par exercice ----------------------- */
+// Exercices listés : ceux de la base de comparaison, ou tous ceux pratiqués
+// + ceux du programme que personne n'a encore travaillés
+function famList(){
+  if(basisMode==='common'&&!M.fallback&&M.vis.length>=2) return [...M.basis];
+  return [...new Set([...M.union,...M.programme])];
+}
+// Variantes réellement pratiquées sous une famille (équivalences)
+function variantsOf(f){
+  const s=new Set(); M.vis.forEach(p=>(famRows(p,f)||[]).forEach(r=>s.add(r.test)));
+  return [...s];
+}
+const eqMark=f=>{ const v=variantsOf(f); return v.length>1||(v.length===1&&v[0]!==f)?v:null; };
+function famStats(f,s){
+  const m=M.mine;
+  const mine=m?famLevelAt(m,f,tOf(m,s)):null;
+  const vals=M.refsV.map(p=>({p,v:famLevelAt(p,f,tOf(p,s))})).filter(o=>o.v!==null);
+  const pv=vals.filter(o=>M.pass.includes(o.p)).map(o=>o.v);
+  const grp=median(pv);
+  return {f,mine,vals,grp,nPass:pv.length,gap:mine!==null&&grp!==null?mine-grp:null,none:!M.vis.some(p=>famRows(p,f))};
+}
+function renderTable(){
+  const box=document.getElementById('strips');
+  document.getElementById('tblStage').textContent=stageText(stage);
+  const D=document.getElementById('tblDesc');
+  if(!M.vis.length){ box.innerHTML='<div class="empty">Aucune session affichée.</div>'; D.textContent=''; return; }
+  D.innerHTML=`Position de chacun sur l’échelle stanine à <b>${esc(stageText(stage))}</b> (niveau = moyenne des ${LASTK} derniers essais à cette date). `+
+    `Le trait relie ton niveau à la <b>médiane des réussites</b> (¹ : une seule réussite mesurée, repère atténué). Marque pleine : session réussie ; creuse : échouée ; pointillée : issue inconnue. `+
+    `<b>Toucher un exercice</b> pour l’ouvrir en détail.`;
+  const pos=v=>((clamp(v,1,9)-1)/8)*100;
+  const rows=famList().map(f=>famStats(f,stage));
   const behind=rows.filter(r=>r.gap!==null&&r.gap<-0.15).sort((a,b)=>a.gap-b.gap);
-  const ahead =rows.filter(r=>r.gap!==null&&r.gap>0.15).sort((a,b)=>b.gap-a.gap);
-  const level =rows.filter(r=>r.gap!==null&&Math.abs(r.gap)<=0.15).sort((a,b)=>a.ex.localeCompare(b.ex));
-  const na    =rows.filter(r=>r.gap===null).sort((a,b)=>a.ex.localeCompare(b.ex));
-  const mark=(p,v,mine)=>`<div class="mk sh-${p.shape}${mine?' me':''}" style="left:${pos(v)}%;--c:${mine?bandColor(v):p.color}"
-      title="${esc(p.name)} : ${fmt(v)}"></div>`;
-  function strip(r){
+  const ahead=rows.filter(r=>r.gap!==null&&r.gap>0.15).sort((a,b)=>b.gap-a.gap);
+  const level=rows.filter(r=>r.gap!==null&&Math.abs(r.gap)<=0.15).sort((a,b)=>a.f.localeCompare(b.f,'fr'));
+  const na=rows.filter(r=>r.gap===null).sort((a,b)=>a.f.localeCompare(b.f,'fr'));
+  const mark=(p,v)=>`<div class="mk ${p.shape}${p.hero?' hero':hollowOf(p)?' o-'+p.outcome.code:''}" style="left:${pos(v)}%;--c:${p.color}"
+      title="${esc(p.label)} — ${esc(outcomeText(p.outcome))} : ${fmt(v)}"></div>`;
+  const strip=r=>{
     let seg='';
     if(r.mine!==null&&r.grp!==null){
       const lo=Math.min(pos(r.mine),pos(r.grp)), w=Math.abs(pos(r.mine)-pos(r.grp));
-      const col=r.gap>=0?getCss('--s7'):getCss('--s2');
-      seg=`<div class="seg" style="left:${lo}%;width:${w}%;background:${col}"></div>`;
+      seg=`<div class="gapseg" style="left:${lo}%;width:${w}%;background:${r.gap>=0?getCss('--s7'):getCss('--s2')}"></div>`;
     }
-    const dots=r.vals.map(o=>mark(o.p,o.v,false)).join('');
-    const med=r.grp!==null&&r.vals.length>1
-      ?`<div class="med" style="left:${pos(r.grp)}%" title="Médiane du groupe : ${fmt(r.grp)}"></div>`:'';
-    const mine=r.mine!==null&&m?mark(m,r.mine,true):'';
-    let lab,labCol;
-    if(r.gap===null){ lab=r.none?'aucun essai':(r.mine!==null?'—':'pas de repère'); labCol='var(--faint)'; }
-    else { lab=(r.gap>0?'+':'')+fmt(r.gap); labCol=r.gap>=0.15?getCss('--s7'):r.gap<=-0.15?getCss('--s2'):getCss('--s5'); }
-    return `<div class="row">
-      <div class="ex" title="${esc(r.ex)}">${esc(r.ex)}</div>
-      <div class="tape">${seg}${dots}${med}${mine}</div>
-      <div class="dl" style="color:${labCol}">${lab}</div></div>`;
-  }
-  const grp=(cls,title,list)=>list.length
-    ? `<div class="grp ${cls}">${title} · ${list.length}</div>`+list.map(strip).join('') : '';
-  // légende : un symbole et une couleur par personne
-  const keys=ps.map(p=>`<span class="k"><i class="mk sh-${p.shape}${p.me?' me':''}" style="--c:${p.color}"></i>${esc(p.name)}${p.me?' (moi)':''}</span>`).join('');
+    // une médiane tirée d'une seule réussite est fragile : repère atténué
+    const med=r.grp!==null?`<div class="med" style="left:${pos(r.grp)}%${r.nPass<2?';opacity:.45':''}"
+      title="${r.nPass<2?'Une seule réussite mesurée sur cet exercice à ce stade':`Médiane de ${r.nPass} réussites`} : ${fmt(r.grp)}"></div>`:'';
+    const mine=r.mine!==null&&M.mine?mark(M.mine,r.mine):'';
+    let lab,col;
+    if(r.gap===null){ lab=r.none?'aucun essai':(r.mine===null?(M.mine?'pas fait':'—'):'pas de repère'); col='var(--faint)'; }
+    else { lab=fmtS(r.gap)+(r.nPass<2?'<sup title="écart à une seule réussite">¹</sup>':''); col=r.gap>=0.15?getCss('--s7'):r.gap<=-0.15?getCss('--s2'):getCss('--s5'); }
+    const eq=eqMark(r.f);
+    return `<div class="row${r.f===focusFam?' sel':''}" data-fam="${esc(r.f)}" role="button" tabindex="0"
+      title="${esc(r.f)}${eq?' ≈ '+esc(eq.join(' / ')):''} — toucher pour le détail">
+      <div class="ex">${esc(r.f)}${eq?'<span class="eqm">≈</span>':''}</div>
+      <div class="tape">${seg}${r.vals.map(o=>mark(o.p,o.v)).join('')}${med}${mine}</div>
+      <div class="dl" style="color:${col}">${lab}</div></div>`;
+  };
+  const grp=(cls,title,list)=>list.length?`<div class="grp ${cls}">${title} · ${list.length}</div>`+list.map(strip).join(''):'';
   box.innerHTML=
-    `<div class="keys">${keys}${rp.length>1?`<span class="k"><i class="med-k"></i>médiane des ${bm.label}</span>`:''}
-      <span class="k"><i class="seg-k" style="background:${getCss('--s7')}"></i>au-dessus du groupe</span>
-      <span class="k"><i class="seg-k" style="background:${getCss('--s2')}"></i>en dessous du groupe</span></div>`+
-    grp('behind','▼ En retrait sur le groupe',behind)+
-    grp('ahead','▲ En avance sur le groupe',ahead)+
-    grp('na','= Au niveau du groupe',level)+
+    grp('behind','▼ En retrait sur les réussites',behind)+
+    grp('ahead','▲ En avance sur les réussites',ahead)+
+    grp('na','= Au niveau des réussites',level)+
     grp('na','Pas comparable à ce stade',na)+
     `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`;
 }
+
+/* ----------------------- Rendu : exercice en détail ----------------------- */
+function focusOrder(){
+  return famList().map(f=>famStats(f,stage))
+    .sort((a,b)=>(a.gap===null?1:0)-(b.gap===null?1:0)||(a.gap||0)-(b.gap||0)||a.f.localeCompare(b.f,'fr'));
+}
+function renderFocus(){
+  const sel=document.getElementById('focusSel'), D=document.getElementById('focusDesc'), T=document.getElementById('focusTbl');
+  const list=focusOrder();
+  if(!M.vis.length||!list.length){
+    sel.innerHTML='<option>—</option>'; D.textContent='Aucun exercice à détailler.'; T.innerHTML='';
+    killChart('chFocusLvl'); killChart('chFocusVol'); return;
+  }
+  if(!focusFam||!list.some(r=>r.f===focusFam)) focusFam=(list.find(r=>r.gap!==null)||list[0]).f;
+  sel.innerHTML=list.map(r=>{
+    const eq=eqMark(r.f);
+    const tail=r.none?' — aucun essai':r.gap!==null?` (${fmtS(r.gap)})`:'';
+    return `<option value="${esc(r.f)}"${r.f===focusFam?' selected':''}>${esc(r.f)}${eq?' ≈':''}${tail}</option>`;
+  }).join('');
+  sel.value=focusFam;
+  const f=focusFam, eq=eqMark(f);
+  D.innerHTML=`<b>${esc(f)}</b>${eq?` — regroupe ${eq.map(v=>`« ${esc(v)} »`).join(' et ')} (équivalence)`:''}. `+
+    `Niveau semaine par semaine (5 derniers essais) et essais cumulés, alignés sur le jour J ; le tableau détaille chaque session.`;
+  const withF=M.vis.filter(p=>famRows(p,f));
+  const oL=baseOpts('classe stanine',true);
+  oL.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)}`;
+  mk('chFocusLvl','line',{datasets:withF.map(p=>dsFor(p,seriesOf(p,null,f)))},oL,[stageLine]);
+  const oV=baseOpts('essais cumulés',false);
+  oV.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${plural(it.parsed.y,'essai')}`;
+  mk('chFocusVol','line',{datasets:withF.map(p=>dsFor(p,grid(p).map(g=>({x:g.s,y:cumAt(p,g.t,f)}))))},oV,[stageLine]);
+  const rows=M.vis.map(p=>{
+    const a=famRows(p,f)||[];
+    if(!a.length) return {p,none:true};
+    const tS=tOf(p,stage), tJ=p.me?Math.min(endT(p),tOf(p,0)):tOf(p,0);
+    let best=null;
+    for(let i=0;i<a.length;i++){ const w=a.slice(Math.max(0,i-LASTK+1),i+1); const v=mean(w.map(r=>r.stanine)); if(best===null||v>best) best=v; }
+    const first7=a.find(r=>r.stanine>=7);
+    const last10=a.slice(-10).map(r=>r.stanine), mu=mean(last10);
+    const sd=last10.length>1?Math.sqrt(mean(last10.map(x=>(x-mu)**2))):null;
+    return {p,variants:[...new Set(a.map(r=>r.test))],n:a.length,nS:cumAt(p,tS,f),
+      days:new Set(a.map(r=>dayIdx(r.date))).size,
+      dep:mean(a.slice(0,3).map(r=>r.stanine)),atS:famLevelAt(p,f,tS),atJ:famLevelAt(p,f,tJ),best,
+      first7:first7?xOf(p,first7.date.getTime()):null,sd};
+  });
+  const head=`<tr><th>Session</th><th>Essais</th><th>Essais à ${esc(xLabel(stage))}</th><th>Jours</th><th>Départ (3 premiers)</th>
+    <th>À ${esc(xLabel(stage))}</th><th>Jour J</th><th>Meilleur niveau</th><th>1er essai ≥ 7</th><th>Régularité σ</th>${eq?'<th>Version</th>':''}</tr>`;
+  const c=v=>v===null||v===undefined?'':`style="color:${bandColor(v)}"`;
+  T.innerHTML=`<table><thead>${head}</thead><tbody>${rows.map(r=>r.none
+    ?`<tr${r.p.me?' class="me"':''}><td>${sessName(r.p)}</td><td colspan="${eq?10:9}" class="dim" style="text-align:left">aucun essai sur cet exercice</td></tr>`
+    :`<tr${r.p.me?' class="me"':''}><td>${sessName(r.p)}</td><td>${r.n}</td><td>${r.nS}</td><td>${r.days}</td>
+      <td ${c(r.dep)}>${fmt(r.dep)}</td><td ${c(r.atS)}>${fmt(r.atS)}</td>
+      <td ${c(r.atJ)}>${fmt(r.atJ)}${r.p.me&&r.p.ongoing?' <span class="dim">(auj.)</span>':''}</td>
+      <td ${c(r.best)}>${fmt(r.best)}</td><td>${r.first7===null?'<span class="dim">jamais</span>':esc(xLabel(Math.floor(r.first7)))}</td>
+      <td>${r.sd===null?'–':r.sd.toFixed(1)}</td>${eq?`<td style="text-align:left">${esc(r.variants.join(' + '))}</td>`:''}</tr>`).join('')}</tbody></table>`;
+}
+
+/* ----------------------- Rendu : ce qui distingue les réussites -----------------------
+   Sur chaque exercice, niveau et volume au jour J des sessions réussies face
+   aux sessions échouées : là où l'écart est grand, c'est ce qui a fait la
+   différence — et ta position actuelle à côté. */
+function renderDecisive(){
+  const {pass,fail,mine:m}=M;
+  const D=document.getElementById('decDesc'), T=document.getElementById('decTbl');
+  if(!pass.length||!fail.length){
+    D.innerHTML=`Il faut au moins une session <b>réussie</b> et une session <b>échouée</b> affichées (actuellement : ${pass.length} et ${fail.length}). `+
+      `Les sessions dont l’issue est seulement supposée (✓? ✗?) comptent.`;
+    T.innerHTML=''; return;
+  }
+  const fams=new Set(); [...pass,...fail].forEach(p=>p.camp.campRows.forEach(r=>fams.add(r.fam)));
+  const lv=(list,f)=>median(list.map(p=>famLevelAt(p,f,tOf(p,0))).filter(v=>v!==null));
+  const vo=(list,f)=>median(list.filter(p=>famRows(p,f)).map(p=>cumAt(p,tOf(p,0),f)));
+  const rows=[...fams].map(f=>{
+    const a=lv(pass,f), b=lv(fail,f);
+    return {f,a,b,d:a!==null&&b!==null?a-b:null,va:vo(pass,f),vb:vo(fail,f),
+      me:m?famLevelAt(m,f,tOf(m,stage)):null,mv:m?cumAt(m,tOf(m,stage),f):null};
+  }).filter(r=>r.d!==null).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d)).slice(0,10);
+  D.innerHTML=`Au jour J, médiane des <b>${plural(pass.length,'session réussie','sessions réussies')}</b> face à <b>${plural(fail.length,'session échouée','sessions échouées')}</b> affichée${fail.length>1?'s':''}, exercice par exercice — les plus grands écarts d’abord. `+
+    `Peu de sessions : des pistes, pas des certitudes.${m?` La colonne « Toi » donne ta position à ${esc(stageText(stage))}.`:''}`;
+  if(!rows.length){ T.innerHTML='<div class="empty">Aucun exercice pratiqué à la fois par les réussites et les échecs.</div>'; return; }
+  const c=v=>v===null?'':`style="color:${bandColor(v)}"`;
+  T.innerHTML=`<table><thead><tr><th>Exercice</th><th>Réussites</th><th>Échecs</th><th>Écart</th><th>Toi</th>
+    <th>Essais réussites</th><th>Essais échecs</th><th>Tes essais</th></tr></thead><tbody>${rows.map(r=>`<tr>
+    <td>${esc(r.f)}${eqMark(r.f)?' <span style="color:var(--accent)">≈</span>':''}</td>
+    <td ${c(r.a)}>${fmt(r.a)}</td><td ${c(r.b)}>${fmt(r.b)}</td><td class="${gapCls(r.d)}">${fmtS(r.d)}</td>
+    <td ${c(r.me)}>${fmt(r.me)}</td><td>${r.va===null?'–':Math.round(r.va)}</td><td>${r.vb===null?'–':Math.round(r.vb)}</td>
+    <td>${r.mv===null?'–':r.mv}</td></tr>`).join('')}</tbody></table>`;
+}
+
+/* ----------------------- Rendu : volume par exercice -----------------------
+   Une case par exercice et par session : le nombre d'essais, sur toute la
+   session ou à la semaine comparée. Plus la case est vive, plus la session a
+   travaillé cet exercice par rapport aux autres. Les exercices où tu es le
+   plus en retrait sur les réussites sont en haut. */
+function renderVolTable(){
+  const {vis,pass,mine:m}=M;
+  const box=document.getElementById('volTbl'), D=document.getElementById('volDesc');
+  document.getElementById('volStageBtn').textContent=`À ${xLabel(stage)}`;
+  if(!vis.length){ box.innerHTML=''; D.textContent='Aucune session affichée.'; return; }
+  const cnt=(p,f)=>volMode==='total'?(famRows(p,f)||[]).length:cumAt(p,tOf(p,stage),f);
+  const fams=famList();
+  const deficit=f=>{ const g=median(pass.map(p=>cnt(p,f))); return (m?cnt(m,f):0)-(g===null?0:g); };
+  fams.sort((a,b)=>deficit(a)-deficit(b)||a.localeCompare(b,'fr'));
+  D.innerHTML=`Nombre d’essais par exercice et par session, ${volMode==='total'?'<b>sur toute la session</b>':`<b>à ${esc(stageText(stage))}</b>`}. `+
+    `Couleur plus vive = la session qui a le plus travaillé l’exercice. En haut : là où tu as le moins travaillé par rapport aux réussites. Dernière ligne : le total de chacun sur ces exercices.`;
+  const accent=[90,209,196];
+  const cell=(v,max)=>{
+    if(!v) return '<td class="h zero">·</td>';
+    const a=0.12+0.6*(v/max);
+    return `<td class="h" style="background:rgba(${accent.join(',')},${a.toFixed(2)})">${v}</td>`;
+  };
+  const head=`<tr><th>Exercice</th>${vis.map(p=>`<th class="col" title="${esc(p.label)} — ${esc(outcomeText(p.outcome))}"><span class="sw" style="background:${p.color}"></span>${esc(p.me?'Moi':p.owner.name)}<br><span style="color:var(--faint)">${esc(p.camp.label)} ${esc(outcomeSym(p.outcome))}</span></th>`).join('')}</tr>`;
+  const body=fams.map(f=>{
+    const vals=vis.map(p=>cnt(p,f)), max=Math.max(1,...vals);
+    return `<tr><td>${esc(f)}${eqMark(f)?' <span style="color:var(--accent)">≈</span>':''}</td>${vals.map(v=>cell(v,max)).join('')}</tr>`;
+  }).join('');
+  const tot=vis.map(p=>fams.reduce((s,f)=>s+cnt(p,f),0));
+  box.innerHTML=`<table class="heat"><thead>${head}</thead><tbody>${body}
+    <tr class="tot"><td>Total</td>${tot.map(v=>`<td class="h">${v}</td>`).join('')}</tr></tbody></table>`;
+}
+
+/* ----------------------- Rendu : rythme et temps de travail ----------------------- */
+function renderWeekly(){
+  const {vis}=M;
+  if(!vis.length){ killChart('chVol'); killChart('chHours'); return; }
+  const oV=baseOpts('essais / semaine',false);
+  oV.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${plural(it.parsed.y,'essai')}`;
+  mk('chVol','line',{datasets:vis.map(p=>dsFor(p,weeklyOf(p,'vol')))},oV,[stageLine]);
+  const oH=baseOpts('heures / semaine',false);
+  oH.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)} h`;
+  mk('chHours','line',{datasets:vis.map(p=>dsFor(p,weeklyOf(p,'hrs')))},oH,[stageLine]);
+}
+function renderHours(){
+  const box=document.getElementById('hoursTbl');
+  if(!M.vis.length){ box.innerHTML='<div class="empty">Aucune session affichée.</div>'; return; }
+  const head=`<tr><th>Session</th><th>Essais</th><th>Heures</th><th>Heures / sem.</th><th>Séances</th><th>Séance médiane</th>
+    <th>Jours actifs</th><th>Plus longue coupure</th><th>Heure de pointe</th><th>Jour fort</th></tr>`;
+  box.innerHTML=`<table><thead>${head}</thead><tbody>${M.vis.map(p=>{
+    const s=hoursStats(p);
+    return `<tr${p.me?' class="me"':''}><td>${sessName(p)}</td><td>${s.total}</td><td>${s.hours.toFixed(1)} h</td>
+      <td>${s.perWeek.toFixed(1)} h</td><td>${s.sessions}</td><td>${Math.round(s.medMin)} min</td>
+      <td>${s.days} <span class="dim">(${Math.round(s.activePct)} %)</span></td><td>${plural(s.maxGap,'jour')}</td>
+      <td>${s.peak}h</td><td>${DAYS[s.peakDay].slice(0,3)}.</td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+/* Répartition horaire : une ligne par session, une case par tranche de 2 h
+   (ou par jour). Chaque case donne la part des essais de la session : les
+   profils se comparent malgré des volumes très différents. */
+const BIN_LAB=i=>`${String(i*2).padStart(2,'0')}h`;
+function renderClock(){
+  const box=document.getElementById('clockBox'), D=document.getElementById('clockDesc');
+  if(!M.vis.length){ box.innerHTML='<div class="empty">Aucune session affichée.</div>'; D.textContent=''; return; }
+  const accent='90,209,196';
+  if(clockMode==='grid'){
+    D.textContent='Chaque case croise un jour et une tranche de 2 h : plus elle est vive, plus la session y a travaillé. Un profil par session.';
+    box.innerHTML=M.vis.map(p=>{
+      const st=hoursStats(p), max=Math.max(1,...st.byDH.flat());
+      const rows=st.byDH.map((row,d)=>`<div class="cg-row"><span>${DAYS_S[d]}</span>`+row.map((n,i)=>
+        `<i style="background:${n?`rgba(${accent},${(0.15+0.85*n/max).toFixed(2)})`:'var(--panel2)'}" title="${DAYS[d]} ${BIN_LAB(i)}–${BIN_LAB(i+1)} : ${plural(n,'essai')}"></i>`).join('')+'</div>').join('');
+      return `<div class="cg"><div class="cg-nm"><span class="sw" style="background:${p.color}"></span>${esc(p.label)} ${esc(outcomeSym(p.outcome))}</div>
+        <div class="cg-body">${rows}<div class="cg-row cg-ax"><span></span>${Array.from({length:12},(_,i)=>`<i>${i%2?'':BIN_LAB(i)}</i>`).join('')}</div></div></div>`;
+    }).join('');
+    return;
+  }
+  const byDay=clockMode==='day';
+  D.textContent=byDay
+    ?'Part des essais de chaque session selon le jour de la semaine : qui travaille en semaine, qui travaille le week-end.'
+    :'Part des essais de chaque session par tranche de 2 h : à quelle heure chacun travaillait.';
+  const cols=byDay?DAYS.map(d=>d[0].toUpperCase()+d.slice(1,3)+'.'):Array.from({length:12},(_,i)=>BIN_LAB(i));
+  const shares=M.vis.map(p=>{
+    const st=hoursStats(p), tot=st.total||1;
+    const raw=byDay?st.byD:(()=>{ const b=Array(12).fill(0); st.byH.forEach((n,h)=>b[Math.floor(h/2)]+=n); return b; })();
+    return raw.map(n=>n/tot*100);
+  });
+  const max=Math.max(1,...shares.flat());
+  box.innerHTML=`<table class="heat"><thead><tr><th>Session</th>${cols.map(c=>`<th class="col">${c}</th>`).join('')}</tr></thead><tbody>${
+    M.vis.map((p,i)=>`<tr${p.me?' class="me"':''}><td>${sessName(p)}</td>${shares[i].map(v=>v<0.5
+      ?'<td class="h zero">·</td>'
+      :`<td class="h" style="background:rgba(${accent},${(0.1+0.75*v/max).toFixed(2)})">${Math.round(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    <div class="note">En % des essais de la session.</div>`;
+}
+
 /* ----------------------- Orchestration ----------------------- */
-function describeStage(exSet){
-  document.getElementById('tblStage').textContent=xLabel(stage);
-  document.getElementById('tblDesc').innerHTML=
-    `Position de chacun sur l'échelle stanine à <b>${xLabel(stage)}</b> (niveau = moyenne des ${LASTK} derniers essais à cette date)`+
-    (exSet&&exSet.common?` — <b>exercices communs uniquement</b> (${exSet.set.size} sur ${exSet.total})`:'')+
-    `. Déplacer « Semaine comparée » pour se situer à un autre moment.`;
+function renderStageParts(){
+  renderControls(); renderNow(); renderTable(); renderFocus(); renderVolTable(); renderDecisive();
+  ['chGlobal','chVol','chHours'].forEach(id=>{ if(charts[id]) charts[id].update('none'); });
 }
 function renderAll(){
-  renderCands();
-  const ps=participants();
-  const exSet=exerciseSet(ps);
-  // curseur : semaines avant l'examen, mêmes bornes que les graphiques
-  const [lo,hi]=ps.length?viewRange(ps):[-13,0];
-  const sl=document.getElementById('stage');
-  sl.min=lo; sl.max=hi;
-  const auto=myStage(ps);
-  if(!stageTouched||stage===null||stage<lo||stage>hi) stage=bestStage(ps,lo,hi);
-  stage=Math.min(hi,Math.max(lo,stage));
-  sl.value=stage;
-  document.getElementById('stageVal').textContent=
-    xLabel(stage)+(auto!==null&&stage===auto?" · où j'en suis":'');
-  const sc=document.getElementById('scale');
-  sc.value=scaleFrom;
-  document.getElementById('scaleVal').textContent=`de ${xLabel(scaleFrom)} au jour J`;
-  const info=document.getElementById('exSetInfo');
-  info.textContent=ps.length
-    ? (exSet.common?`${exSet.set.size} exercices communs sur ${exSet.total}`
-       :`${exSet.set.size} exercices`+(exSet.split?` · ${exSet.split} non partagé${exSet.split>1?'s':''}`:''))
-    : '';
-  info.title=ps.length&&!exSet.common&&exSet.split
-    ? `${exSet.split} exercice(s) ne sont pas pratiqués par tout le monde (programme modifié depuis leur préparation, ou test que je n'ai pas encore fait). Passer sur « Communs uniquement » pour comparer à périmètre égal.`
-    : '';
-  describeStage(exSet);
-  renderReadout(ps,exSet);
-  renderKeys(ps);
-  if(ps.length){ renderCharts(ps,exSet); renderHours(ps); }
-  else{
-    ['chGlobal','chVol','chHours','chClock','chVolEx'].forEach(id=>{
-      if(charts[id]){charts[id].destroy(); delete charts[id];} });
-    document.getElementById('hoursTbl').innerHTML='';
-    document.getElementById('clockGrid').innerHTML='';
-  }
-  renderVolEx(ps,exSet);
-  renderTable(ps,exSet);
+  M=buildModel();
+  const [lo,hi]=stageBounds();
+  if(!stageTouched||stage===null||stage<lo||stage>hi) stage=defaultStage();
+  stage=clamp(stage,lo,hi);
+  renderDossiers(); renderEquiv(); renderControls(); renderSessBar();
+  renderNow(); renderTraj(); renderBase(); renderTable(); renderFocus(); renderDecisive();
+  renderVolTable(); renderWeekly(); renderHours(); renderClock();
 }
 
 /* ----------------------- Événements ----------------------- */
 function segHandler(id,fn){
   document.getElementById(id).addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b) return;
-    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
-    fn(b.dataset.v); renderAll();
+    fn(b.dataset.v); saveUI(); renderAll();
   });
 }
-segHandler('segPhase',v=>{ phase=v; stageTouched=false; });
-segHandler('segSess',v=>{ sessionFilter=v; stageTouched=false; });
-segHandler('segClock',v=>{ clockMode=v; });
+segHandler('segPhase',v=>{ phase=v; stageTouched=false; scaleFrom=null; });
+segHandler('segBasis',v=>{ basisMode=v; });
 segHandler('segVolMode',v=>{ volMode=v; });
-document.getElementById('volEx').addEventListener('change',e=>{
-  volExSel=e.target.value;
-  const ps=participants(); renderVolEx(ps,exerciseSet(ps));
-});
-segHandler('segSet',v=>{ commonOnly=v==='common'; });
-document.getElementById('scale').addEventListener('input',e=>{
-  scaleFrom=+e.target.value; stageTouched=false; renderAll();
-});
+segHandler('segClock',v=>{ clockMode=v; });
 document.getElementById('stage').addEventListener('input',e=>{
-  stage=+e.target.value; stageTouched=true;
-  const ps=participants(), exSet=exerciseSet(ps);
-  document.getElementById('stageVal').textContent=xLabel(stage);
-  renderReadout(ps,exSet); renderTable(ps,exSet); describeStage(exSet); renderVolEx(ps,exSet);
+  stage=+e.target.value; stageTouched=true; renderStageParts();
+});
+document.getElementById('stageVal').addEventListener('click',e=>{
+  if(!e.target.closest('#stageNow')) return;
+  stageTouched=false; stage=defaultStage(); renderStageParts();
+});
+document.getElementById('scale').addEventListener('input',e=>{
+  scaleFrom=+e.target.value; renderControls(); renderTraj(); renderFocus(); renderWeekly();
+});
+const ownerById=id=>id==='me'?me:refs.find(r=>r.id===id);
+const partByKey=k=>M.parts.find(p=>p.key===k);
+document.getElementById('sessBar').addEventListener('click',e=>{
+  const q=e.target.closest('button[data-qf]');
+  if(q){
+    const v=q.dataset.qf;
+    M.parts.forEach(p=>{
+      if(p.ignored) return;
+      const code=p.outcome?p.outcome.code:'unknown';
+      const on=p.hero||(v==='all'?true:v==='none'?false:p.me?false:code===v);
+      setSessPref(p.owner,p.prefKey,{on});
+    });
+    saveRefs(); stageTouched=false; renderAll(); return;
+  }
+  const b=e.target.closest('button[data-key]'); if(!b) return;
+  const p=partByKey(b.dataset.key); if(!p) return;
+  setSessPref(p.owner,p.prefKey,{on:!p.on});
+  saveRefs(); renderAll();
+});
+const cands=document.getElementById('cands');
+cands.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.oc!==undefined){
+    const p=partByKey(t.dataset.oc); if(!p) return;
+    setSessionOutcome(p.owner,phase,p.camp,t.value||null,famPhase);
+    if(t.value==='ignored') setSessPref(p.owner,p.prefKey,{on:false});
+    else if(p.ignored) setSessPref(p.owner,p.prefKey,{on:true});   // une session rétablie réapparaît
+    delete p.owner._hist; saveRefs(); renderAll();
+  }else if(t.dataset.exam!==undefined){
+    const p=partByKey(t.dataset.exam); if(!p) return;
+    const v=/^\d{4}-\d{2}-\d{2}$/.test(t.value)?t.value:null;
+    // revenir à la date déduite : vider le champ, ou retaper la date automatique
+    const auto=isoDay(p.me&&p.target?new Date(myExams()[histKind(phase)]+'T00:00:00'):p.camp.end);
+    setSessPref(p.owner,p.prefKey,{exam:v&&v!==auto?v:null});
+    saveRefs(); stageTouched=false; renderAll();
+  }else if(t.dataset.status!==undefined){
+    const o=ownerById(t.dataset.status); if(!o) return;
+    o.status=t.value; delete o._hist; saveRefs(); renderAll();
+  }else if(t.dataset.myexam!==undefined){
+    setMyExam(t.dataset.myexam,/^\d{4}-\d{2}-\d{2}$/.test(t.value)?t.value:'');
+    stageTouched=false; renderAll();
+  }
+});
+cands.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-act]'); if(!b) return;
+  const o=ownerById(b.dataset.id); if(!o) return;
+  const act=b.dataset.act;
+  if(act==='mine'){
+    if(!confirm(`Utiliser « ${o.name} » comme TES résultats ?\n\nLe tableau de bord utilisera aussi ce fichier.`)) return;
+    promoteToMe(o);
+  }else if(act==='del'){
+    if(!confirm(`Supprimer « ${o.name} » et ses données ?`)) return;
+    refs=refs.filter(x=>x.id!==o.id);
+    saveRefs(); stageTouched=false; renderAll(); setStatus('Dossier supprimé.');
+  }else if(act==='ren'){
+    const n=prompt('Nom du candidat :',o.name);
+    if(n&&n.trim()){ o.name=n.trim(); saveRefs(); renderAll(); }
+  }
+});
+document.getElementById('equivOn').addEventListener('change',e=>{
+  equiv.on=e.target.checked; saveEquiv(); stageTouched=false; renderAll();
+});
+document.getElementById('equivList').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-rm]'); if(!b) return;
+  equiv.pairs.splice(+b.dataset.rm,1); saveEquiv(); renderAll();
+});
+document.getElementById('eqAdd').addEventListener('click',()=>{
+  const a=document.getElementById('eqOld').value, b=document.getElementById('eqNew').value;
+  if(!a||!b||a===b) return;
+  equiv.pairs=equiv.pairs.filter(p=>p[0]!==a); equiv.pairs.push([a,b]);
+  equiv.on=true; saveEquiv(); renderAll();
+});
+document.getElementById('focusSel').addEventListener('change',e=>{
+  focusFam=e.target.value; saveUI(); renderFocus(); renderTable();
+});
+function openFocus(f){
+  focusFam=f; saveUI(); renderFocus(); renderTable();
+  document.getElementById('sec-focus').scrollIntoView({behavior:'smooth',block:'start'});
+}
+const strips=document.getElementById('strips');
+strips.addEventListener('click',e=>{ const r=e.target.closest('.row[data-fam]'); if(r) openFocus(r.dataset.fam); });
+strips.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ') return;
+  const r=e.target.closest('.row[data-fam]'); if(r){ e.preventDefault(); openFocus(r.dataset.fam); }
 });
 document.getElementById('fileIn').addEventListener('change',e=>{
   if(e.target.files.length) handleFiles(e.target.files);
   e.target.value='';
 });
 const drop=document.getElementById('drop');
-['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{
-  e.preventDefault(); drop.classList.add('over');
-}));
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{ e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{
   e.preventDefault(); if(ev==='dragleave'&&drop.contains(e.relatedTarget)) return;
   drop.classList.remove('over');
@@ -1733,32 +2131,20 @@ window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize
 
 /* ----------------------- Infobulles au toucher -----------------------
    Sur écran tactile, aucun « mouseout » ne survient : l'infobulle d'un
-   graphique reste donc affichée indéfiniment. On la referme au second
-   toucher sur le même graphique, ou dès qu'on touche ailleurs.
-   -------------------------------------------------------------------- */
+   graphique resterait affichée. On la referme au second toucher sur le même
+   graphique, ou dès qu'on touche ailleurs. */
 (function(){
   const shownOn=new Set();
-  const tipCount=c=>{
-    try{ return c.tooltip&&c.tooltip.getActiveElements?c.tooltip.getActiveElements().length:0; }
-    catch(e){ return 0; }
-  };
-  const hide=c=>{
-    try{
-      c.setActiveElements([]);
-      if(c.tooltip&&c.tooltip.setActiveElements) c.tooltip.setActiveElements([],{x:0,y:0});
-      c.update('none');
-    }catch(e){}
-  };
+  const tipCount=c=>{ try{ return c.tooltip&&c.tooltip.getActiveElements?c.tooltip.getActiveElements().length:0; }catch(e){ return 0; } };
+  const hide=c=>{ try{ c.setActiveElements([]); if(c.tooltip&&c.tooltip.setActiveElements) c.tooltip.setActiveElements([],{x:0,y:0}); c.update('none'); }catch(e){} };
   function onTouch(ev){
     const target=ev.target;
-    // Chart.js traite le toucher de son côté : on lit l'état juste après
     setTimeout(()=>{
       Object.entries(charts).forEach(([id,c])=>{
         if(!c||!c.canvas) return;
-        const touched=c.canvas===target;
-        const open=tipCount(c)>0;
+        const touched=c.canvas===target, open=tipCount(c)>0;
         if(!touched){ if(open) hide(c); shownOn.delete(id); return; }
-        if(shownOn.has(id)){ hide(c); shownOn.delete(id); }   // second toucher → on referme
+        if(shownOn.has(id)){ hide(c); shownOn.delete(id); }
         else if(open) shownOn.add(id);
       });
     },0);
@@ -1768,17 +2154,17 @@ window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c.resize
 })();
 
 /* ----------------------- Démarrage ----------------------- */
-loadExcluded(); loadMe(); loadRefs(); renderAll();
+loadExcluded(); loadEquiv(); loadUI(); loadMe(); loadRefs();
+if(!refs.length||!me) document.getElementById('dossiers').open=true;
+renderAll();
 if(excluded.size){
-  const n=excluded.size;
-  const el=document.getElementById('exclNote');
-  if(el){ el.hidden=false;
-    el.innerHTML=`${n} exercice${n>1?'s':''} exclu${n>1?'s':''} des calculs : `+
-      `<b>${[...excluded].sort((a,b)=>a.localeCompare(b,'fr')).map(esc).join(', ')}</b> — `+
-      `réglage modifiable sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.`;
-  }
+  const n=excluded.size, el=document.getElementById('exclNote');
+  el.hidden=false;
+  el.innerHTML=`${plural(n,'exercice')} exclu${n>1?'s':''} des calculs : `+
+    `<b>${[...excluded].sort((a,b)=>a.localeCompare(b,'fr')).map(esc).join(', ')}</b> — `+
+    `réglage modifiable sur le <a href="index.html" style="color:var(--accent)">tableau de bord</a>.`;
 }
-if(!refs.length) setStatus("Aucun dossier de référence pour l'instant — glisser les CSV des candidats admis ci-dessus.");
+if(!refs.length) setStatus("Aucun dossier pour l'instant — glisser les CSV d'autres candidats ci-dessus.");
 </script>
 </body>
 </html>
