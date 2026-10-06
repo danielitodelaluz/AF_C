@@ -27,6 +27,7 @@
     --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--disp);
     -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5}
   .wrap{max-width:1180px;margin:0 auto;padding:22px 16px 80px}
@@ -191,6 +192,9 @@
   tr.me td{font-weight:600}
   tr.tot td{border-top:1px solid var(--muted);font-weight:600}
   .star{color:var(--accent)}
+  tr.lnk{cursor:pointer}
+  .un-tag{font-family:var(--mono);font-size:9.5px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:6px;vertical-align:1px}
+  .un-list{color:var(--muted)}
 
   /* Réglettes stanine (comparatif, départ) */
   .tape{position:relative;height:22px;border-radius:11px;
@@ -352,6 +356,14 @@
       </div>
       <span class="stageval" id="basisInfo"></span>
     </div>
+    <div class="ctl" id="ctlUnseen">
+      <span class="lab">Exercices que tu n’as jamais faits</span>
+      <div class="seg" id="segUnseen">
+        <button data-v="out" aria-pressed="true" title="Ne comparer que sur les exercices que tu as déjà pratiqués">Exclus</button>
+        <button data-v="in" aria-pressed="false" title="Ajouter les exercices pratiqués par les autres candidats pendant leur session, même si tu ne les as jamais faits : ils ont pu les entraîner pour d’autres">Inclus</button>
+      </div>
+      <span class="stageval" id="unseenInfo"></span>
+    </div>
     <div class="ctl">
       <span class="lab">Semaine comparée</span>
       <input type="range" id="stage" min="-26" max="0" value="0" step="1">
@@ -391,6 +403,12 @@
     <h2>Comparatif par exercice — <span id="tblStage">—</span></h2>
     <p class="desc" id="tblDesc"></p>
     <div id="strips"></div>
+  </section>
+
+  <section class="panel" id="sec-unseen" hidden>
+    <h2>Exercices que tu n’as jamais faits</h2>
+    <p class="desc" id="unDesc"></p>
+    <div class="tblwrap"><div id="unTbl"></div></div>
   </section>
 
   <section class="panel" id="sec-focus">
@@ -594,8 +612,13 @@ const DAY=86400000;
 const dayIdx=d=>Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/DAY);
 const GAP_DAYS=28;      // coupure au-delà de laquelle on change de session
 const SUSTAIN_WIN=14;   // fenêtre d'observation d'un entraînement « soutenu »
-const SUSTAIN_DAYS=3;   // jours actifs requis dans cette fenêtre
-const SUSTAIN_ATT=10;   // essais requis dans cette fenêtre
+/* Démarrage : il faut un vrai rythme (4 jours et 20 essais sur 14 jours) —
+   quelques essais épars avant de s'y mettre, c'est du rodage, pas de la
+   préparation. Arrêt : critère plus souple (3 jours, 10 essais), pour ne pas
+   amputer les derniers jours, souvent plus légers, avant l'épreuve. */
+const START_DAYS=4, START_ATT=20;
+const SUSTAIN_DAYS=3;   // jours actifs requis pour l'arrêt
+const SUSTAIN_ATT=10;   // essais requis pour l'arrêt
 const SUBST_DAYS=5, SUBST_ATT=30;   // seuil d'une session « substantielle »
 const LINK_DAYS=90;     // un PSY1 entamé moins de 3 mois après un PSY0 : même candidature
 const LS_ME="pilotest_cmp_me_v1";
@@ -622,7 +645,7 @@ function periodLabel(a,b){
    La fin retenue est le jour J : on cesse de s'entraîner une fois l'épreuve
    passée. Un candidat peut avoir plusieurs sessions (une candidature ratée,
    puis la bonne) : chacune est analysable et comparable séparément. */
-function detectCampaigns(rows,ph,phaseOf){
+function detectCampaigns(rows,ph,phaseOf,keepLargest=true){
   const src=phaseRows(rows,ph,phaseOf);
   if(!src.length) return [];
   const byDay=new Map();
@@ -645,20 +668,25 @@ function detectCampaigns(rows,ph,phaseOf){
   const sustained=(b,i,dir)=>{
     let d=0,a=0;
     for(let j=i; j>=0&&j<b.length&&Math.abs(b[j]-b[i])<=SUSTAIN_WIN; j+=dir){ d++; a+=byDay.get(b[j]).n; }
-    return d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT;
+    return dir>0 ? d>=START_DAYS&&a>=START_ATT : d>=SUSTAIN_DAYS&&a>=SUSTAIN_ATT;
   };
   // 2) recalage du début et de la fin de chaque bloc
   const built=blocks.map(b=>{
-    let si=0, ei=b.length-1;
-    for(let i=0;i<b.length;i++) if(sustained(b,i,1)){ si=i; break; }
+    let si=0, ei=b.length-1, started=false;
+    for(let i=0;i<b.length;i++) if(sustained(b,i,1)){ si=i; started=true; break; }
     for(let i=b.length-1;i>si;i--) if(sustained(b,i,-1)){ ei=i; break; }
     const kept=b.slice(si,ei+1);
-    return {startK:kept[0], endK:kept[kept.length-1], trimmedDays:si, trimmedTail:b.length-1-ei,
+    return {startK:kept[0], endK:kept[kept.length-1], started, trimmedDays:si, trimmedTail:b.length-1-ei,
             activeDays:kept.length, att:kept.reduce((s,d)=>s+byDay.get(d).n,0)};
   });
-  // 3) on ne retient que les sessions substantielles ; à défaut, la plus grosse
-  let keep=built.filter(c=>c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
-  if(!keep.length) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
+  /* 3) on ne retient que les sessions substantielles. À défaut, la plus
+     grosse — seulement pour MES résultats (keepLargest) : une préparation
+     qui démarre doit apparaître ; chez un autre candidat, une poignée
+     d'essais n'est pas une session comparable. */
+  // sans jamais atteindre le rythme de démarrage, ce n'est pas une préparation
+  let keep=built.filter(c=>c.started&&c.activeDays>=SUBST_DAYS&&c.att>=SUBST_ATT);
+  if(!keep.length&&keepLargest) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
+  if(!keep.length) return [];
   const dropped=built.length-keep.length;
   return keep.map((c,i)=>{
     const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=c.startK&&k<=c.endK;});
@@ -682,8 +710,8 @@ function detectCampaigns(rows,ph,phaseOf){
    candidature qui a abouti. */
 function selectionHistory(owner,phaseOf){
   if(owner._hist) return owner._hist;
-  const p0=detectCampaigns(owner.rows,'psy0',phaseOf);
-  const p1=detectCampaigns(owner.rows,PSY1_ALL,phaseOf);
+  const p0=detectCampaigns(owner.rows,'psy0',phaseOf,!!owner.me);
+  const p1=detectCampaigns(owner.rows,PSY1_ALL,phaseOf,!!owner.me);
   const cycles=p0.map(s=>({p0:s,p1:[]}));
   p1.forEach(s=>{
     let host=null;
@@ -1047,7 +1075,7 @@ function handleFiles(files){
 }
 
 /* ----------------------- Préférences d'affichage ----------------------- */
-let phase='psy1', basisMode='common', volMode='total', clockMode='hour';
+let phase='psy1', basisMode='common', unseenMode='out', volMode='total', clockMode='hour';
 let focusFam=null, scaleFrom=null;       // null : fenêtre ajustée automatiquement
 let stage=null, stageTouched=false;
 function loadUI(){
@@ -1055,13 +1083,14 @@ function loadUI(){
     const u=JSON.parse(localStorage.getItem(LS_UI)||'null')||{};
     if(['psy0','psy1',PSY1_ALL].includes(u.phase)) phase=u.phase;
     if(['common','all'].includes(u.basis)) basisMode=u.basis;
+    if(['out','in'].includes(u.unseen)) unseenMode=u.unseen;
     if(['total','stage'].includes(u.vol)) volMode=u.vol;
     if(['hour','day','grid'].includes(u.clock)) clockMode=u.clock;
     if(typeof u.focus==='string') focusFam=u.focus;
   }catch(e){}
 }
 function saveUI(){
-  try{ localStorage.setItem(LS_UI,JSON.stringify({phase,basis:basisMode,vol:volMode,clock:clockMode,focus:focusFam})); }catch(e){}
+  try{ localStorage.setItem(LS_UI,JSON.stringify({phase,basis:basisMode,unseen:unseenMode,vol:volMode,clock:clockMode,focus:focusFam})); }catch(e){}
 }
 
 /* ----------------------- Modèle -----------------------
@@ -1084,7 +1113,7 @@ function buildModel(){
   owners.forEach(applyFamilies);
   const parts=[];
   owners.forEach(o=>{
-    const camps=detectCampaigns(o.rows,phase,famPhase);
+    const camps=detectCampaigns(o.rows,phase,famPhase,!!o.me);
     // ma session visée par mon examen ; à défaut, la plus récente
     const targetC=o.me?camps.find(c=>myExamTarget(phase,camps,c)):null;
     camps.forEach((c,i)=>{
@@ -1128,17 +1157,33 @@ function buildModel(){
   const refsV=vis.filter(p=>!p.me);
   const isCode=c=>p=>p.outcome&&p.outcome.code===c;
   const pass=refsV.filter(isCode('pass')), fail=refsV.filter(isCode('fail'));
+  /* Exercices que je n'ai JAMAIS faits dans cette phase (toutes périodes
+     confondues) mais que d'autres sessions affichées ont pratiqués. Exclus :
+     tout se compare sur mes exercices. Inclus : ils entrent dans les niveaux
+     des autres, dans les listes par exercice et dans le volume. */
+  const meO=owners.find(o=>o.me);
+  const myFams=meO?new Set(phaseRows(meO.rows,phase,famPhase).map(r=>r.fam)):null;
+  const famSetOf=p=>new Set(p.camp.campRows.map(r=>r.fam));
+  const unseenAll=new Set();
+  if(myFams) refsV.forEach(p=>famSetOf(p).forEach(f=>{ if(!myFams.has(f)) unseenAll.add(f); }));
+  const withUnseen=unseenMode==='in'||!myFams;
+  const elig=f=>withUnseen||myFams.has(f);
+  const unseen=withUnseen&&myFams?unseenAll:new Set();
   // exercices (familles) pratiqués : par tout le monde, ou par au moins une session
-  const famSets=vis.map(p=>new Set(p.camp.campRows.map(r=>r.fam)));
-  const union=new Set(); famSets.forEach(s=>s.forEach(f=>union.add(f)));
-  const inter=famSets.length?new Set([...union].filter(f=>famSets.every(s=>s.has(f)))):new Set();
+  const famSets=vis.map(famSetOf);
+  const union=new Set(); famSets.forEach(s=>s.forEach(f=>{ if(elig(f)) union.add(f); }));
+  // inclus : ma session ne restreint plus les exercices communs (je n'en fais qu'une partie)
+  const interSets=unseen.size&&refsV.length?refsV.map(famSetOf):famSets;
+  const inter=interSets.length?new Set([...union].filter(f=>interSets.every(s=>s.has(f)))):new Set();
   let basis=union, fallback=false;
   if(basisMode==='common'&&vis.length>=2){
     if(inter.size>=3) basis=inter; else fallback=true;   // trop peu en commun : on prend tout, et on le dit
   }
   // exercices au programme de la phase, même jamais pratiqués
-  const programme=new Set(universeOf(phase).map(familyOf));
-  return {parts,vis,mine,refsV,pass,fail,union,inter,basis,fallback,programme};
+  const programmeAll=new Set(universeOf(phase).map(familyOf));
+  const programme=new Set([...programmeAll].filter(elig));
+  return {parts,vis,mine,refsV,pass,fail,union,inter,basis,fallback,programme,programmeAll,
+    myFams,unseenAll,unseen,elig};
 }
 
 /* ----------------------- Mesures -----------------------
@@ -1405,7 +1450,7 @@ function renderEquiv(){
 
 /* ----------------------- Rendu : contrôles et barre de sessions ----------------------- */
 function renderControls(){
-  [['segPhase',phase],['segBasis',basisMode],['segVolMode',volMode],['segClock',clockMode]].forEach(([id,v])=>
+  [['segPhase',phase],['segBasis',basisMode],['segUnseen',unseenMode],['segVolMode',volMode],['segClock',clockMode]].forEach(([id,v])=>
     [...document.getElementById(id).children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v)));
   const info=document.getElementById('basisInfo');
   if(!M.vis.length) info.textContent='';
@@ -1413,6 +1458,11 @@ function renderControls(){
     info.innerHTML=`<span class="warn">${M.inter.size<1?'aucun exercice commun':'moins de 3 exercices communs'} : comparaison sur les ${M.union.size} exercices</span>`;
   else if(basisMode==='common'&&M.vis.length>=2) info.textContent=`${plural(M.basis.size,'exercice')} en commun sur ${M.union.size}`;
   else info.textContent=`${plural(M.basis.size,'exercice')}`;
+  document.getElementById('ctlUnseen').hidden=!M.myFams;
+  const nU=M.unseenAll.size;
+  document.getElementById('unseenInfo').textContent=!M.myFams?''
+    :nU?`${plural(nU,'exercice')} pratiqué${nU>1?'s':''} par les autres, jamais par toi${unseenMode==='in'?' — inclus':' — exclus'}`
+    :'aucun : tu as fait tous les exercices des autres';
   const [lo,hi]=stageBounds();
   const sl=document.getElementById('stage');
   sl.min=lo; sl.max=hi; sl.value=Math.round(stage);
@@ -1527,7 +1577,9 @@ function renderNow(){
   const pr=projection(s);
   D.innerHTML=`À <b>${esc(stageText(s))}</b>, face à chaque session au même stade de sa préparation. Niveau global sur `+
     `${basisMode==='common'&&!M.fallback?'les <b>'+plural(basis.size,'exercice')+' communs</b>':'<b>'+plural(basis.size,'exercice')+'</b>'} ; `+
-    `dans le tableau, chaque ligne compare sur les exercices que vous avez <b>tous deux</b> pratiqués.`;
+    `dans le tableau, chaque ligne compare sur les exercices que vous avez <b>tous deux</b> pratiqués. `+
+    `« Essais à ce stade » compte ce qui était fait à ce moment de la préparation ; « session entière », tout ce qui a été fait jusqu’au jour J.`+
+    (M.unseen.size?` Dernière colonne : leur niveau sur les exercices que <b>tu n’as jamais faits</b>.`:'');
   const pt=pass.length?`${plural(pass.length,'réussite')}${pass.some(p=>!p.outcome.sure)?` (dont ${pass.filter(p=>!p.outcome.sure).length} supposée${pass.filter(p=>!p.outcome.sure).length>1?'s':''})`:''}`:'';
   const tiles=[];
   tiles.push(`<div class="tile"><div class="t-lab">📍 Stade</div>
@@ -1563,20 +1615,22 @@ function renderNow(){
     const cf=commonFams(m,p), tp=tOf(p,s);
     const pl=levelAt(p,tp,cf), ml=levelAt(m,tMe,cf), pj=levelAt(p,tOf(p,0),cf);
     const before=tp<startT(p);
-    return {p,cf,pl,ml,pj,before,gap:pl&&ml?ml.v-pl.v:null,cum:cumAt(p,tp),pace:paceAt(p,tp),hrs:hoursAt(p,tp)};
+    const un=M.unseen.size?levelAt(p,tp,M.unseen):null;
+    return {p,cf,pl,ml,pj,before,un,gap:pl&&ml?ml.v-pl.v:null,cum:cumAt(p,tp),pace:paceAt(p,tp),hrs:hoursAt(p,tp)};
   });
+  const unCol=M.unseen.size>0;
   const head=`<tr><th>Session</th><th>Niveau à ce stade</th><th>Toi, mêmes exercices</th><th>Écart</th>
-    <th>Essais cumulés</th><th>Rythme (essais/sem.)</th><th>Heures</th><th>Niveau au jour J</th><th>Exercices communs</th></tr>`;
+    <th>Essais à ce stade</th><th>Essais, session entière</th><th>Rythme (essais/sem.)</th><th>Heures à ce stade</th><th>Niveau au jour J</th><th>Exercices communs</th>${unCol?'<th>Jamais faits par toi : niveau</th>':''}</tr>`;
   const meRow=`<tr class="me"><td>${sessName(m)}</td><td style="color:${my?bandColor(my.v):''}">${fmt(my?my.v:null)}</td><td class="dim">—</td><td class="dim">—</td>
-    <td>${myCum}</td><td>${Math.round(myP)}</td><td>${myH.toFixed(1)} h</td><td class="dim">${pr?'≈ '+fmt(pr.v):'—'}</td><td>${my?my.n:0}</td></tr>`;
+    <td>${myCum}</td><td>${m.camp.attempts}${m.ongoing?' <span class="dim">(en cours)</span>':''}</td><td>${Math.round(myP)}</td><td>${myH.toFixed(1)} h</td><td class="dim">${pr?'≈ '+fmt(pr.v):'—'}</td><td>${my?my.n:0}</td>${unCol?'<td class="dim">—</td>':''}</tr>`;
   const body=rows.map(r=>`<tr${cl&&cl.p===r.p?' title="Trajectoire la plus proche de la tienne"':''}>
     <td>${sessName(r.p)}${cl&&cl.p===r.p?' <span class="star">★</span>':''}</td>
     <td style="color:${r.pl?bandColor(r.pl.v):''}">${r.before?'<span class="dim">pas commencé</span>':fmt(r.pl?r.pl.v:null)}</td>
     <td>${fmt(r.ml?r.ml.v:null)}</td>
     <td class="${gapCls(r.gap)}">${fmtS(r.gap)}</td>
-    <td>${r.cum}</td><td>${Math.round(r.pace)}</td><td>${r.hrs.toFixed(1)} h</td>
+    <td>${r.cum}</td><td>${r.p.camp.attempts}</td><td>${Math.round(r.pace)}</td><td>${r.hrs.toFixed(1)} h</td>
     <td style="color:${r.pj?bandColor(r.pj.v):''}">${fmt(r.pj?r.pj.v:null)}</td>
-    <td>${r.cf.size}</td></tr>`).join('');
+    <td>${r.cf.size}</td>${unCol?`<td${r.un?` style="color:${bandColor(r.un.v)}"`:' class="dim"'}>${r.un?`${fmt(r.un.v)} <span class="dim">(${plural(r.un.n,'ex.','ex.')})</span>`:'—'}</td>`:''}</tr>`).join('');
   T.innerHTML=`<table><thead>${head}</thead><tbody>${meRow}${body}</tbody></table>`;
 }
 
@@ -1783,7 +1837,8 @@ function renderTable(){
   const behind=rows.filter(r=>r.gap!==null&&r.gap<-0.15).sort((a,b)=>a.gap-b.gap);
   const ahead=rows.filter(r=>r.gap!==null&&r.gap>0.15).sort((a,b)=>b.gap-a.gap);
   const level=rows.filter(r=>r.gap!==null&&Math.abs(r.gap)<=0.15).sort((a,b)=>a.f.localeCompare(b.f,'fr'));
-  const na=rows.filter(r=>r.gap===null).sort((a,b)=>a.f.localeCompare(b.f,'fr'));
+  const nev=rows.filter(r=>r.gap===null&&M.unseen.has(r.f)).sort((a,b)=>(b.grp??-1)-(a.grp??-1)||a.f.localeCompare(b.f,'fr'));
+  const na=rows.filter(r=>r.gap===null&&!M.unseen.has(r.f)).sort((a,b)=>a.f.localeCompare(b.f,'fr'));
   const mark=(p,v)=>`<div class="mk ${p.shape}${p.hero?' hero':hollowOf(p)?' o-'+p.outcome.code:''}" style="left:${pos(v)}%;--c:${p.color}"
       title="${esc(p.label)} — ${esc(outcomeText(p.outcome))} : ${fmt(v)}"></div>`;
   const strip=r=>{
@@ -1797,7 +1852,7 @@ function renderTable(){
       title="${r.nPass<2?'Une seule réussite mesurée sur cet exercice à ce stade':`Médiane de ${r.nPass} réussites`} : ${fmt(r.grp)}"></div>`:'';
     const mine=r.mine!==null&&M.mine?mark(M.mine,r.mine):'';
     let lab,col;
-    if(r.gap===null){ lab=r.none?'aucun essai':(r.mine===null?(M.mine?'pas fait':'—'):'pas de repère'); col='var(--faint)'; }
+    if(r.gap===null){ lab=r.none?'aucun essai':M.unseen.has(r.f)?'jamais fait':(r.mine===null?(M.mine?'pas fait':'—'):'pas de repère'); col='var(--faint)'; }
     else { lab=fmtS(r.gap)+(r.nPass<2?'<sup title="écart à une seule réussite">¹</sup>':''); col=r.gap>=0.15?getCss('--s7'):r.gap<=-0.15?getCss('--s2'):getCss('--s5'); }
     const eq=eqMark(r.f);
     return `<div class="row${r.f===focusFam?' sel':''}" data-fam="${esc(r.f)}" role="button" tabindex="0"
@@ -1811,8 +1866,54 @@ function renderTable(){
     grp('behind','▼ En retrait sur les réussites',behind)+
     grp('ahead','▲ En avance sur les réussites',ahead)+
     grp('na','= Au niveau des réussites',level)+
+    grp('na','○ Jamais faits par toi — les autres entre eux',nev)+
     grp('na','Pas comparable à ce stade',na)+
     `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`;
+}
+
+/* ----------------------- Rendu : exercices jamais faits -----------------------
+   Ce que les autres ont travaillé pendant leur session et que je n'ai jamais
+   fait : un exercice travaillé par plusieurs réussites — même plus proposé —
+   a pu entraîner des aptitudes utiles ailleurs. Comparaison des autres
+   entre eux, réussites face aux échecs. */
+function renderUnseen(){
+  const S=document.getElementById('sec-unseen'), D=document.getElementById('unDesc'), T=document.getElementById('unTbl');
+  const U=M.unseenAll;
+  S.hidden=!M.myFams||!U.size;
+  if(S.hidden){ T.innerHTML=''; return; }
+  const names=[...U].sort((a,b)=>a.localeCompare(b,'fr'));
+  if(unseenMode!=='in'){
+    D.innerHTML=`${plural(U.size,'exercice')} pratiqué${U.size>1?'s':''} par les autres candidats affichés pendant leur session, mais jamais par toi : `+
+      `<span class="un-list">${names.map(esc).join(' · ')}</span>. Ils sont <b>exclus</b> des comparaisons. `+
+      `<button type="button" class="btn" id="unseenOn" style="padding:2px 8px;font-size:10px">Les inclure</button>`;
+    T.innerHTML=''; return;
+  }
+  const {refsV,pass,fail}=M;
+  const share=(p,f)=>(famRows(p,f)||[]).length/Math.max(1,p.camp.campRows.length)*100;
+  const rows=names.map(f=>{
+    const who=refsV.filter(p=>famRows(p,f));
+    const wp=who.filter(p=>pass.includes(p)), wf=who.filter(p=>fail.includes(p));
+    const lvJ=list=>median(list.map(p=>famLevelAt(p,f,tOf(p,0))).filter(v=>v!==null));
+    return {f,n:who.length,np:wp.length,nf:wf.length,
+      att:median(who.map(p=>famRows(p,f).length)),attP:median(wp.map(p=>famRows(p,f).length)),
+      sh:median(who.map(p=>share(p,f))),
+      first:median(who.map(p=>xOf(p,famRows(p,f)[0].date.getTime()))),
+      atS:median(who.map(p=>famLevelAt(p,f,tOf(p,stage))).filter(v=>v!==null)),
+      a:lvJ(wp),b:lvJ(wf),prog:M.programmeAll.has(f)};
+  }).sort((x,y)=>y.np-x.np||y.n-x.n||(y.att||0)-(x.att||0));
+  D.innerHTML=`Exercices travaillés par les autres candidats affichés <b>pendant leur session</b> et que tu n’as <b>jamais</b> faits. `+
+    `Ils sont <b>inclus</b> : ils comptent dans le niveau des autres, dans le comparatif et dans le volume par exercice. `+
+    `Un exercice travaillé par plusieurs réussites, même s’il n’est plus proposé, a pu les entraîner pour d’autres (repérage, mémoire, calcul…). `+
+    `« Plus proposé » : absent du programme actuel de ${PHASE_NAME[phase]}. <b>Toucher une ligne</b> pour l’ouvrir en détail.`;
+  const c=v=>v===null?'':`style="color:${bandColor(v)}"`;
+  T.innerHTML=`<table><thead><tr><th>Exercice</th><th>Sessions</th><th>dont réussites</th><th>Essais (médiane)</th><th>Essais des réussites</th>
+    <th>Part de leur volume</th><th>Commencé vers</th><th>Niveau à ${esc(xLabel(stage))}</th><th>Jour J réussites</th><th>Jour J échecs</th></tr></thead><tbody>${rows.map(r=>`
+    <tr class="lnk" data-fam="${esc(r.f)}" tabindex="0" title="Ouvrir « ${esc(r.f)} » en détail">
+    <td>${esc(r.f)}${eqMark(r.f)?' <span style="color:var(--accent)">≈</span>':''}${r.prog?'':'<span class="un-tag">plus proposé</span>'}</td>
+    <td>${r.n} / ${refsV.length}</td><td>${r.np}${pass.length?` / ${pass.length}`:''}</td>
+    <td>${r.att===null?'–':Math.round(r.att)}</td><td>${r.attP===null?'–':Math.round(r.attP)}</td>
+    <td>${r.sh===null?'–':Math.round(r.sh)+' %'}</td><td>${r.first===null?'–':esc(xLabel(Math.floor(r.first)))}</td>
+    <td ${c(r.atS)}>${fmt(r.atS)}</td><td ${c(r.a)}>${fmt(r.a)}</td><td ${c(r.b)}>${fmt(r.b)}</td></tr>`).join('')}</tbody></table>`;
 }
 
 /* ----------------------- Rendu : exercice en détail ----------------------- */
@@ -1882,7 +1983,7 @@ function renderDecisive(){
       `Les sessions dont l’issue est seulement supposée (✓? ✗?) comptent.`;
     T.innerHTML=''; return;
   }
-  const fams=new Set(); [...pass,...fail].forEach(p=>p.camp.campRows.forEach(r=>fams.add(r.fam)));
+  const fams=new Set(); [...pass,...fail].forEach(p=>p.camp.campRows.forEach(r=>{ if(M.elig(r.fam)) fams.add(r.fam); }));
   const lv=(list,f)=>median(list.map(p=>famLevelAt(p,f,tOf(p,0))).filter(v=>v!==null));
   const vo=(list,f)=>median(list.filter(p=>famRows(p,f)).map(p=>cumAt(p,tOf(p,0),f)));
   const rows=[...fams].map(f=>{
@@ -1896,7 +1997,7 @@ function renderDecisive(){
   const c=v=>v===null?'':`style="color:${bandColor(v)}"`;
   T.innerHTML=`<table><thead><tr><th>Exercice</th><th>Réussites</th><th>Échecs</th><th>Écart</th><th>Toi</th>
     <th>Essais réussites</th><th>Essais échecs</th><th>Tes essais</th></tr></thead><tbody>${rows.map(r=>`<tr>
-    <td>${esc(r.f)}${eqMark(r.f)?' <span style="color:var(--accent)">≈</span>':''}</td>
+    <td>${esc(r.f)}${eqMark(r.f)?' <span style="color:var(--accent)">≈</span>':''}${M.unseen.has(r.f)?'<span class="un-tag">jamais fait</span>':''}</td>
     <td ${c(r.a)}>${fmt(r.a)}</td><td ${c(r.b)}>${fmt(r.b)}</td><td class="${gapCls(r.d)}">${fmtS(r.d)}</td>
     <td ${c(r.me)}>${fmt(r.me)}</td><td>${r.va===null?'–':Math.round(r.va)}</td><td>${r.vb===null?'–':Math.round(r.vb)}</td>
     <td>${r.mv===null?'–':r.mv}</td></tr>`).join('')}</tbody></table>`;
@@ -1997,7 +2098,7 @@ function renderClock(){
 
 /* ----------------------- Orchestration ----------------------- */
 function renderStageParts(){
-  renderControls(); renderNow(); renderTable(); renderFocus(); renderVolTable(); renderDecisive();
+  renderControls(); renderNow(); renderTable(); renderUnseen(); renderFocus(); renderVolTable(); renderDecisive();
   ['chGlobal','chVol','chHours'].forEach(id=>{ if(charts[id]) charts[id].update('none'); });
 }
 function renderAll(){
@@ -2006,7 +2107,7 @@ function renderAll(){
   if(!stageTouched||stage===null||stage<lo||stage>hi) stage=defaultStage();
   stage=clamp(stage,lo,hi);
   renderDossiers(); renderEquiv(); renderControls(); renderSessBar();
-  renderNow(); renderTraj(); renderBase(); renderTable(); renderFocus(); renderDecisive();
+  renderNow(); renderTraj(); renderBase(); renderTable(); renderUnseen(); renderFocus(); renderDecisive();
   renderVolTable(); renderWeekly(); renderHours(); renderClock();
 }
 
@@ -2019,6 +2120,7 @@ function segHandler(id,fn){
 }
 segHandler('segPhase',v=>{ phase=v; stageTouched=false; scaleFrom=null; });
 segHandler('segBasis',v=>{ basisMode=v; });
+segHandler('segUnseen',v=>{ unseenMode=v; });
 segHandler('segVolMode',v=>{ volMode=v; });
 segHandler('segClock',v=>{ clockMode=v; });
 document.getElementById('stage').addEventListener('input',e=>{
@@ -2112,6 +2214,15 @@ function openFocus(f){
 }
 const strips=document.getElementById('strips');
 strips.addEventListener('click',e=>{ const r=e.target.closest('.row[data-fam]'); if(r) openFocus(r.dataset.fam); });
+const unBox=document.getElementById('sec-unseen');
+unBox.addEventListener('click',e=>{
+  if(e.target.closest('#unseenOn')){ unseenMode='in'; saveUI(); renderAll(); return; }
+  const r=e.target.closest('tr[data-fam]'); if(r) openFocus(r.dataset.fam);
+});
+unBox.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ') return;
+  const r=e.target.closest('tr[data-fam]'); if(r){ e.preventDefault(); openFocus(r.dataset.fam); }
+});
 strips.addEventListener('keydown',e=>{
   if(e.key!=='Enter'&&e.key!==' ') return;
   const r=e.target.closest('.row[data-fam]'); if(r){ e.preventDefault(); openFocus(r.dataset.fam); }
