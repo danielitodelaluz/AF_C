@@ -121,6 +121,8 @@
   .excl-chip:hover{border-color:var(--accent)}
   .excl-chip input{accent-color:var(--accent);width:13px;height:13px;margin:0}
   .excl-chip.off{color:var(--faint);text-decoration:line-through;border-style:dashed}
+  .excl-chip.info{color:var(--faint);border-style:dashed;cursor:default}
+  .excl-chip.info:hover{border-color:var(--line)}
   @media (max-width:600px){ .excl-chip{font-size:13px;padding:6px 12px} }
 
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -661,10 +663,12 @@ const PSY_PHASE_MAP = {
   /* ---- PSY1 anciens : TOUT le reste, sans liste à tenir.
      Un exercice absent des deux blocs ci-dessus est un ancien PSY1 (voir
      PSY1_OLD plus bas) : ceux que Pilotest range sous « Ces tests ne sont
-     plus posés », ceux qu'il a retirés sans le dire, et ceux qui relèvent
-     d'une autre sélection. Ils restent jouables et consultables via le
-     filtre « PSY1 anciens », mais n'entrent ni dans la vue « Tout » ni
-     dans aucun calcul PSY0 / PSY1 courant. ---- */
+     plus posés », et ceux qu'il a retirés sans le dire. Ils restent
+     jouables et consultables via le filtre « PSY1 anciens », mais
+     n'entrent ni dans la vue « Tout » ni dans aucun calcul PSY0 / PSY1
+     courant.
+     Seule exception : les tests d'AUTRES sélections (DLR, COMPASS, ENAC
+     pilotes pros…), reconnus à leur nom — voir OTHER_PATTERNS. ---- */
 };
 
 /* Un exercice peut relever de plusieurs aptitudes — c'est le classement de
@@ -712,8 +716,18 @@ const CATEGORY_MAP = {
   "Memory 3 Back":"Mémorisation","Memory 4 Back":"Mémorisation","Memory 5 Back":"Mémorisation",
   "Tangram":"Spatiale",
   "Voitures (basique)":"Spatiale","Voitures (séquentiel)":"Spatiale",
-  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"   // sélection ENAC pilotes pros
+
+  /* ---- Autres sélections (hors Cadets AF) ---- */
+  "Patrons de cubes - psy1 ENAC - pilotes pros":"Spatiale"
 };
+
+/* Autres sélections : certains exports contiennent des tests d'autres
+   concours (DLR, COMPASS, ENAC pilotes pros…). Ils ne relèvent ni du PSY0
+   ni du PSY1 Cadets AF : on les reconnaît à leur nom et on les met à part,
+   hors de tout calcul — sinon ils fabriqueraient de fausses sessions PSY1. */
+const OTHER = "autre";
+const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
+const isOtherSelection = name => OTHER_PATTERNS.some(re=>re.test(name));
 
 // Fusion des deux tables → config interne {cat, cats, phase}
 const PSY1_OLD = "psy1_old";
@@ -721,25 +735,37 @@ const CONFIG = {};
 new Set([...Object.keys(PSY_PHASE_MAP), ...Object.keys(CATEGORY_MAP)]).forEach(name=>{
   const raw = CATEGORY_MAP[name] || "Autre";
   const cats = Array.isArray(raw) ? raw : [raw];
-  CONFIG[name] = { cat: cats[0], cats, phase: PSY_PHASE_MAP[name] || PSY1_OLD };
+  CONFIG[name] = { cat: cats[0], cats,
+    phase: PSY_PHASE_MAP[name] || (isOtherSelection(name) ? OTHER : PSY1_OLD) };
 });
-// Tout exercice inconnu de la table est un ancien PSY1, au même titre que les autres.
-const cfgOf = name => CONFIG[name] || { cat:"Autre", cats:["Autre"], phase:PSY1_OLD };
+// Tout exercice inconnu de la table est un ancien PSY1 — sauf s'il relève d'une autre sélection.
+const cfgOf = name => CONFIG[name] ||
+  { cat:"Autre", cats:["Autre"], phase: isOtherSelection(name) ? OTHER : PSY1_OLD };
+
+/* Certains exports encodent les apostrophes (« Trouvez l&#39;intrus ») : les
+   noms retrouvent leur forme lisible dès la lecture du fichier. */
+const decodeEntities = s => String(s)
+  .replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(+d))
+  .replace(/&#x([0-9a-f]+);/gi,(m,h)=>String.fromCharCode(parseInt(h,16)))
+  .replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+  .replace(/&amp;/g,'&');
 
 /* Filtres de phase. Une ligne d'export porte sa phase propre (psy0, psy1,
-   psy1_old) ; le filtre choisi peut en regrouper plusieurs :
+   psy1_old, autre) ; le filtre choisi peut en regrouper plusieurs :
    all      = PSY0 + PSY1 courant
    psy1_all = PSY1 courant + PSY1 anciens (le PSY1 « général »)
-   les autres valeurs désignent une seule phase. */
+   les autres valeurs désignent une seule phase. Les autres sélections
+   n'entrent dans aucun filtre. */
 const PSY1_ALL = "psy1_all";
 const PHASE_FILTERS = ["all","psy0",PSY1_ALL,"psy1",PSY1_OLD];
 const inPhase = (p, filter) =>
-  filter==="all"   ? p!==PSY1_OLD :
+  filter==="all"    ? (p==="psy0" || p==="psy1") :
   filter===PSY1_ALL ? (p==="psy1" || p===PSY1_OLD) :
   p===filter;
 // Tous les exercices connus d'un filtre, hors exclusions — y compris ceux
 // qui n'ont encore aucun essai : c'est ce qui permet de ne rien oublier.
 const universeOf = filter => Object.keys(CONFIG).filter(n=>inPhase(CONFIG[n].phase,filter) && !excluded.has(n));
+/* ---- fin du bloc partagé (identique dans index, comparaison et analyse) ---- */
 
 /* ---- Données par défaut : ton export actuel (remplaçable via le bouton) ---- */
 const DEFAULT_CSV = `test,score,stanine,at
@@ -928,7 +954,7 @@ function parseCSV(text){
     if(p.length<4) continue;
     // la date (dernier champ) ne contient jamais de virgule : on lit depuis la fin,
     // ce qui tolère les noms d'exercices contenant des virgules
-    const test=p.slice(0,p.length-3).join(",").trim().replace(/^"(.*)"$/,'$1');
+    const test=decodeEntities(p.slice(0,p.length-3).join(",").trim().replace(/^"(.*)"$/,'$1'));
     const score=parseFloat(p[p.length-3]); // "27%" -> 27
     const stanine=parseInt(p[p.length-2],10);
     const date=parseFrDate(p[p.length-1]);
@@ -963,7 +989,8 @@ let volStat = "mean";
 let freqMode = "interval";   // interval | rate — lecture du panneau « Fréquence de travail »        // moyenne | médiane — statistique colorant « Nombre d'essais »
 let unit = "stanine";           // stanine | score (graphique de progression du focus)
 let sessionSize = "normal";     // court | normal | long (budget d'essais du coach)
-const DEFAULT_EXAM_DATE = "2026-09-05"; // PSY0 les 4 et 5 septembre 2026 — ajustable via le champ date
+const DEFAULT_EXAM_DATE = "2026-10-31"; // PSY1 le 31 octobre 2026 — ajustable via le champ date
+const PREV_DEFAULT_EXAM = "2026-09-05"; // ancienne valeur par défaut (PSY0), passée
 let examDate = DEFAULT_EXAM_DATE; // 'YYYY-MM-DD' ou null — active la périodisation du coach
 let periodKey = "all";          // all | year:2026 | last:3 | last:6 | custom
 let customFrom = null, customTo = null; // 'YYYY-MM-DD' (mode "custom")
@@ -2113,7 +2140,8 @@ function renderExcluded(){
   const names=new Set(Object.keys(CONFIG));
   RAW.forEach(r=>names.add(r.test));
   // rangées par phase : le programme en vigueur d'abord, les anciens à part
-  const GRP=[['psy0','PSY0'],['psy1','PSY1 courant'],[PSY1_OLD,'PSY1 anciens']];
+  const GRP=[['psy0','PSY0'],['psy1','PSY1 courant'],[PSY1_OLD,'PSY1 anciens'],
+             [OTHER,'Autres sélections — hors Cadets AF, jamais comptées']];
   const of=n=>cfgOf(n).phase;
   const chip=n=>{
     const off=excluded.has(n);
@@ -2124,7 +2152,9 @@ function renderExcluded(){
     const l=[...names].filter(n=>of(n)===ph).sort((a,b)=>a.localeCompare(b,'fr'));
     if(!l.length) return '';
     return `<div class="excl-grp">${lab} · ${l.length}</div>
-      <div class="excl-row">${l.map(chip).join('')}</div>`;
+      <div class="excl-row">${l.map(n=>ph===OTHER
+        ? `<span class="excl-chip info" title="Test d'une autre sélection : ignoré partout">${esc(n)}</span>`
+        : chip(n)).join('')}</div>`;
   }).join('');
   const n=excluded.size;
   sum.textContent = n===0 ? 'Aucun exercice exclu — tout est pris en compte'
@@ -2205,6 +2235,8 @@ if(saved){
   if(saved.unit) unit=saved.unit;
   if(saved.sessionSize) sessionSize=saved.sessionSize;
   if('examDate' in saved) examDate=saved.examDate; // null explicite = date effacée volontairement
+  // l'ancienne date par défaut (PSY0 du 5 septembre) est passée : place au PSY1
+  if(examDate===PREV_DEFAULT_EXAM) examDate=DEFAULT_EXAM_DATE;
   if(saved.volStat) volStat=saved.volStat;
   if(saved.freqMode) freqMode=saved.freqMode;
   if(saved.periodKey) periodKey=saved.periodKey;
