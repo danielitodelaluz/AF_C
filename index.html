@@ -722,11 +722,11 @@ const CATEGORY_MAP = {
 };
 
 /* Autres sélections : certains exports contiennent des tests d'autres
-   concours (DLR, COMPASS, ENAC pilotes pros…). Ils ne relèvent ni du PSY0
+   concours (DLR, COMPASS, CUT-E, ENAC pilotes pros…). Ils ne relèvent ni du PSY0
    ni du PSY1 Cadets AF : on les reconnaît à leur nom et on les met à part,
    hors de tout calcul — sinon ils fabriqueraient de fausses sessions PSY1. */
 const OTHER = "autre";
-const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
+const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /^CUT-?E\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
 const isOtherSelection = name => OTHER_PATTERNS.some(re=>re.test(name));
 
 // Fusion des deux tables → config interne {cat, cats, phase}

@@ -375,11 +375,11 @@ const CATEGORY_MAP = {
 };
 
 /* Autres sélections : certains exports contiennent des tests d'autres
-   concours (DLR, COMPASS, ENAC pilotes pros…). Ils ne relèvent ni du PSY0
+   concours (DLR, COMPASS, CUT-E, ENAC pilotes pros…). Ils ne relèvent ni du PSY0
    ni du PSY1 Cadets AF : on les reconnaît à leur nom et on les met à part,
    hors de tout calcul — sinon ils fabriqueraient de fausses sessions PSY1. */
 const OTHER = "autre";
-const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
+const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /^CUT-?E\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
 const isOtherSelection = name => OTHER_PATTERNS.some(re=>re.test(name));
 
 // Fusion des deux tables → config interne {cat, cats, phase}
@@ -436,6 +436,11 @@ const SUSTAIN_WIN=14;   // fenêtre d'observation d'un entraînement « soutenu 
 const START_DAYS=4, START_ATT=20;
 const SUSTAIN_DAYS=3;   // jours actifs requis pour l'arrêt
 const SUSTAIN_ATT=10;   // essais requis pour l'arrêt
+/* Une même phase ne se passe qu'une fois par an : deux périodes séparées
+   par moins de JOIN_DAYS sont UNE préparation, interrompue (vacances, autre
+   épreuve entre-temps, changement de compte…). Réglable à la main sur la
+   fiche de chaque candidat (fusionner / séparer). */
+const JOIN_DAYS=70;
 const SUBST_DAYS=5, SUBST_ATT=30;   // seuil d'une session « substantielle »
 const LINK_DAYS=90;     // un PSY1 entamé moins de 3 mois après un PSY0 : même candidature
 const LS_ME="pilotest_cmp_me_v1";
@@ -462,7 +467,7 @@ function periodLabel(a,b){
    La fin retenue est le jour J : on cesse de s'entraîner une fois l'épreuve
    passée. Un candidat peut avoir plusieurs sessions (une candidature ratée,
    puis la bonne) : chacune est analysable et comparable séparément. */
-function detectCampaigns(rows,ph,phaseOf,keepLargest=true){
+function detectCampaigns(rows,ph,phaseOf,keepLargest=true,joins=null){
   const src=phaseRows(rows,ph,phaseOf);
   if(!src.length) return [];
   const byDay=new Map();
@@ -505,19 +510,55 @@ function detectCampaigns(rows,ph,phaseOf,keepLargest=true){
   if(!keep.length&&keepLargest) keep=[built.reduce((a,b)=>b.att>a.att?b:a)];
   if(!keep.length) return [];
   const dropped=built.length-keep.length;
-  return keep.map((c,i)=>{
+  const isoK=k=>byDay.get(k).date.toISOString().slice(0,10);
+  // 4) réunion des périodes d'une même préparation
+  const merged=[];
+  keep.forEach(c=>{
+    const prev=merged[merged.length-1];
+    if(prev){
+      const gap=c.startK-prev.endK, id=isoK(c.startK);
+      const man=joins&&typeof joins[id]==='boolean'?joins[id]:null;
+      if(man!==null?man:gap<=JOIN_DAYS){
+        prev.joined.push({id,gap,manual:man!==null});
+        prev.endK=c.endK; prev.trimmedTail=c.trimmedTail;
+        return;
+      }
+      prev.next={id,gap,manual:man!==null};
+    }
+    merged.push({...c,joined:[]});
+  });
+  return merged.map((c,i)=>{
     const campRows=src.filter(r=>{const k=dayIdx(r.date); return k>=c.startK&&k<=c.endK;});
     const start=byDay.get(c.startK).date, end=byDay.get(c.endK).date;
     return {
-      index:i, total:keep.length, start, end, campRows,
+      index:i, total:merged.length, start, end, campRows,
       id:start.toISOString().slice(0,10),
       trimmedDays:c.trimmedDays, trimmedTail:c.trimmedTail,
       dropped:i===0?dropped:0,      // périodes trop courtes écartées (signalé une fois)
-      activeDays:c.activeDays, attempts:campRows.length,
+      activeDays:new Set(campRows.map(r=>dayIdx(r.date))).size, attempts:campRows.length,
+      joined:c.joined, next:c.next||null,   // périodes réunies ; session suivante (fusionnable)
       weeks:Math.max(1,Math.round((c.endK-c.startK)/7)+1),
       label:periodLabel(start,end)
     };
   });
+}
+
+/* Fusions manuelles, mémorisées sur le candidat : { « id de la période
+   suivante » : true (la fusionner avec la précédente) | false (séparer) } */
+const joinKey=(ph,id)=>'join:'+ph+'|'+id;
+function joinsOf(owner,ph){
+  const out={}, pre='join:'+ph+'|', s=owner.sess||{};
+  Object.keys(s).forEach(k=>{ if(k.startsWith(pre)&&typeof s[k]==='boolean') out[k.slice(pre.length)]=s[k]; });
+  return out;
+}
+// Sessions d'un candidat dans une phase : repli « la plus grosse » pour moi seul
+function campaignsOf(owner,ph,phaseOf){
+  return detectCampaigns(owner.rows,ph,phaseOf,!!owner.me,joinsOf(owner,ph));
+}
+function setJoin(owner,ph,id,val){
+  owner.sess=owner.sess||{};
+  if(val===null) delete owner.sess[joinKey(ph,id)]; else owner.sess[joinKey(ph,id)]=val;
+  delete owner._hist;
 }
 
 /* Candidatures. Chaque PSY0 ouvre une candidature ; une préparation PSY1
@@ -527,8 +568,8 @@ function detectCampaigns(rows,ph,phaseOf,keepLargest=true){
    candidature qui a abouti. */
 function selectionHistory(owner,phaseOf){
   if(owner._hist) return owner._hist;
-  const p0=detectCampaigns(owner.rows,'psy0',phaseOf,!!owner.me);
-  const p1=detectCampaigns(owner.rows,PSY1_ALL,phaseOf,!!owner.me);
+  const p0=campaignsOf(owner,'psy0',phaseOf);
+  const p1=campaignsOf(owner,PSY1_ALL,phaseOf);
   const cycles=p0.map(s=>({p0:s,p1:[]}));
   p1.forEach(s=>{
     let host=null;
@@ -581,6 +622,10 @@ function outcomeText(o){
 const outcomeSym=o=>!o?'':(o.code==='pass'||o.code==='fail')?OUTCOMES[o.code].sym+(o.sure?'':'?'):OUTCOMES[o.code].sym;
 // 'admis' par défaut : les dossiers importés avant l'ajout du statut étaient ceux de candidats admis
 const statusOf=owner=>owner.me?'moi':(owner.status||'admis');
+/* 'psy1' : PSY1 réussi à sa dernière candidature, suite inconnue (ami qui
+   a passé le PSY1 sans qu'on sache s'il a été admis au bout). Pour juger ses
+   sessions PSY0 et PSY1, cela vaut « admis ». */
+const PSY1_WON={admis:'dernière candidature d’un candidat admis',psy1:'PSY1 réussi à sa dernière candidature'};
 // Niveau d'une session à sa fin, sur des exercices donnés (5 derniers essais de chacun)
 function levelAtEnd(s,fams){
   const vals=[];
@@ -605,12 +650,12 @@ function autoOutcome(owner,kind,h,ctx){
   if(kind==='psy0'){
     if(cyc.p1.length) return {code:'pass',sure:true,why:'suivie d’une préparation PSY1 : PSY0 franchi'};
     if(!cyc.final) return {code:'fail',sure:true,why:'aucune préparation PSY1 ensuite, puis nouvelle candidature : PSY0 non franchi'};
-    if(st==='admis') return {code:'pass',sure:true,why:'dernière candidature d’un candidat admis'};
+    if(PSY1_WON[st]) return {code:'pass',sure:true,why:PSY1_WON[st]};
     if(st==='non') return {code:'fail',sure:false,why:'candidat non admis, sans préparation PSY1 ensuite'};
     return {code:'unknown',sure:false,why:st==='moi'?'aucune préparation PSY1 enregistrée ensuite':'statut du candidat à préciser sur sa fiche'};
   }
   if(cyc.final){
-    if(st==='admis') return {code:'pass',sure:true,why:'dernière candidature d’un candidat admis'};
+    if(PSY1_WON[st]) return {code:'pass',sure:true,why:PSY1_WON[st]};
     if(st==='non') return {code:'fail',sure:false,why:'candidat non admis : arrêt au PSY1 ou à une étape suivante'};
     return {code:'unknown',sure:false,why:st==='moi'?'issue à venir':'statut du candidat à préciser sur sa fiche'};
   }
@@ -620,7 +665,7 @@ function autoOutcome(owner,kind,h,ctx){
      d'admission fonde l'hypothèse. */
   const cs=owner._hist?owner._hist.cycles:[];
   const fin=cs.length?cs[cs.length-1]:null;
-  const ref=st==='admis'&&fin&&fin.p1.length?fin.p1[fin.p1.length-1]:null;
+  const ref=PSY1_WON[st]&&fin&&fin.p1.length?fin.p1[fin.p1.length-1]:null;
   const g=ref?endLevelGap(h,ref):null;
   if(g){
     const dd=(g.d>0?'+':'')+(Math.round(g.d*10)/10).toFixed(1);
@@ -767,7 +812,7 @@ const current=()=>dossiers.find(d=>d.id===whoId)||dossiers[0]||null;
 /* Issue d'une session : même déduction que la page Comparaison (statut du
    candidat, enchaînement PSY0 → PSY1, réglage manuel éventuel). */
 function outcomeFor(d,c,camps){
-  camps=camps||detectCampaigns(d.rows,phase,null,!!d.me);
+  camps=camps||campaignsOf(d,phase,null);
   const J=d.me?myExamTarget(phase,camps,c):null;
   return sessionOutcome(d,phase,c,{ongoing:examStillAhead(J)});
 }
@@ -776,7 +821,7 @@ function outcomeFor(d,c,camps){
 function overlayChoices(){
   const out=[];
   dossiers.forEach(d=>{
-    const camps=detectCampaigns(d.rows,phase,null,!!d.me);
+    const camps=campaignsOf(d,phase,null);
     camps.forEach(c=>{
       const o=outcomeFor(d,c,camps);
       out.push({key:d.id+'#'+c.index,
@@ -790,7 +835,7 @@ function overlayCamp(){
   if(!overlayKey) return null;
   const [id,part]=overlayKey.split('#');
   const d=dossiers.find(x=>x.id===id); if(!d) return null;
-  const camps=detectCampaigns(d.rows,phase,null,!!d.me); if(!camps.length) return null;
+  const camps=campaignsOf(d,phase,null); if(!camps.length) return null;
   const camp=part==='all'?(camps.length>1?mergedCamp(camps):camps[0]):camps[+part];
   if(!camp) return null;
   const choice=overlayChoices().find(c=>c.key===overlayKey);
@@ -798,7 +843,7 @@ function overlayCamp(){
 }
 // campagne actuellement analysée : une session précise, ou toutes réunies
 function pickCamp(d){
-  const camps=detectCampaigns(d.rows,phase,null,!!d.me);
+  const camps=campaignsOf(d,phase,null);
   if(!camps.length) return null;
   return sessIdx==='all'&&camps.length>1?mergedCamp(camps):camps[Math.min(sessIdx||0,camps.length-1)];
 }
@@ -1309,7 +1354,7 @@ function render(){
     ['heatmap','hmStats','hoursTbl'].forEach(id=>document.getElementById(id).innerHTML='');
     return;
   }
-  const camps=detectCampaigns(d.rows,phase,null,!!d.me);
+  const camps=campaignsOf(d,phase,null);
   if(sessIdx!=='all'&&(sessIdx===null||sessIdx>=camps.length)) sessIdx=camps.length?camps.length-1:0;
   if(sessIdx==='all'&&camps.length<2) sessIdx=camps.length?camps.length-1:0;
   renderSessionSeg(camps);
@@ -1359,7 +1404,7 @@ function renderWho(){
   if(!dossiers.length){ sel.innerHTML='<option>Aucun dossier</option>'; return; }
   if(!dossiers.some(d=>d.id===whoId)) whoId=dossiers[0].id;
   sel.innerHTML=dossiers.map(d=>{
-    const n=detectCampaigns(d.rows,phase,null,!!d.me).length;
+    const n=campaignsOf(d,phase,null).length;
     return `<option value="${esc(d.id)}"${d.id===whoId?' selected':''}>${esc(d.name)}${
       n>1?` (${n} sessions)`:''}</option>`;
   }).join('');
