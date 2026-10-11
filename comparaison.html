@@ -416,11 +416,15 @@
     <h2>Exercice en détail</h2>
     <div class="focus-tools">
       <select id="focusSel" aria-label="Exercice détaillé"></select>
+      <div class="seg" id="segFocusX" role="group" aria-label="Abscisse des graphiques">
+        <button data-v="time" aria-pressed="true" title="Progression dans le temps, alignée sur le jour J">Semaines avant J</button>
+        <button data-v="att" aria-pressed="false" title="Progression essai après essai : qui progresse le plus vite pour un même nombre de tentatives">Nombre d’essais</button>
+      </div>
     </div>
     <p class="desc" id="focusDesc"></p>
     <div class="grid">
-      <div><h3>Niveau sur l’exercice</h3><div class="chartbox"><canvas id="chFocusLvl"></canvas></div></div>
-      <div><h3>Essais cumulés</h3><div class="chartbox"><canvas id="chFocusVol"></canvas></div></div>
+      <div><h3 id="focusH1">Niveau sur l’exercice</h3><div class="chartbox"><canvas id="chFocusLvl"></canvas></div></div>
+      <div><h3 id="focusH2">Essais cumulés</h3><div class="chartbox"><canvas id="chFocusVol"></canvas></div></div>
     </div>
     <div class="tblwrap" style="margin-top:14px"><div id="focusTbl"></div></div>
   </section>
@@ -1122,7 +1126,7 @@ function handleFiles(files){
 
 /* ----------------------- Préférences d'affichage ----------------------- */
 let phase='psy1', basisMode='common', unseenMode='out', volMode='total', clockMode='hour';
-let focusFam=null, scaleFrom=null;       // null : fenêtre ajustée automatiquement
+let focusFam=null, focusX='time', scaleFrom=null;       // null : fenêtre ajustée automatiquement
 let stage=null, stageTouched=false;
 function loadUI(){
   try{
@@ -1133,10 +1137,11 @@ function loadUI(){
     if(['total','stage'].includes(u.vol)) volMode=u.vol;
     if(['hour','day','grid'].includes(u.clock)) clockMode=u.clock;
     if(typeof u.focus==='string') focusFam=u.focus;
+    if(['time','att'].includes(u.focusX)) focusX=u.focusX;
   }catch(e){}
 }
 function saveUI(){
-  try{ localStorage.setItem(LS_UI,JSON.stringify({phase,basis:basisMode,unseen:unseenMode,vol:volMode,clock:clockMode,focus:focusFam})); }catch(e){}
+  try{ localStorage.setItem(LS_UI,JSON.stringify({phase,basis:basisMode,unseen:unseenMode,vol:volMode,clock:clockMode,focus:focusFam,focusX})); }catch(e){}
 }
 
 /* ----------------------- Modèle -----------------------
@@ -1503,7 +1508,7 @@ function renderEquiv(){
 
 /* ----------------------- Rendu : contrôles et barre de sessions ----------------------- */
 function renderControls(){
-  [['segPhase',phase],['segBasis',basisMode],['segUnseen',unseenMode],['segVolMode',volMode],['segClock',clockMode]].forEach(([id,v])=>
+  [['segPhase',phase],['segBasis',basisMode],['segUnseen',unseenMode],['segVolMode',volMode],['segClock',clockMode],['segFocusX',focusX]].forEach(([id,v])=>
     [...document.getElementById(id).children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v)));
   const info=document.getElementById('basisInfo');
   if(!M.vis.length) info.textContent='';
@@ -1969,6 +1974,47 @@ function renderUnseen(){
     <td ${c(r.atS)}>${fmt(r.atS)}</td><td ${c(r.a)}>${fmt(r.a)}</td><td ${c(r.b)}>${fmt(r.b)}</td></tr>`).join('')}</tbody></table>`;
 }
 
+/* ----------------------- Rendu : exercice en détail -----------------------
+   Deux abscisses : le temps (semaines avant J, comme partout) ou le nombre
+   d'essais sur l'exercice — pour comparer la progression à tentatives
+   égales, indépendamment du rythme de chacun. */
+// Niveau après le k-ième essai : moyenne des LASTK derniers essais à ce moment
+const levelAtAttempt=(a,k)=>k>=1&&k<=a.length?mean(a.slice(Math.max(0,k-LASTK),k).map(r=>r.stanine)):null;
+function attOpts(yTitle,stanine,maxN){
+  const o=baseOpts(yTitle,stanine);
+  const ax=o.scales.x;
+  o.scales.x={type:'linear',min:1,max:Math.max(2,maxN),
+    title:{...ax.title,text:'nombre d’essais sur l’exercice'},
+    ticks:{color:ax.ticks.color,font:ax.ticks.font,precision:0,maxTicksLimit:isPhone()?6:12},grid:ax.grid};
+  o.plugins.tooltip.callbacks.title=it=>it.length?`essai n° ${it[0].parsed.x}`:'';
+  return o;
+}
+// Repère vertical : mon nombre d'essais à la semaine comparée
+const attLine={id:'attLine',afterDatasetsDraw(chart){
+  const A=chart.$att; if(!A) return;
+  const sc=chart.scales.x, x=sc.getPixelForValue(A.x), {ctx,chartArea}=chart;
+  if(x<chartArea.left||x>chartArea.right) return;
+  ctx.save();
+  ctx.strokeStyle=hexA(ME_COLOR,.7); ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(x,chartArea.top); ctx.lineTo(x,chartArea.bottom); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font=`${chartFont(10)}px "IBM Plex Mono",monospace`;
+  ctx.fillStyle=ME_COLOR; ctx.textAlign='center';
+  ctx.fillText(A.label,clamp(x,chartArea.left+40,chartArea.right-40),chartArea.top+11);
+  ctx.restore();
+}};
+// Médiane des réussites, essai par essai (au moins 2 sessions à ce rang)
+function attMedian(f,maxN){
+  const lists=M.pass.map(p=>famRows(p,f)).filter(Boolean);
+  if(lists.length<2) return null;
+  const pts=[];
+  for(let k=1;k<=maxN;k++){
+    const v=lists.filter(a=>a.length>=k).map(a=>levelAtAttempt(a,k));
+    if(v.length>=2) pts.push({x:k,y:+median(v).toFixed(2),n:v.length});
+  }
+  return pts.length>=2?pts:null;
+}
+
 /* ----------------------- Rendu : exercice en détail ----------------------- */
 function focusOrder(){
   return famList().map(f=>famStats(f,stage))
@@ -1989,38 +2035,70 @@ function renderFocus(){
   }).join('');
   sel.value=focusFam;
   const f=focusFam, eq=eqMark(f);
-  D.innerHTML=`<b>${esc(f)}</b>${eq?` — regroupe ${eq.map(v=>`« ${esc(v)} »`).join(' et ')} (équivalence)`:''}. `+
-    `Niveau semaine par semaine (5 derniers essais) et essais cumulés, alignés sur le jour J ; le tableau détaille chaque session.`;
   const withF=M.vis.filter(p=>famRows(p,f));
-  const oL=baseOpts('classe stanine',true);
-  oL.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)}`;
-  mk('chFocusLvl','line',{datasets:withF.map(p=>dsFor(p,seriesOf(p,null,f)))},oL,[stageLine]);
-  const oV=baseOpts('essais cumulés',false);
-  oV.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${plural(it.parsed.y,'essai')}`;
-  mk('chFocusVol','line',{datasets:withF.map(p=>dsFor(p,grid(p).map(g=>({x:g.s,y:cumAt(p,g.t,f)}))))},oV,[stageLine]);
+  // mon nombre d'essais sur l'exercice à la semaine comparée : repère commun
+  const myN=M.mine&&famRows(M.mine,f)?cumAt(M.mine,tOf(M.mine,stage),f):0;
+  const eqTxt=eq?` — regroupe ${eq.map(v=>`« ${esc(v)} »`).join(' et ')} (équivalence)`:'';
+  const h1=document.getElementById('focusH1'), h2=document.getElementById('focusH2');
+  if(focusX==='att'){
+    const maxN=Math.max(2,...withF.map(p=>famRows(p,f).length));
+    const med=attMedian(f,maxN);
+    D.innerHTML=`<b>${esc(f)}</b>${eqTxt}. Progression <b>essai après essai</b> : niveau après chaque tentative (moyenne des ${LASTK} derniers essais), `+
+      `quel que soit le temps mis pour les faire. Une courbe qui monte plus tôt = une session qui progresse plus vite par essai.`+
+      (med?' <b>Ligne blanche</b> : médiane des réussites.':'')+
+      (myN?` <b>Repère turquoise</b> : tes ${plural(myN,'essai')} à ${esc(stageText(stage))}.`:'');
+    h1.textContent='Niveau selon le nombre d’essais'; h2.textContent='Score de chaque essai';
+    const oL=attOpts('classe stanine',true,maxN);
+    oL.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)}`;
+    const dsL=withF.map(p=>dsFor(p,famRows(p,f).map((r,i)=>({x:i+1,y:+levelAtAttempt(famRows(p,f),i+1).toFixed(2)})),
+      {pointRadius:0,pointHoverRadius:5}));
+    if(med) dsL.push({label:'Médiane des réussites',data:med,borderColor:'#e9eef4',backgroundColor:'#e9eef4',
+      borderWidth:1.8,pointRadius:0,tension:0,order:2});
+    mk('chFocusLvl','line',{datasets:dsL},oL,[attLine]);
+    const oV=attOpts('classe stanine',true,maxN);
+    oV.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${it.parsed.y}`;
+    mk('chFocusVol','line',{datasets:withF.map(p=>dsFor(p,famRows(p,f).map((r,i)=>({x:i+1,y:r.stanine})),
+      {showLine:false,pointRadius:p.hero?3.5:2.5}))},oV,[attLine]);
+    const A=myN?{x:myN,label:`toi : ${plural(myN,'essai')}`}:null;
+    charts.chFocusLvl.$att=A; charts.chFocusVol.$att=A;
+    charts.chFocusLvl.update('none'); charts.chFocusVol.update('none');
+  }else{
+    D.innerHTML=`<b>${esc(f)}</b>${eqTxt}. `+
+      `Niveau semaine par semaine (5 derniers essais) et essais cumulés, alignés sur le jour J ; le tableau détaille chaque session.`;
+    h1.textContent='Niveau sur l’exercice'; h2.textContent='Essais cumulés';
+    const oL=baseOpts('classe stanine',true);
+    oL.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${fmt(it.parsed.y)}`;
+    mk('chFocusLvl','line',{datasets:withF.map(p=>dsFor(p,seriesOf(p,null,f)))},oL,[stageLine]);
+    const oV=baseOpts('essais cumulés',false);
+    oV.plugins.tooltip.callbacks.label=it=>`${it.dataset.label} : ${plural(it.parsed.y,'essai')}`;
+    mk('chFocusVol','line',{datasets:withF.map(p=>dsFor(p,grid(p).map(g=>({x:g.s,y:cumAt(p,g.t,f)}))))},oV,[stageLine]);
+  }
   const rows=M.vis.map(p=>{
     const a=famRows(p,f)||[];
     if(!a.length) return {p,none:true};
     const tS=tOf(p,stage), tJ=p.me?Math.min(endT(p),tOf(p,0)):tOf(p,0);
     let best=null;
     for(let i=0;i<a.length;i++){ const w=a.slice(Math.max(0,i-LASTK+1),i+1); const v=mean(w.map(r=>r.stanine)); if(best===null||v>best) best=v; }
-    const first7=a.find(r=>r.stanine>=7);
+    const i7=a.findIndex(r=>r.stanine>=7), first7=i7>=0?a[i7]:null;
     const last10=a.slice(-10).map(r=>r.stanine), mu=mean(last10);
     const sd=last10.length>1?Math.sqrt(mean(last10.map(x=>(x-mu)**2))):null;
     return {p,variants:[...new Set(a.map(r=>r.test))],n:a.length,nS:cumAt(p,tS,f),
       days:new Set(a.map(r=>dayIdx(r.date))).size,
       dep:mean(a.slice(0,3).map(r=>r.stanine)),atS:famLevelAt(p,f,tS),atJ:famLevelAt(p,f,tJ),best,
-      first7:first7?xOf(p,first7.date.getTime()):null,sd};
+      first7:first7?xOf(p,first7.date.getTime()):null,n7:i7+1,sd,
+      atN:myN?levelAtAttempt(a,Math.min(myN,a.length)):null,shortN:myN>a.length};
   });
+  const nCols=(eq?10:9)+(myN?1:0);
   const head=`<tr><th>Session</th><th>Essais</th><th>Essais à ${esc(xLabel(stage))}</th><th>Jours</th><th>Départ (3 premiers)</th>
-    <th>À ${esc(xLabel(stage))}</th><th>Jour J</th><th>Meilleur niveau</th><th>1er essai ≥ 7</th><th>Régularité σ</th>${eq?'<th>Version</th>':''}</tr>`;
+    <th>À ${esc(xLabel(stage))}</th><th>Jour J</th>${myN?`<th title="Niveau de chaque session après autant d’essais que toi sur cet exercice">Après ${plural(myN,'essai')} (comme toi)</th>`:''}<th>Meilleur niveau</th><th>1er essai ≥ 7</th><th>Régularité σ</th>${eq?'<th>Version</th>':''}</tr>`;
   const c=v=>v===null||v===undefined?'':`style="color:${bandColor(v)}"`;
   T.innerHTML=`<table><thead>${head}</thead><tbody>${rows.map(r=>r.none
-    ?`<tr${r.p.me?' class="me"':''}><td>${sessName(r.p)}</td><td colspan="${eq?10:9}" class="dim" style="text-align:left">aucun essai sur cet exercice</td></tr>`
+    ?`<tr${r.p.me?' class="me"':''}><td>${sessName(r.p)}</td><td colspan="${nCols}" class="dim" style="text-align:left">aucun essai sur cet exercice</td></tr>`
     :`<tr${r.p.me?' class="me"':''}><td>${sessName(r.p)}</td><td>${r.n}</td><td>${r.nS}</td><td>${r.days}</td>
       <td ${c(r.dep)}>${fmt(r.dep)}</td><td ${c(r.atS)}>${fmt(r.atS)}</td>
       <td ${c(r.atJ)}>${fmt(r.atJ)}${r.p.me&&r.p.ongoing?' <span class="dim">(auj.)</span>':''}</td>
-      <td ${c(r.best)}>${fmt(r.best)}</td><td>${r.first7===null?'<span class="dim">jamais</span>':esc(xLabel(Math.floor(r.first7)))}</td>
+      ${myN?`<td ${c(r.atN)}>${fmt(r.atN)}${r.shortN?` <span class="dim" title="Cette session compte moins d’essais : niveau après son dernier essai">(${r.n})</span>`:''}</td>`:''}
+      <td ${c(r.best)}>${fmt(r.best)}</td><td>${r.first7===null?'<span class="dim">jamais</span>':`${esc(xLabel(Math.floor(r.first7)))} <span class="dim">· essai ${r.n7}</span>`}</td>
       <td>${r.sd===null?'–':r.sd.toFixed(1)}</td>${eq?`<td style="text-align:left">${esc(r.variants.join(' + '))}</td>`:''}</tr>`).join('')}</tbody></table>`;
 }
 
@@ -2176,6 +2254,7 @@ segHandler('segBasis',v=>{ basisMode=v; });
 segHandler('segUnseen',v=>{ unseenMode=v; });
 segHandler('segVolMode',v=>{ volMode=v; });
 segHandler('segClock',v=>{ clockMode=v; });
+segHandler('segFocusX',v=>{ focusX=v; });
 document.getElementById('stage').addEventListener('input',e=>{
   stage=+e.target.value; stageTouched=true; renderStageParts();
 });
