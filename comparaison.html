@@ -593,6 +593,12 @@ const OTHER = "autre";
 const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /^CUT-?E\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
 const isOtherSelection = name => OTHER_PATTERNS.some(re=>re.test(name));
 
+/* Ordre des aptitudes, celui de la page Pilotest ; un exercice peut relever
+   de deux aptitudes et figure alors dans les deux. */
+const CAT_ORDER = ["Numérique","Intellectuelle","Attention","Psychomoteur","Spatiale","Verbale","Mémorisation","Anglais","Autre"];
+const catRank = c => { const i=CAT_ORDER.indexOf(c); return i<0?CAT_ORDER.length:i; };
+const byCat = (a,b) => catRank(a)-catRank(b) || a.localeCompare(b,'fr');
+
 // Fusion des deux tables → config interne {cat, cats, phase}
 const PSY1_OLD = "psy1_old";
 const CONFIG = {};
@@ -1282,7 +1288,6 @@ function buildModel(){
 const winSlice=(a,i)=>lastK?a.slice(Math.max(0,i-lastK),i):a.slice(0,i);
 const winTxt=()=>lastK?`${lastK} derniers essais`:'tous les essais';
 // Catégories (aptitudes Pilotest) d'un exercice ; un exercice peut en avoir deux
-const CAT_ORDER=['Numérique','Intellectuelle','Attention','Spatiale','Mémorisation','Verbale','Psychomoteur','Anglais','Autre'];
 const catsOf=f=>cfgOf(f).cats||['Autre'];
 const catOK=f=>catFilter==='all'||catsOf(f).includes(catFilter);
 function famRows(p,f){
@@ -1560,7 +1565,7 @@ function renderControls(){
   else if(basisMode==='common'&&M.vis.length>=2) info.textContent=`${plural(M.basis.size,'exercice')} en commun sur ${M.union.size}`;
   else info.textContent=`${plural(M.basis.size,'exercice')}`;
   const cs=document.getElementById('catSel');
-  const cats=[...M.catCount.keys()].sort((a,b)=>(CAT_ORDER.indexOf(a)+99)%99-(CAT_ORDER.indexOf(b)+99)%99);
+  const cats=[...M.catCount.keys()].sort(byCat);
   cs.innerHTML=`<option value="all">Toutes les catégories</option>`+
     cats.map(k=>`<option value="${esc(k)}">${esc(k)} (${M.catCount.get(k)})</option>`).join('');
   cs.value=catFilter;
@@ -1893,7 +1898,7 @@ function renderRadar(){
   document.getElementById('radarStage').textContent=stageText(stage);
   if(!vis.length||!fams.size){ killChart('chRadar'); D.textContent='Aucune session affichée.'; T.innerHTML=''; return; }
   const lv=new Map(vis.map(p=>[p.key,catLevels(p,stage,fams)]));
-  const cats=[...new Set([...fams].flatMap(catsOf))].sort((a,b)=>(CAT_ORDER.indexOf(a)+99)%99-(CAT_ORDER.indexOf(b)+99)%99);
+  const cats=[...new Set([...fams].flatMap(catsOf))].sort(byCat);
   // médiane des réussites, catégorie par catégorie (au moins 2 réussites mesurées)
   const med=cats.map(k=>{ const v=pass.map(p=>lv.get(p.key).get(k)).filter(Boolean).map(o=>o.v); return v.length>=2?+median(v).toFixed(2):null; });
   const one=cats.map(k=>pass.map(p=>lv.get(p.key).get(k)).filter(Boolean).length===1);
@@ -2014,7 +2019,7 @@ function renderTable(){
   const na=rows.filter(r=>r.gap===null&&!M.unseen.has(r.f)).sort((a,b)=>a.f.localeCompare(b.f,'fr'));
   const mark=(p,v)=>`<div class="mk ${p.shape}${p.hero?' hero':hollowOf(p)?' o-'+p.outcome.code:''}" style="left:${pos(v)}%;--c:${p.color}"
       title="${esc(p.label)} — ${esc(outcomeText(p.outcome))} : ${fmt(v)}"></div>`;
-  const strip=r=>{
+  const strip=(r,k)=>{
     let seg='';
     if(r.mine!==null&&r.grp!==null){
       const lo=Math.min(pos(r.mine),pos(r.grp)), w=Math.abs(pos(r.mine)-pos(r.grp));
@@ -2030,21 +2035,21 @@ function renderTable(){
     const eq=eqMark(r.f);
     return `<div class="row${r.f===focusFam?' sel':''}" data-fam="${esc(r.f)}" role="button" tabindex="0"
       title="${esc(r.f)}${eq?' ≈ '+esc(eq.join(' / ')):''} — toucher pour le détail">
-      <div class="ex">${esc(r.f)}${eq?'<span class="eqm">≈</span>':''}${exGroup==='cat'&&catsOf(r.f).length>1?`<span class="un-tag" title="Compte aussi dans cette catégorie">+ ${esc(catsOf(r.f).filter(k=>k!==(catFilter!=='all'?catFilter:catsOf(r.f)[0]))[0])}</span>`:''}</div>
+      <div class="ex">${esc(r.f)}${eq?'<span class="eqm">≈</span>':''}${k&&catsOf(r.f).length>1?`<span class="un-tag" title="Figure aussi dans cette catégorie">aussi ${esc(catsOf(r.f).filter(c=>c!==k).join(', '))}</span>`:''}</div>
       <div class="tape">${seg}${r.vals.map(o=>mark(o.p,o.v)).join('')}${med}${mine}</div>
       <div class="dl" style="color:${col}">${lab}</div></div>`;
   };
-  const grp=(cls,title,list)=>list.length?`<div class="grp ${cls}">${title} · ${list.length}</div>`+list.map(strip).join(''):'';
+  const grp=(cls,title,list)=>list.length?`<div class="grp ${cls}">${title} · ${list.length}</div>`+list.map(r=>strip(r)).join(''):'';
   if(exGroup==='cat'){
-    // une rubrique par catégorie (la principale, ou celle du filtre) ; les plus en retrait d'abord
+    // une rubrique par catégorie, comme sur Pilotest : un exercice à deux aptitudes figure dans les deux
     const by=new Map();
-    rows.forEach(r=>{ const k=catFilter!=='all'?catFilter:catsOf(r.f)[0]; if(!by.has(k)) by.set(k,[]); by.get(k).push(r); });
-    const order=[...by.keys()].sort((a,b)=>(CAT_ORDER.indexOf(a)+99)%99-(CAT_ORDER.indexOf(b)+99)%99);
+    rows.forEach(r=>catsOf(r.f).forEach(k=>{ if(catFilter!=='all'&&k!==catFilter) return; if(!by.has(k)) by.set(k,[]); by.get(k).push(r); }));
+    const order=[...by.keys()].sort(byCat);
     box.innerHTML=order.map(k=>{
       const list=by.get(k).sort((a,b)=>(a.gap===null)-(b.gap===null)||(a.gap||0)-(b.gap||0)||a.f.localeCompare(b.f,'fr'));
       const g=median(list.filter(r=>r.gap!==null).map(r=>r.gap));
       const cls=g===null?'na':g<-0.15?'behind':g>0.15?'ahead':'na';
-      return `<div class="grp ${cls}">${esc(k)} · ${list.length}${g!==null?` · écart médian ${fmtS(g)}`:''}</div>`+list.map(strip).join('');
+      return `<div class="grp ${cls}">${esc(k)} · ${list.length}${g!==null?` · écart médian ${fmtS(g)}`:''}</div>`+list.map(r=>strip(r,k)).join('');
     }).join('')+
     `<div class="scaleticks">${[1,2,3,4,5,6,7,8,9].map(k=>`<span style="color:${bandColor(k)}">${k}</span>`).join('')}</div>`;
     return;

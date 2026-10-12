@@ -720,6 +720,12 @@ const OTHER = "autre";
 const OTHER_PATTERNS = [/^DLR\s*-\s/i, /^COMPASS\b/i, /^CUT-?E\b/i, /ENAC\s*-\s*pilotes?\s*pros?/i, /\(en anglais\)/i];
 const isOtherSelection = name => OTHER_PATTERNS.some(re=>re.test(name));
 
+/* Ordre des aptitudes, celui de la page Pilotest ; un exercice peut relever
+   de deux aptitudes et figure alors dans les deux. */
+const CAT_ORDER = ["Numérique","Intellectuelle","Attention","Psychomoteur","Spatiale","Verbale","Mémorisation","Anglais","Autre"];
+const catRank = c => { const i=CAT_ORDER.indexOf(c); return i<0?CAT_ORDER.length:i; };
+const byCat = (a,b) => catRank(a)-catRank(b) || a.localeCompare(b,'fr');
+
 // Fusion des deux tables → config interne {cat, cats, phase}
 const PSY1_OLD = "psy1_old";
 const CONFIG = {};
@@ -1165,7 +1171,7 @@ function renderRadar(){
      s'affiche à 0 avec la mention « aucun essai ». */
   const known=new Set(Object.keys(cats));
   universeOf(phase).forEach(n=>CONFIG[n].cats.forEach(c=>known.add(c)));
-  const names=[...known].sort((a,b)=>a.localeCompare(b,'fr'));
+  const names=[...known].sort(byCat);
   const labels=names.map(c=>cats[c]?c:[c,'aucun essai']);
   const data=names.map(c=>cats[c]?+fmt(mean(cats[c])):0);
   const tip=getCss('--accent');
@@ -1391,7 +1397,7 @@ function renderStrips(){
   if(!map.size&&!todo.length){ box.innerHTML='<div class="empty">Aucune donnée pour ce filtre.</div>'; return; }
   const entries=[...map.entries()].map(([t,arr])=>{
     const w=windowed(arr).map(x=>x.stanine);
-    return {t,cat:arr[0].cat,n:w.length,mean:mean(w),sd:stdev(w),series:w,
+    return {t,cat:arr[0].cat,cats:arr[0].cats,n:w.length,mean:mean(w),sd:stdev(w),series:w,
       min:Math.min(...w),max:Math.max(...w),last:w[w.length-1],
       trend:trendDelta(arr),lastDate:arr[arr.length-1].date};
   });
@@ -1422,7 +1428,7 @@ function renderStrips(){
     const freshTip=`${fr.t} — classe ${fmt(e.mean)} : à refaire tous les ~${ideal} j, dernier essai ${ago}`;
     return `<div class="strip" data-ex="${esc(e.t)}" role="button" tabindex="0" title="Ouvrir « ${esc(e.t)} » dans le focus">
       <div class="top">
-        <div class="nm">${esc(e.t)}<span class="cat">${esc(e.cat)}</span><span class="trend" style="color:${ti.col}" title="${ti.txt}">${ti.sym}</span></div>
+        <div class="nm">${esc(e.t)}<span class="cat">${esc((e.cats||[e.cat]).join(' · '))}</span><span class="trend" style="color:${ti.col}" title="${ti.txt}">${ti.sym}</span></div>
         <div class="rdwrap"><span title="${e.n} derniers essais">${sparkline(e.series,getCss('--muted'))}</span><div class="rd" style="color:${bandColor(e.mean)}">${fmt(e.mean)}</div></div>
       </div>
       <div class="tape">
@@ -1538,7 +1544,7 @@ function fillExerciseSelect(){
   const rows=viewRows();
   const tried=new Set(rows.map(r=>r.test));
   const uni=exerciseUniverse();
-  const cats=[...new Set([...rows.flatMap(r=>r.cats),...uni.flatMap(n=>CONFIG[n].cats)])].sort((a,b)=>a.localeCompare(b,'fr'));
+  const cats=[...new Set([...rows.flatMap(r=>r.cats),...uni.flatMap(n=>CONFIG[n].cats)])].sort(byCat);
   const tests=[...new Set([...tried,...uni])].sort((a,b)=>a.localeCompare(b,'fr'));
   sel.innerHTML =
     '<optgroup label="Catégories">'+cats.map(c=>`<option value="cat:${esc(c)}">▸ ${esc(c)}</option>`).join('')+'</optgroup>'+
@@ -1548,10 +1554,14 @@ function fillExerciseSelect(){
 
 function fillCatSelect(){
   const sel=document.getElementById('catSelect');
-  const cats=[...new Set(phaseRows().flatMap(r=>r.cats))].sort();
+  // effectif = exercices de la phase (au programme ou travaillés) relevant de la catégorie
+  const names=new Set([...universeOf(phase),...phaseRows().map(r=>r.test)]);
+  const count={};
+  names.forEach(n=>cfgOf(n).cats.forEach(c=>count[c]=(count[c]||0)+1));
+  const cats=Object.keys(count).sort(byCat);
   if(catFilter!=="all" && !cats.includes(catFilter)) catFilter="all";
   sel.innerHTML='<option value="all">Toutes les catégories</option>'+
-    cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    cats.map(c=>`<option value="${esc(c)}">${esc(c)} (${count[c]})</option>`).join('');
   sel.value=catFilter;
 }
 
@@ -1906,7 +1916,7 @@ function renderPriorities(){
   const ago=d=> d<=0?'aujourd\'hui':(d===1?'hier':`il y a ${d} j`);
   const card=s=>`<div class="card" data-ex="${esc(s.t)}">
       <div class="card-left">
-        <div class="cn">${esc(s.t)}</div><div class="cc">${esc(s.cat)}</div>
+        <div class="cn">${esc(s.t)}</div><div class="cc">${esc((CONFIG[s.t]?CONFIG[s.t].cats:cfgOf(s.t).cats).join(' · '))}</div>
         ${s.tags.length?`<div class="tags">${s.tags.map(g=>`<span class="tag ${g.c}">${g.t}</span>`).join('')}</div>`:''}
         ${s.showRhythm?`<div class="cmeta">Dernier essai ${ago(s.daysSince)} · rythme conseillé ~${s.ideal} j</div>`:''}
       </div>
