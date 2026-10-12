@@ -403,6 +403,15 @@
     <div class="chartbox tall"><canvas id="chGlobal"></canvas></div>
   </section>
 
+  <section class="panel" id="sec-radar">
+    <h2>Profil par catégorie — <span id="radarStage">—</span></h2>
+    <p class="desc" id="radarDesc"></p>
+    <div class="grid">
+      <div class="chartbox tall"><canvas id="chRadar"></canvas></div>
+      <div class="tblwrap"><div id="radarTbl"></div></div>
+    </div>
+  </section>
+
   <section class="panel" id="sec-base">
     <h2>Niveau de départ et progression</h2>
     <p class="desc" id="baseDesc"></p>
@@ -1240,23 +1249,29 @@ function buildModel(){
   const unseenAll=new Set();
   if(myFams) refsV.forEach(p=>famSetOf(p).forEach(f=>{ if(!myFams.has(f)&&catOK(f)) unseenAll.add(f); }));
   const withUnseen=unseenMode==='in'||!myFams;
-  const elig=f=>catOK(f)&&(withUnseen||myFams.has(f));
+  const eligAny=f=>withUnseen||myFams.has(f);          // toutes catégories (profil par catégorie)
+  const elig=f=>catOK(f)&&eligAny(f);
   const unseen=withUnseen&&myFams?unseenAll:new Set();
   // exercices (familles) pratiqués : par tout le monde, ou par au moins une session
   const famSets=vis.map(famSetOf);
-  const union=new Set(); famSets.forEach(s=>s.forEach(f=>{ if(elig(f)) union.add(f); }));
   // inclus : ma session ne restreint plus les exercices communs (je n'en fais qu'une partie)
   const interSets=unseen.size&&refsV.length?refsV.map(famSetOf):famSets;
-  const inter=interSets.length?new Set([...union].filter(f=>interSets.every(s=>s.has(f)))):new Set();
-  let basis=union, fallback=false;
-  if(basisMode==='common'&&vis.length>=2){
-    if(inter.size>=3) basis=inter; else fallback=true;   // trop peu en commun : on prend tout, et on le dit
-  }
+  const basisFrom=ok=>{
+    const union=new Set(); famSets.forEach(s=>s.forEach(f=>{ if(ok(f)) union.add(f); }));
+    const inter=interSets.length?new Set([...union].filter(f=>interSets.every(s=>s.has(f)))):new Set();
+    let basis=union, fallback=false;
+    if(basisMode==='common'&&vis.length>=2){
+      if(inter.size>=3) basis=inter; else fallback=true;   // trop peu en commun : on prend tout, et on le dit
+    }
+    return {union,inter,basis,fallback};
+  };
+  const {union,inter,basis,fallback}=basisFrom(elig);
+  const radarBasis=basisFrom(eligAny).basis;
   // exercices au programme de la phase, même jamais pratiqués
   const programmeAll=new Set(universeOf(phase).map(familyOf));
   const programme=new Set([...programmeAll].filter(elig));
   return {parts,vis,mine,refsV,pass,fail,union,inter,basis,fallback,programme,programmeAll,
-    myFams,unseenAll,unseen,elig,catCount};
+    myFams,unseenAll,unseen,elig,catCount,radarBasis};
 }
 
 /* ----------------------- Mesures -----------------------
@@ -1859,6 +1874,70 @@ function renderTraj(){
   charts.chGlobal.update('none');
 }
 
+/* ----------------------- Rendu : profil par catégorie -----------------------
+   Toile d'araignée : une branche par catégorie (aptitude Pilotest), niveau de
+   chaque session à la semaine comparée = moyenne de ses exercices de la
+   catégorie, chacun comptant pour un ; un exercice classé dans deux
+   aptitudes compte dans les deux. Toutes catégories, quel que soit le filtre. */
+function catLevels(p,s,fams){
+  const t=tOf(p,s), out=new Map();
+  fams.forEach(f=>{
+    const v=famLevelAt(p,f,t); if(v===null) return;
+    catsOf(f).forEach(k=>{ if(!out.has(k)) out.set(k,[]); out.get(k).push(v); });
+  });
+  return new Map([...out].map(([k,a])=>[k,{v:mean(a),n:a.length}]));
+}
+function renderRadar(){
+  const {vis,pass,mine:m,radarBasis:fams}=M;
+  const D=document.getElementById('radarDesc'), T=document.getElementById('radarTbl');
+  document.getElementById('radarStage').textContent=stageText(stage);
+  if(!vis.length||!fams.size){ killChart('chRadar'); D.textContent='Aucune session affichée.'; T.innerHTML=''; return; }
+  const lv=new Map(vis.map(p=>[p.key,catLevels(p,stage,fams)]));
+  const cats=[...new Set([...fams].flatMap(catsOf))].sort((a,b)=>(CAT_ORDER.indexOf(a)+99)%99-(CAT_ORDER.indexOf(b)+99)%99);
+  // médiane des réussites, catégorie par catégorie (au moins 2 réussites mesurées)
+  const med=cats.map(k=>{ const v=pass.map(p=>lv.get(p.key).get(k)).filter(Boolean).map(o=>o.v); return v.length>=2?+median(v).toFixed(2):null; });
+  const one=cats.map(k=>pass.map(p=>lv.get(p.key).get(k)).filter(Boolean).length===1);
+  D.innerHTML=`Niveau par aptitude à <b>${esc(stageText(stage))}</b> : moyenne des ${winTxt()} de chaque exercice de la catégorie, chaque exercice comptant pour un `+
+    `(un exercice classé dans deux aptitudes compte dans les deux). ${basisMode==='common'&&vis.length>=2?'Exercices communs aux sessions affichées. ':''}`+
+    `Toutes catégories, quel que soit le filtre. Surface turquoise : toi ; traits : chaque session à sa couleur`+
+    (med.some(v=>v!==null)?' ; <b>ligne blanche</b> : médiane des réussites':'')+' ; <b>tirets verts</b> : l’objectif 7.';
+  const ds=vis.map(p=>{
+    const L=lv.get(p.key);
+    const d=dsFor(p,cats.map(k=>{ const o=L.get(k); return o?+o.v.toFixed(2):null; }));
+    d.fill=!!p.hero; d.backgroundColor=p.hero?hexA(p.color,.16):'transparent';
+    d.pointBackgroundColor=p.hero||!hollowOf(p)?p.color:'#161e27'; d.pointBorderColor=p.hero||!hollowOf(p)?'#0f141a':p.color;
+    d.pointRadius=p.hero?4:3; d.spanGaps=true; delete d.segment;
+    d.$n=cats.map(k=>{ const o=L.get(k); return o?o.n:0; });
+    return d;
+  });
+  if(med.some(v=>v!==null)) ds.push({label:'Médiane des réussites',data:med,borderColor:'#e9eef4',backgroundColor:'transparent',
+    borderWidth:1.8,pointRadius:2,pointBackgroundColor:'#e9eef4',spanGaps:true,order:2});
+  ds.push({label:'Objectif (7)',data:cats.map(()=>7),borderColor:'rgba(58,170,53,.55)',backgroundColor:'transparent',
+    borderDash:[5,4],borderWidth:1,pointRadius:0,order:3});
+  mk('chRadar','radar',{labels:cats,datasets:ds},{
+    responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},
+      tooltip:{titleFont:{family:'IBM Plex Mono',size:chartFont(10)},bodyFont:{family:'IBM Plex Mono',size:chartFont(11)},
+        callbacks:{label:it=>{ const n=it.dataset.$n?it.dataset.$n[it.dataIndex]:0;
+          return `${it.dataset.label} : ${fmt(it.parsed.r)}${n?` (sur ${plural(n,'exercice')})`:''}`; }}}},
+    scales:{r:{min:1,max:9,ticks:{stepSize:2,color:getCss('--faint'),backdropColor:'transparent',font:{size:chartFont(9)}},
+      grid:{color:'rgba(255,255,255,.07)'},angleLines:{color:'rgba(255,255,255,.07)'},
+      pointLabels:{color:getCss('--ink'),font:{family:'Saira',size:chartFont(isPhone()?10:11)}}}}
+  });
+  // tableau : toi face à la médiane des réussites, catégorie par catégorie
+  const my=m?lv.get(m.key):null;
+  const rows=cats.map((k,i)=>({k,me:my&&my.get(k)?my.get(k):null,g:med[i],one:one[i],
+    single:one[i]?pass.map(p=>lv.get(p.key).get(k)).find(Boolean).v:null}))
+    .map(r=>{ const ref=r.g!==null?r.g:r.single; return {...r,ref,d:r.me&&ref!==null?r.me.v-ref:null}; })
+    .sort((a,b)=>(a.d===null)-(b.d===null)||(a.d||0)-(b.d||0));
+  const c=v=>v===null||v===undefined?'':`style="color:${bandColor(v)}"`;
+  T.innerHTML=`<table><thead><tr><th>Catégorie</th><th>Toi</th><th>Réussites (médiane)</th><th>Écart</th><th>Tes exercices mesurés</th></tr></thead><tbody>${rows.map(r=>`<tr>
+    <td>${esc(r.k)}</td><td ${c(r.me?r.me.v:null)}>${fmt(r.me?r.me.v:null)}</td>
+    <td ${c(r.ref)}>${fmt(r.ref)}${r.g===null&&r.single!==null?'<sup title="une seule réussite mesurée">¹</sup>':''}</td>
+    <td class="${gapCls(r.d)}">${fmtS(r.d)}</td><td>${r.me?r.me.n:0}</td></tr>`).join('')}</tbody></table>
+    <div class="note">Les catégories où tu es le plus en retrait sont en haut. ¹ : une seule réussite mesurée.</div>`;
+}
+
 /* ----------------------- Rendu : niveau de départ ----------------------- */
 function renderBase(){
   const {vis,basis}=M;
@@ -2279,7 +2358,7 @@ function renderClock(){
 
 /* ----------------------- Orchestration ----------------------- */
 function renderStageParts(){
-  renderControls(); renderNow(); renderTable(); renderUnseen(); renderFocus(); renderVolTable(); renderDecisive();
+  renderControls(); renderNow(); renderRadar(); renderTable(); renderUnseen(); renderFocus(); renderVolTable(); renderDecisive();
   ['chGlobal','chVol','chHours'].forEach(id=>{ if(charts[id]) charts[id].update('none'); });
 }
 function renderAll(){
@@ -2288,7 +2367,7 @@ function renderAll(){
   if(!stageTouched||stage===null||stage<lo||stage>hi) stage=defaultStage();
   stage=clamp(stage,lo,hi);
   renderDossiers(); renderEquiv(); renderControls(); renderSessBar();
-  renderNow(); renderTraj(); renderBase(); renderTable(); renderUnseen(); renderFocus(); renderDecisive();
+  renderNow(); renderTraj(); renderRadar(); renderBase(); renderTable(); renderUnseen(); renderFocus(); renderDecisive();
   renderVolTable(); renderWeekly(); renderHours(); renderClock();
 }
 
